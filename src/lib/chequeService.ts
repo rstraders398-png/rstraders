@@ -827,24 +827,7 @@ export async function recordPayment(input: RecordPaymentInput): Promise<void> {
           created_at: new Date().toISOString(),
         });
 
-        transaction.update(chequeRef, {
-          remaining_amount: Math.round(newRemaining * 100) / 100,
-          status: newStatus,
-        });
-      });
-    } catch (err) {
-      console.warn('Network payment record failed, queued for sync worker:', err);
-      await enqueueSyncItem({
-        entity_type: 'payment_logs',
-        operation: 'create',
-       const { error } = await supabase
-        .from('cheques')
-        .update(updatePayload)
-        .eq('id', id);
-
-      if (error) throw error;
-
-      await auditLogger.log({
+       await auditLogger.log({
         action: 'UPDATE_CHEQUE',
         entity: 'cheque',
         entity_id: id,
@@ -852,12 +835,23 @@ export async function recordPayment(input: RecordPaymentInput): Promise<void> {
         company_id: input.company_id
       });
 
+      const { error } = await supabase
+        .from('cheques')
+        .update(updatePayload)
+        .eq('id', id);
+
+      if (error) throw error;
+
       return {
         remaining_amount: Math.round(newRemaining * 100) / 100,
         status: newStatus
       };
     } catch (error) {
       console.error("Error updating cheque status:", error);
+      throw error;
+    }
+  }
+};
       throw error;
     }
   }
