@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from './supabaseClient';
 import { auditLogger } from './auditLogger';
 
 export interface Cheque {
