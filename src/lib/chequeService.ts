@@ -837,15 +837,18 @@ export async function recordPayment(input: RecordPaymentInput): Promise<void> {
       await enqueueSyncItem({
         entity_type: 'payment_logs',
         operation: 'create',
+       const { error } = await supabase
+        .from('cheques')
+        .update(updatePayload)
+        .eq('id', id);
+
+      if (error) throw error;
+
+      await auditLogger.log({
+        action: 'UPDATE_CHEQUE',
+        entity: 'cheque',
+        entity_id: id,
         data: input,
-        company_id: input.company_id,
-      });
-    }
-  } else {
-    await enqueueSyncItem({
-      entity_type: 'payment_logs',
-      operation: 'create',
-   data: input,
         company_id: input.company_id
       });
 
@@ -853,11 +856,15 @@ export async function recordPayment(input: RecordPaymentInput): Promise<void> {
         remaining_amount: Math.round(newRemaining * 100) / 100,
         status: newStatus
       };
+    } catch (error) {
+      console.error("Error updating cheque status:", error);
+      throw error;
+    }
+  }
+};
 
 // Delete a payment log and restore remaining balance
 export async function deletePaymentLog(log: PaymentLog) {
-  const chequeRef = doc(db, 'cheques', log.cheque_id);
-  await runTransaction(db, async (transaction) => {
     const chequeDoc = await transaction.get(chequeRef);
     if (chequeDoc.exists()) {
       const data = chequeDoc.data();
