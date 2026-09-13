@@ -846,10 +846,13 @@ export async function recordPayment(input: RecordPaymentInput): Promise<void> {
       entity_type: 'payment_logs',
       operation: 'create',
       data: input,
-      company_id: input.company_id,
-return {
-  remaining_amount: Math.round(newRemaining * 100) / 100,
-  status: newStatus
+        company_id: input.company_id,
+      };
+
+      return {
+        remaining_amount: Math.round(newRemaining * 100) / 100,
+        status: newStatus
+      };
 };
 }
 
