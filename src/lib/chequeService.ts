@@ -827,7 +827,7 @@ export async function recordPayment(input: RecordPaymentInput): Promise<void> {
           created_at: new Date().toISOString(),
         });
 
-       await auditLogger.log({
+      await auditLogger.log({
         action: 'UPDATE_CHEQUE',
         entity: 'cheque',
         entity_id: id,
@@ -852,12 +852,6 @@ export async function recordPayment(input: RecordPaymentInput): Promise<void> {
     }
   }
 };
-      throw error;
-    }
-  }
-};
-
-// Delete a payment log and restore remaining balance
 export async function deletePaymentLog(log: PaymentLog) {
     const chequeDoc = await transaction.get(chequeRef);
     if (chequeDoc.exists()) {
