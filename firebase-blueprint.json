@@ -1,0 +1,236 @@
+{
+  "entities": {
+    "Party": {
+      "title": "Party",
+      "description": "A business party, vendor, or customer associated with cheques",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "company_id": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["company_id", "name"]
+    },
+    "Bank": {
+      "title": "Bank",
+      "description": "A bank where accounts are held or from which cheques are issued",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "company_id": { "type": "string" },
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["company_id", "name"]
+    },
+    "Cheque": {
+      "title": "Cheque",
+      "description": "Cheque register record with BS and AD dates, bank, party, and amounts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "company_id": { "type": "string" },
+        "cheque_number": { "type": "string" },
+        "bill_number": { "type": "string" },
+        "bank_id": { "type": "string" },
+        "party_id": { "type": "string" },
+        "amount": { "type": "number" },
+        "remaining_amount": { "type": "number" },
+        "issue_date_bs": { "type": "string" },
+        "issue_date_ad": { "type": "string" },
+        "due_date_bs": { "type": "string" },
+        "due_date_ad": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["Pending", "Partially Paid", "Cleared"]
+        },
+        "notes": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "company_id",
+        "cheque_number",
+        "amount",
+        "remaining_amount",
+        "issue_date_bs",
+        "issue_date_ad",
+        "due_date_bs",
+        "due_date_ad",
+        "status"
+      ]
+    },
+    "PaymentLog": {
+      "title": "PaymentLog",
+      "description": "Partial or full payment log on a cheque",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "cheque_id": { "type": "string" },
+        "company_id": { "type": "string" },
+        "amount": { "type": "number" },
+        "payment_mode": {
+          "type": "string",
+          "enum": ["Cash", "IPS", "Bank Deposit"]
+        },
+        "payment_date_bs": { "type": "string" },
+        "payment_date_ad": { "type": "string" },
+        "notes": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "cheque_id",
+        "company_id",
+        "amount",
+        "payment_mode",
+        "payment_date_bs"
+      ]
+    },
+    "Company": {
+      "title": "Company",
+      "description": "Client company profile with subscription and owner metadata",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "owner_name": { "type": "string" },
+        "contact_phone": { "type": "string" },
+        "contact_email": { "type": "string" },
+        "subscription_plan": {
+          "type": "string",
+          "enum": ["Starter", "Professional", "Enterprise"]
+        },
+        "subscription_status": {
+          "type": "string",
+          "enum": ["Active", "Trial", "Expired", "Suspended"]
+        },
+        "expiry_date_bs": { "type": "string" },
+        "expiry_date_ad": { "type": "string" },
+        "monthly_fee": { "type": "number" },
+        "is_active": { "type": "boolean" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name"]
+    },
+    "User": {
+      "title": "User",
+      "description": "User profile with role and associated company_id",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": {
+          "type": "string",
+          "enum": ["super_admin", "company_admin", "accountant", "viewer"]
+        },
+        "company_id": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["Active", "Inactive"]
+        },
+        "created_at": { "type": "string", "format": "date-time" },
+        "last_login_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "company_id"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Platform activity and security audit log entry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "company_id": { "type": "string" },
+        "company_name": { "type": "string" },
+        "user_email": { "type": "string" },
+        "event_type": { "type": "string" },
+        "severity": {
+          "type": "string",
+          "enum": ["info", "warning", "error"]
+        },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["event_type", "severity", "details", "timestamp"]
+    },
+    "SupportTicket": {
+      "title": "SupportTicket",
+      "description": "Support or troubleshooting ticket raised for a client company",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "company_id": { "type": "string" },
+        "company_name": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "priority": {
+          "type": "string",
+          "enum": ["Low", "Medium", "High", "Critical"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Open", "In Progress", "Resolved"]
+        },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["company_id", "title", "priority", "status"]
+    },
+    "SystemFeature": {
+      "title": "SystemFeature",
+      "description": "Central system feature registry for dynamic module discovery and per-tenant deployment",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "key": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "icon": { "type": "string" },
+        "default_enabled": { "type": "boolean" },
+        "source_module": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["key", "name"]
+    }
+  },
+  "firestore": {
+    "/companies/{companyId}": {
+      "schema": { "$ref": "#/entities/Company" },
+      "description": "Registered companies"
+    },
+    "/parties/{partyId}": {
+      "schema": { "$ref": "#/entities/Party" },
+      "description": "Parties associated with companies"
+    },
+    "/banks/{bankId}": {
+      "schema": { "$ref": "#/entities/Bank" },
+      "description": "Banks registered under companies"
+    },
+    "/cheques/{chequeId}": {
+      "schema": { "$ref": "#/entities/Cheque" },
+      "description": "Cheques issued or received"
+    },
+    "/payment_logs/{logId}": {
+      "schema": { "$ref": "#/entities/PaymentLog" },
+      "description": "Partial payment logs for cheques"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles storing company linkage and roles"
+    },
+    "/audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "Platform-wide audit, login, and error logs"
+    },
+    "/support_tickets/{ticketId}": {
+      "schema": { "$ref": "#/entities/SupportTicket" },
+      "description": "Client support and troubleshooting tickets"
+    },
+    "/system_features/{featureId}": {
+      "schema": { "$ref": "#/entities/SystemFeature" },
+      "description": "Dynamic feature registry for modular capabilities"
+    }
+  }
+}

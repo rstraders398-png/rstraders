@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper to check authentication
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // RLS disabled on parties collection: open read, insert, update, delete
+    match /parties/{partyId} {
+      allow read, write: if true;
+    }
+
+    match /banks/{bankId} {
+      allow read, write: if true;
+    }
+
+    match /cheques/{chequeId} {
+      allow read, write: if true;
+    }
+
+    match /payment_logs/{logId} {
+      allow read, write: if true;
+    }
+
+    match /companies/{companyId} {
+      allow read, write: if true;
+    }
+
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    match /audit_logs/{logId} {
+      allow read, write: if true;
+    }
+
+    match /support_tickets/{ticketId} {
+      allow read, write: if true;
+    }
+
+    match /system_features/{featureId} {
+      allow read, write: if true;
+    }
+
+    match /system_releases/{releaseId} {
+      allow read, write: if true;
+    }
+
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+  }
+}

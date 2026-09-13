@@ -1,0 +1,6 @@
+{
+  "name": "Cheque Management System",
+  "description": "Comprehensive cheque register, bank and party management, and partial payment tracking with BS and AD dates.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
