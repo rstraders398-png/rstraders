@@ -76,7 +76,7 @@ export interface RecordPaymentInput {
 export type SubscriptionPlan = 'Starter' | 'Professional' | 'Enterprise';
 export type SubscriptionStatus = 'Active' | 'Trial' | 'Expired' | 'Suspended';
 export type UserRole = 'super_admin' | 'company_admin' | 'accountant' | 'viewer';
-export type FeatureCategory = 'core' | 'communication' | 'analytics' | 'finance' | 'security' | 'integration';
+export type FeatureCategory = 'core' | 'communication' | 'analytics' | 'finance' | 'security' | 'integration' | 'advanced';
 
 export interface SystemFeature {
   id: string; // unique identifier / key e.g. 'sms_notifications'

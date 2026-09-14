@@ -183,7 +183,7 @@ export async function saveLocalCheque(cheque: Cheque, enqueue = false): Promise<
   }
 }
 
-export async function deleteLocalCheque(id: string, companyId: string, enqueue = false): Promise<void> {
+export async function deleteLocalCheque(id: string, companyId: string = 'default-company-101', enqueue = false): Promise<void> {
   try {
     await executeTransaction('cheques', 'readwrite', (store) => store.delete(id));
     if (enqueue) {
@@ -249,7 +249,7 @@ export async function saveLocalParty(party: Party, enqueue = false): Promise<voi
   }
 }
 
-export async function deleteLocalParty(id: string, companyId: string, enqueue = false): Promise<void> {
+export async function deleteLocalParty(id: string, companyId: string = 'default-company-101', enqueue = false): Promise<void> {
   try {
     await executeTransaction('parties', 'readwrite', (store) => store.delete(id));
     if (enqueue) {
@@ -315,7 +315,7 @@ export async function saveLocalBank(bank: Bank, enqueue = false): Promise<void> 
   }
 }
 
-export async function deleteLocalBank(id: string, companyId: string, enqueue = false): Promise<void> {
+export async function deleteLocalBank(id: string, companyId: string = 'default-company-101', enqueue = false): Promise<void> {
   try {
     await executeTransaction('banks', 'readwrite', (store) => store.delete(id));
     if (enqueue) {
@@ -375,7 +375,7 @@ export async function saveLocalPaymentLog(log: PaymentLog, enqueue = false): Pro
         entity: 'payment_log',
         action: 'create',
         docId: log.id,
-        companyId: log.company_id,
+        companyId: log.company_id || 'default-company-101',
         data: log,
         timestamp: new Date().toISOString(),
         attempts: 0,
@@ -384,6 +384,51 @@ export async function saveLocalPaymentLog(log: PaymentLog, enqueue = false): Pro
   } catch (err) {
     console.error('[OfflineDB] Error saving local payment log:', err);
   }
+}
+
+export async function deleteLocalPaymentLog(id: string, companyId: string = 'default-company-101', enqueue = false): Promise<void> {
+  try {
+    await executeTransaction('payment_logs', 'readwrite', (store) => store.delete(id));
+    if (enqueue) {
+      await enqueueSyncMutation({
+        id: `sync_del_log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        entity: 'payment_log',
+        action: 'delete',
+        docId: id,
+        companyId,
+        timestamp: new Date().toISOString(),
+        attempts: 0,
+      });
+    }
+  } catch (err) {
+    console.error('[OfflineDB] Error deleting local payment log:', err);
+  }
+}
+
+export interface SyncItemEnqueueInput {
+  entity_type: string;
+  operation: 'create' | 'update' | 'delete';
+  data: any;
+  company_id?: string;
+}
+
+export async function enqueueSyncItem(input: SyncItemEnqueueInput): Promise<void> {
+  let entity: 'cheque' | 'party' | 'bank' | 'payment_log' = 'cheque';
+  if (input.entity_type === 'parties') entity = 'party';
+  else if (input.entity_type === 'banks') entity = 'bank';
+  else if (input.entity_type === 'payment_logs') entity = 'payment_log';
+
+  const docId = input.data?.id || input.data?.cheque_id || `doc_${Date.now()}`;
+  await enqueueSyncMutation({
+    id: `sync_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    entity,
+    action: input.operation,
+    docId,
+    companyId: input.company_id || input.data?.company_id || 'default-company-101',
+    data: input.data,
+    timestamp: new Date().toISOString(),
+    attempts: 0,
+  });
 }
 
 // Bulk store entities received from cloud or restore
