@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import DeveloperConsole from './components/DeveloperConsole';
-
-export default function App() {
+import { DeveloperConsole } from './components/DeveloperConsole';
+import { MainDashboard } from './components/MainDashboard';
   const [companyCode, setCompanyCode] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
