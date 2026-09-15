@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import DeveloperConsole from './components/DeveloperConsole';
-import MainDashboard from './components/MainDashboard'; // वा तपाईंको मुख्य Dashboard component
+import MainDashboard from './components/MainDashboard';
 
 export default function App() {
   const [companyCode, setCompanyCode] = useState('');
