@@ -185,6 +185,8 @@ export function subscribeToParties(
           company_id: data.company_id,
           name: data.name,
           phone: data.phone || '',
+          pan_vat: data.pan_vat || '',
+          email: data.email || '',
           created_at: data.created_at || new Date().toISOString(),
         });
       });
@@ -398,6 +400,7 @@ export function subscribeToAllPaymentLogs(
 export interface AddPartyInput {
   name: string;
   phone?: string;
+  pan_vat?: string;
   company_id?: string;
 }
 
@@ -409,10 +412,12 @@ export async function addParty(
   let finalCompanyId = '';
   let finalName = '';
   let finalPhone = '';
+  let finalPanVat = '';
 
   if (typeof companyIdOrNameOrInput === 'object' && companyIdOrNameOrInput !== null) {
     finalName = companyIdOrNameOrInput.name || '';
     finalPhone = companyIdOrNameOrInput.phone || '';
+    finalPanVat = companyIdOrNameOrInput.pan_vat || '';
     finalCompanyId = companyIdOrNameOrInput.company_id || getCurrentUserCompanyId();
   } else if (typeof companyIdOrNameOrInput === 'string' && nameOrPhone !== undefined && phoneArg !== undefined) {
     finalCompanyId = companyIdOrNameOrInput || getCurrentUserCompanyId();
@@ -448,6 +453,7 @@ export async function addParty(
     company_id: finalCompanyId.trim(),
     name: finalName.trim(),
     phone: (finalPhone || '').trim(),
+    pan_vat: (finalPanVat || '').trim(),
     created_at: new Date().toISOString(),
   };
 
@@ -460,6 +466,7 @@ export async function addParty(
         company_id: party.company_id,
         name: party.name,
         phone: party.phone,
+        pan_vat: party.pan_vat,
         created_at: party.created_at,
       });
     } catch (err) {
@@ -648,6 +655,7 @@ export async function createCheque(input: CreateChequeInput): Promise<string> {
     company_id: input.company_id,
     cheque_number: input.cheque_number.trim(),
     bill_number: (input.bill_number || '').trim(),
+    account_number: (input.account_number || '').trim(),
     bank_id: input.bank_id || null,
     party_id: input.party_id || null,
     amount: input.amount,
@@ -656,7 +664,7 @@ export async function createCheque(input: CreateChequeInput): Promise<string> {
     issue_date_ad: input.issue_date_ad,
     due_date_bs: input.due_date_bs,
     due_date_ad: input.due_date_ad,
-    status: 'Pending',
+    status: input.status || 'Pending',
     notes: (input.notes || '').trim(),
     created_at: new Date().toISOString(),
   };
@@ -670,6 +678,7 @@ export async function createCheque(input: CreateChequeInput): Promise<string> {
         company_id: cheque.company_id,
         cheque_number: cheque.cheque_number,
         bill_number: cheque.bill_number,
+        account_number: cheque.account_number,
         bank_id: cheque.bank_id,
         party_id: cheque.party_id,
         amount: cheque.amount,

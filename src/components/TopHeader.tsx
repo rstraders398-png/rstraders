@@ -11,6 +11,8 @@ import {
   Wifi,
   WifiOff,
   Cloud,
+  LogOut,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { getCurrentAdDate, getCurrentBsDate, formatBsDateFriendly } from '../lib/dateUtils';
 import { User } from 'firebase/auth';
@@ -22,13 +24,15 @@ interface TopHeaderProps {
   onNewCheque: () => void;
   companyName: string;
   companyId?: string;
-  currentUser?: User | null;
+  currentUser?: User | any | null;
   onSeedDemoData: () => void;
   isSeeding: boolean;
   isSupportMode?: boolean;
   isSuperAdmin?: boolean;
   onGoToSuperAdmin?: () => void;
   onOpenBackupSettings?: () => void;
+  onOpenImportModal?: () => void;
+  onSignOut?: () => void;
 }
 
 export const TopHeader: React.FC<TopHeaderProps> = ({
@@ -44,6 +48,8 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   isSuperAdmin = false,
   onGoToSuperAdmin,
   onOpenBackupSettings,
+  onOpenImportModal,
+  onSignOut,
 }) => {
   const todayAd = getCurrentAdDate();
   const todayBs = getCurrentBsDate();
@@ -150,6 +156,18 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
             </button>
           )}
 
+          {/* Quick Sign Out button */}
+          {onSignOut && (
+            <button
+              onClick={onSignOut}
+              className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition border border-slate-200"
+              title="Sign Out of session"
+            >
+              <LogOut className="w-3.5 h-3.5 text-slate-400 group-hover:text-rose-600" />
+              <span className="font-semibold">Sign Out</span>
+            </button>
+          )}
+
           {/* Dual Date widget */}
           <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
             <Calendar className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
@@ -163,6 +181,20 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
               </span>
             </div>
           </div>
+
+          {/* Import Excel / CSV Button */}
+          {onOpenImportModal && (
+            <button
+              id="btn-quick-import-cheques"
+              type="button"
+              onClick={onOpenImportModal}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 transition cursor-pointer shadow-2xs"
+              title="Import cheques from Excel (.xlsx) or CSV"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-purple-600" />
+              <span className="hidden sm:inline">Import (Excel/CSV)</span>
+            </button>
+          )}
 
           {/* New Cheque Button */}
           <button

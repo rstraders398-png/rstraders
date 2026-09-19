@@ -3,6 +3,8 @@ export interface Party {
   company_id: string;
   name: string;
   phone?: string;
+  pan_vat?: string;
+  email?: string;
   created_at: string;
 }
 
@@ -21,6 +23,7 @@ export interface Cheque {
   company_id: string;
   cheque_number: string;
   bill_number?: string;
+  account_number?: string;
   bank_id?: string | null;
   party_id?: string | null;
   amount: number;
@@ -52,6 +55,7 @@ export interface CreateChequeInput {
   company_id: string;
   cheque_number: string;
   bill_number?: string;
+  account_number?: string;
   bank_id?: string | null;
   party_id?: string | null;
   amount: number;

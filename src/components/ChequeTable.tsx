@@ -18,6 +18,7 @@ import {
   Building2,
   User,
   Phone,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { Bank, Cheque, ChequeStatus, Party } from '../types';
 import { formatCurrency, formatBsDateFriendly, getCurrentAdDate } from '../lib/dateUtils';
@@ -33,6 +34,7 @@ interface ChequeTableProps {
   onEditCheque: (cheque: Cheque) => void;
   onDeleteCheque: (id: string) => void;
   onNewCheque: () => void;
+  onOpenImportModal?: () => void;
 }
 
 export const ChequeTable: React.FC<ChequeTableProps> = ({
@@ -46,6 +48,7 @@ export const ChequeTable: React.FC<ChequeTableProps> = ({
   onEditCheque,
   onDeleteCheque,
   onNewCheque,
+  onOpenImportModal,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBankId, setSelectedBankId] = useState<string>('all');
@@ -198,17 +201,33 @@ export const ChequeTable: React.FC<ChequeTableProps> = ({
             ))}
           </div>
 
-          {/* Search Input */}
-          <div className="relative w-full sm:w-64">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              id="input-search-cheques"
-              type="text"
-              placeholder="Search cheques, party, bank..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-            />
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            {/* Search Input */}
+            <div className="relative w-full sm:w-64">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                id="input-search-cheques"
+                type="text"
+                placeholder="Search cheques, party, bank..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+              />
+            </div>
+
+            {/* Import Button */}
+            {onOpenImportModal && (
+              <button
+                type="button"
+                id="btn-table-import-cheques"
+                onClick={onOpenImportModal}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 transition cursor-pointer whitespace-nowrap shadow-2xs"
+                title="Import cheques from Excel (.xlsx) or CSV"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-purple-600" />
+                <span className="hidden md:inline">Import Excel/CSV</span>
+              </button>
+            )}
           </div>
         </div>
 

@@ -238,15 +238,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       });
     }
 
-    // Dynamic Module: Bulk Cheque Import
-    if (companyFeatures?.bulk_cheque_import === true) {
+    // Dynamic Module: Bulk Cheque Import (Excel / CSV)
+    if (companyFeatures?.bulk_cheque_import !== false) {
       items.push({
         id: 'bulk_cheque_import',
-        label: 'Bulk Cheque Import',
+        label: 'Import Cheques (Excel/CSV)',
         icon: FileSpreadsheet,
-        badge: 'Fast',
+        badge: 'Excel/CSV',
         badgeColor: 'purple',
-        isAddon: true,
       });
     }
 
