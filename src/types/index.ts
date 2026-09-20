@@ -1,3 +1,5 @@
+export type PartyType = 'Sundry Debtors' | 'Sundry Creditors';
+
 export interface Party {
   id: string;
   company_id: string;
@@ -5,6 +7,7 @@ export interface Party {
   phone?: string;
   pan_vat?: string;
   email?: string;
+  party_type?: PartyType;
   created_at: string;
 }
 
@@ -35,20 +38,25 @@ export interface Cheque {
   status: ChequeStatus;
   notes?: string;
   created_at: string;
+  entered_by?: string;
+  updated_by?: string;
 }
 
-export type PaymentMode = 'Cash' | 'IPS' | 'Bank Deposit';
+export type PaymentMode = 'Cash' | 'IPS' | 'ConnectIPS' | 'Fonepay QR' | 'Bank Transfer' | 'Cheque' | 'Bank Deposit' | string;
 
 export interface PaymentLog {
   id: string;
   cheque_id: string;
   company_id?: string;
+  party_id?: string;
   amount: number;
   payment_mode: PaymentMode;
+  payment_type?: 'Received' | 'Payment';
   payment_date_bs: string;
   payment_date_ad: string;
   notes?: string;
   created_at: string;
+  recorded_by?: string;
 }
 
 export interface CreateChequeInput {
@@ -65,6 +73,8 @@ export interface CreateChequeInput {
   due_date_ad: string;
   status?: ChequeStatus;
   notes?: string;
+  entered_by?: string;
+  updated_by?: string;
 }
 
 export interface RecordPaymentInput {
@@ -72,9 +82,12 @@ export interface RecordPaymentInput {
   cheque_id: string;
   amount: number;
   payment_mode: PaymentMode;
+  payment_type?: 'Received' | 'Payment';
   payment_date_bs: string;
   payment_date_ad: string;
   notes?: string;
+  recorded_by?: string;
+  party_id?: string;
 }
 
 export type SubscriptionPlan = 'Starter' | 'Professional' | 'Enterprise';
@@ -174,6 +187,9 @@ export interface Company {
   created_at: string;
   sales_date?: string;
   features?: CompanyFeatures;
+  admin_password?: string;
+  plan_type?: string;
+  subscription_expiry?: string;
 }
 
 export interface AppUser {

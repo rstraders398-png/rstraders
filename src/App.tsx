@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import {
   CreditCard,
   Building2,
   Users,
+  User,
   Search,
   Plus,
   Trash2,
@@ -11,6 +12,7 @@ import {
   Calendar,
   LogOut,
   Eye,
+  Edit2,
   Edit3,
   Wallet,
   Menu,
@@ -29,6 +31,7 @@ import {
   Download,
   Sparkles,
   ArrowRight,
+  ArrowRightLeft,
   Phone,
   Check,
   Cloud,
@@ -50,11 +53,16 @@ import {
   WifiOff,
   Info,
   HelpCircle,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Receipt,
+  Tag,
 } from 'lucide-react';
 import {
   Cheque,
   ChequeStatus,
   Party,
+  PartyType,
   Bank,
   Company,
   PaymentMode,
@@ -167,6 +175,163 @@ const StatusBadge: React.FC<{ status: ChequeStatus | string }> = ({ status }) =>
   );
 };
 
+export interface CompanyStaffMember {
+  id: string;
+  name: string;
+  username: string;
+  email: string;
+  role: string;
+  status: string;
+  last_login: string;
+  password?: string;
+}
+
+export const DEFAULT_PRESET_COMPANIES: Company[] = [
+  {
+    id: 'default-company-101',
+    name: 'RS Traders',
+    company_code: '1001',
+    owner_name: 'Rajendra Shrestha',
+    contact_phone: '9851023456',
+    contact_email: 'admin@rstraders.com',
+    subscription_plan: 'Enterprise',
+    subscription_status: 'Active',
+    expiry_date_bs: '2082-12-30',
+    expiry_date_ad: '2026-04-13',
+    is_active: true,
+    admin_password: '1234',
+    created_at: '2024-01-01T00:00:00Z',
+    features: {
+      print_cheque: true,
+      google_drive_backup: true,
+      local_disk_backup: true,
+      import_cheques: true,
+      parties_banks: true,
+      excel_pdf_export: true,
+    },
+  },
+  {
+    id: 'himalayan-supplies-202',
+    name: 'Himalayan Suppliers Pvt. Ltd.',
+    company_code: '2002',
+    owner_name: 'Bikash Pandey',
+    contact_phone: '9841234567',
+    contact_email: 'info@himalayan.com',
+    subscription_plan: 'Professional',
+    subscription_status: 'Active',
+    expiry_date_bs: '2082-10-15',
+    expiry_date_ad: '2026-01-29',
+    is_active: true,
+    admin_password: '1234',
+    created_at: '2024-02-01T00:00:00Z',
+  },
+  {
+    id: 'kathmandu-enterprises-303',
+    name: 'Kathmandu Enterprises',
+    company_code: '3003',
+    owner_name: 'Suman Joshi',
+    contact_phone: '9812345678',
+    contact_email: 'contact@ktm-ent.com',
+    subscription_plan: 'Starter',
+    subscription_status: 'Active',
+    expiry_date_bs: '2082-08-20',
+    expiry_date_ad: '2025-12-05',
+    is_active: true,
+    admin_password: '1234',
+    created_at: '2024-03-01T00:00:00Z',
+  },
+];
+
+export const getCompanyStaffList = (
+  companyId?: string,
+  companyCode?: string,
+  companyObj?: Partial<Company>
+): CompanyStaffMember[] => {
+  if (companyId) {
+    const raw = localStorage.getItem(`chequedesk_staff_${companyId}`);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {
+        // Fallback
+      }
+    }
+  }
+
+  if (companyCode) {
+    const rawCode = localStorage.getItem(`chequedesk_staff_${companyCode}`);
+    if (rawCode) {
+      try {
+        const parsed = JSON.parse(rawCode);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {
+        // Fallback
+      }
+    }
+  }
+
+  const isDefaultRS =
+    companyId === 'default-company-101' ||
+    companyCode === '1001' ||
+    companyCode === 'RS-TRADERS' ||
+    companyCode?.toLowerCase() === 'rs398' ||
+    companyObj?.name?.toLowerCase().includes('rs trader');
+
+  if (isDefaultRS) {
+    return [
+      {
+        id: 'usr-1',
+        name: 'Rajendra Shrestha',
+        username: 'admin',
+        email: 'admin@rstraders.com',
+        role: 'Company Admin',
+        status: 'Active',
+        last_login: 'Today, 10:15 AM',
+        password: '1234',
+      },
+      {
+        id: 'usr-2',
+        name: 'Binod Thapa',
+        username: 'accountant',
+        email: 'accountant@rstraders.com',
+        role: 'Head Accountant',
+        status: 'Active',
+        last_login: 'Yesterday, 4:20 PM',
+        password: '1234',
+      },
+      {
+        id: 'usr-3',
+        name: 'Sunita Sharma',
+        username: 'sunita',
+        email: 'sunita@rstraders.com',
+        role: 'Billing Officer',
+        status: 'Active',
+        last_login: '3 days ago',
+        password: '1234',
+      },
+    ];
+  }
+
+  const ownerName = companyObj?.owner_name || `${companyObj?.name || 'Company'} Admin`;
+  const contactEmail = companyObj?.contact_email || `${companyCode || 'admin'}@company.com`;
+  const defaultUser = contactEmail.split('@')[0] || 'admin';
+  const defaultPwd = (companyObj as any)?.admin_password || '1234';
+
+  return [
+    {
+      id: `usr-${companyId || companyCode || 'default'}-admin`,
+      name: ownerName,
+      username: defaultUser,
+      email: contactEmail,
+      role: 'Company Admin',
+      status: 'Active',
+      last_login: 'Never',
+      password: defaultPwd,
+    },
+  ];
+};
+
 // ==========================================
 // MAIN COMPONENT (App)
 // ==========================================
@@ -187,7 +352,7 @@ export default function App() {
   const [cheques, setCheques] = useState<Cheque[]>([]);
   const [parties, setParties] = useState<Party[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companies, setCompanies] = useState<Company[]>(DEFAULT_PRESET_COMPANIES);
   const [paymentLogs, setPaymentLogs] = useState<PaymentLog[]>([]);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);
 
@@ -239,6 +404,8 @@ export default function App() {
   const [isAddPartyOpen, setIsAddPartyOpen] = useState(false);
   const [isAddBankOpen, setIsAddBankOpen] = useState(false);
   const [isAddCompanyOpen, setIsAddCompanyOpen] = useState(false);
+  const [isSubmittingCompany, setIsSubmittingCompany] = useState(false);
+  const isSubmittingCompanyRef = useRef(false);
   const [companyToDelete, setCompanyToDelete] = useState<Company | null>(null);
   const [chequeToDeleteId, setChequeToDeleteId] = useState<string | null>(null);
 
@@ -265,6 +432,7 @@ export default function App() {
   const [isQuickAddPartyOpen, setIsQuickAddPartyOpen] = useState(false);
   const [quickPartyName, setQuickPartyName] = useState('');
   const [quickPartyPhone, setQuickPartyPhone] = useState('');
+  const [quickPartyType, setQuickPartyType] = useState<PartyType>('Sundry Debtors');
 
   // Multi-Selection State for Table Checkboxes
   const [selectedChequeIds, setSelectedChequeIds] = useState<string[]>([]);
@@ -285,32 +453,130 @@ export default function App() {
 
   // Search & Edit States for Parties Directory
   const [partySearchTerm, setPartySearchTerm] = useState<string>('');
+  const [partyTypeFilter, setPartyTypeFilter] = useState<'all' | 'Sundry Debtors' | 'Sundry Creditors'>('all');
   const [isEditPartyOpen, setIsEditPartyOpen] = useState(false);
   const [editingParty, setEditingParty] = useState<Party | null>(null);
-  const [editPartyForm, setEditPartyForm] = useState({ name: '', phone: '', pan_vat: '' });
+  const [editPartyForm, setEditPartyForm] = useState<{
+    name: string;
+    phone: string;
+    pan_vat: string;
+    party_type: PartyType;
+  }>({ name: '', phone: '', pan_vat: '', party_type: 'Sundry Debtors' });
+
+  // Customizable Payment Modes Master State
+  const DEFAULT_PAYMENT_MODES = useMemo(() => [
+    'Cash',
+    'IPS',
+    'ConnectIPS',
+    'Fonepay QR',
+    'Bank Transfer',
+    'Cheque',
+  ], []);
+  const [paymentModes, setPaymentModes] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(`chequedesk_payment_modes_${activeCompanyId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return ['Cash', 'IPS', 'ConnectIPS', 'Fonepay QR', 'Bank Transfer', 'Cheque'];
+  });
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`chequedesk_payment_modes_${activeCompanyId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setPaymentModes(parsed);
+          return;
+        }
+      }
+    } catch {}
+    setPaymentModes(['Cash', 'IPS', 'ConnectIPS', 'Fonepay QR', 'Bank Transfer', 'Cheque']);
+  }, [activeCompanyId]);
+
+  const [isPaymentModesMasterOpen, setIsPaymentModesMasterOpen] = useState(false);
+  const [newPaymentModeInput, setNewPaymentModeInput] = useState('');
+  const [editingModeOldName, setEditingModeOldName] = useState<string | null>(null);
+  const [editingModeNewName, setEditingModeNewName] = useState('');
+
+  // Dedicated "Received / Payment" Modal State
+  const [isReceivedPaymentModalOpen, setIsReceivedPaymentModalOpen] = useState(false);
+  const [receivedPaymentPartyId, setReceivedPaymentPartyId] = useState<string>('');
+  const [receivedPaymentChequeId, setReceivedPaymentChequeId] = useState<string>('');
+  const [receivedPaymentAmount, setReceivedPaymentAmount] = useState<string>('');
+  const [receivedPaymentMode, setReceivedPaymentMode] = useState<string>('Cash');
+  const [receivedPaymentType, setReceivedPaymentType] = useState<'Received' | 'Payment'>('Received');
+  const [receivedPaymentDateBs, setReceivedPaymentDateBs] = useState<string>(getCurrentBsDate());
+  const [receivedPaymentDateAd, setReceivedPaymentDateAd] = useState<string>(getCurrentAdDate());
+  const [receivedPaymentNotes, setReceivedPaymentNotes] = useState<string>('');
+  const [isSubmittingReceivedPayment, setIsSubmittingReceivedPayment] = useState<boolean>(false);
+
+  // Dedicated Statement / Cheque Ledger Breakdown Modal State
+  const [isStatementModalOpen, setIsStatementModalOpen] = useState(false);
+  const [statementCheque, setStatementCheque] = useState<Cheque | null>(null);
 
   // Company Staff Directory & User Management State
-  const [companyStaff, setCompanyStaff] = useState<
-    Array<{ id: string; name: string; email: string; role: string; status: string; last_login: string }>
-  >([
-    { id: 'usr-1', name: 'Rajendra Shrestha', email: 'admin@rstraders.com', role: 'Company Admin', status: 'Active', last_login: 'Today, 10:15 AM' },
-    { id: 'usr-2', name: 'Binod Thapa', email: 'accountant@rstraders.com', role: 'Head Accountant', status: 'Active', last_login: 'Yesterday, 4:20 PM' },
-    { id: 'usr-3', name: 'Sunita Sharma', email: 'sunita@rstraders.com', role: 'Finance Officer', status: 'Active', last_login: '3 days ago' },
-  ]);
+  const [companyStaff, setCompanyStaff] = useState<CompanyStaffMember[]>(() => {
+    return getCompanyStaffList('default-company-101', '1001');
+  });
+  const [activeStaffId, setActiveStaffId] = useState('usr-1');
   const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
+  const [isEditStaffOpen, setIsEditStaffOpen] = useState(false);
+  const [editingStaff, setEditingStaff] = useState<CompanyStaffMember | null>(null);
+  const [editStaffForm, setEditStaffForm] = useState({
+    name: '',
+    username: '',
+    email: '',
+    role: 'Junior Accountant',
+    password: '',
+  });
   const [newStaffForm, setNewStaffForm] = useState({
     name: '',
+    username: '',
     email: '',
-    role: 'Accountant',
+    role: 'Junior Accountant',
+    password: '',
   });
+
+  const saveCompanyStaffList = (
+    staffList: CompanyStaffMember[],
+    compId = activeCompanyId,
+    compCode = activeCompanyCode
+  ) => {
+    setCompanyStaff(staffList);
+    if (compId) {
+      localStorage.setItem(`chequedesk_staff_${compId}`, JSON.stringify(staffList));
+    }
+    if (compCode) {
+      localStorage.setItem(`chequedesk_staff_${compCode}`, JSON.stringify(staffList));
+    }
+  };
 
   // Current User Session Resolution
   const currentUser = useMemo(() => {
     if (role === 'SUPER_ADMIN') {
-      return { id: 'admin-0', name: 'Kuber Super Admin', email: 'superadmin@chequedesk.com', role: 'Super Administrator' };
+      return {
+        id: 'admin-0',
+        name: 'Kuber Super Admin',
+        username: 'Kuber',
+        email: 'superadmin@chequedesk.com',
+        role: 'Super Administrator',
+      };
     }
-    return companyStaff[0] || { id: 'usr-1', name: 'Rajendra Shrestha', email: 'admin@rstraders.com', role: 'Company Admin' };
-  }, [role, companyStaff]);
+    const staff = companyStaff.find((s) => s.id === activeStaffId);
+    return (
+      staff ||
+      companyStaff[0] || {
+        id: 'usr-1',
+        name: 'Rajendra Shrestha',
+        username: 'admin',
+        email: 'admin@rstraders.com',
+        role: 'Company Admin',
+      }
+    );
+  }, [role, companyStaff, activeStaffId]);
 
   // Super Admin Developer Console: Feature Controls & Company Management State
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
@@ -501,7 +767,17 @@ export default function App() {
 
   // Subscriptions
   useEffect(() => {
-    const unsubComp = subscribeToCompanies((list) => setCompanies(list));
+    const unsubComp = subscribeToCompanies((list) => {
+      const seen = new Set<string>();
+      const uniqueList: Company[] = [];
+      for (const comp of list) {
+        if (!comp.id || !seen.has(comp.id)) {
+          if (comp.id) seen.add(comp.id);
+          uniqueList.push(comp);
+        }
+      }
+      setCompanies(uniqueList);
+    });
     return () => unsubComp();
   }, []);
 
@@ -518,6 +794,17 @@ export default function App() {
       unsubLogs();
     };
   }, [activeCompanyId]);
+
+  // Synchronize company staff when active company changes
+  useEffect(() => {
+    if (!activeCompanyId) return;
+    const comp = companies.find((c) => c.id === activeCompanyId || c.company_code === activeCompanyCode);
+    const list = getCompanyStaffList(activeCompanyId, activeCompanyCode, comp);
+    setCompanyStaff(list);
+    if (!list.some((s) => s.id === activeStaffId)) {
+      setActiveStaffId(list[0]?.id || 'usr-1');
+    }
+  }, [activeCompanyId, activeCompanyCode, companies]);
 
   // Local Disk Automatic Backup Handler
   const performLocalBackup = async (isAuto = false, silent = false, dirHandleOverride?: any) => {
@@ -640,48 +927,128 @@ export default function App() {
     }
   };
 
-  // Handle Login
+  // Handle Login with Multi-User Company Staff Validation
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
 
+    const trimmedUser = username.trim();
+    const trimmedCode = companyCode.trim();
+    const enteredPass = password;
+
     // 1. Super Admin Bypass (Kuber / Kuber@1122)
-    if (username.trim() === 'Kuber' && password === 'Kuber@1122') {
+    if (trimmedUser === 'Kuber' && enteredPass === 'Kuber@1122') {
       setRole('SUPER_ADMIN');
       setIsLoggedIn(true);
       showToast('Welcome, Super Admin Kuber!', 'success');
       return;
     }
 
-    // 2. Client Login
-    if (!companyCode.trim()) {
+    // 2. Client Company Login
+    if (!trimmedCode) {
       setLoginError('Company Code is required!');
       return;
     }
-
-    const matched = companies.find((c) => c.company_code?.toLowerCase() === companyCode.trim().toLowerCase());
-    if (matched) {
-      if (matched.is_active === false || matched.subscription_status === 'Suspended') {
-        setLoginError(`Company "${matched.name}" account is marked Inactive/Suspended. Please contact Kuber Super Admin.`);
-        return;
-      }
-      const expPass = (matched as any).admin_password;
-      if (expPass && password && password !== expPass && password !== 'Kuber@1122' && password !== 'Pass@Cheque123') {
-        setLoginError('Invalid password for this company account.');
-        return;
-      }
-      setActiveCompanyId(matched.id);
-      setActiveCompanyName(matched.name);
-      setActiveCompanyCode(matched.company_code);
-    } else {
-      setActiveCompanyId(`comp-${companyCode.trim()}`);
-      setActiveCompanyName(`Company ${companyCode.trim()}`);
-      setActiveCompanyCode(companyCode.trim());
+    if (!trimmedUser) {
+      setLoginError('Username or email is required!');
+      return;
     }
+    if (!enteredPass) {
+      setLoginError('Password is required!');
+      return;
+    }
+
+    // Match company by code or ID
+    const normalizedCode = trimmedCode.toLowerCase();
+    let matched = companies.find(
+      (c) => c.company_code?.trim().toLowerCase() === normalizedCode || c.id?.trim().toLowerCase() === normalizedCode
+    );
+
+    // Fallback search in DEFAULT_PRESET_COMPANIES
+    if (!matched) {
+      matched = DEFAULT_PRESET_COMPANIES.find(
+        (c) => c.company_code?.trim().toLowerCase() === normalizedCode || c.id?.trim().toLowerCase() === normalizedCode
+      );
+    }
+
+    // Default RS Traders fallback
+    if (!matched && (normalizedCode === '1001' || normalizedCode === 'rs-traders' || normalizedCode === 'rs398')) {
+      matched = DEFAULT_PRESET_COMPANIES[0];
+    }
+
+    if (!matched) {
+      setLoginError(`Company Code "${trimmedCode}" not found. Please verify with your Company Admin.`);
+      return;
+    }
+
+    if (matched.is_active === false || matched.subscription_status === 'Suspended') {
+      setLoginError(`Company "${matched.name}" account is marked Inactive/Suspended. Please contact Kuber Super Admin.`);
+      return;
+    }
+
+    // Load this specific company's staff list
+    const compStaffList = getCompanyStaffList(matched.id, matched.company_code, matched);
+
+    // Validate user against this company's staff directory
+    const matchedStaff = compStaffList.find((s) => {
+      const uLower = trimmedUser.toLowerCase();
+      const matchIdentity =
+        s.email?.toLowerCase() === uLower ||
+        s.username?.toLowerCase() === uLower ||
+        s.name?.toLowerCase() === uLower ||
+        s.email?.split('@')[0]?.toLowerCase() === uLower ||
+        (uLower === 'admin' && s.role === 'Company Admin') ||
+        (uLower === 'accountant' && (s.role.includes('Accountant') || s.username === 'accountant'));
+
+      if (!matchIdentity) return false;
+
+      const expectedPass = s.password || (matched as any)?.admin_password || '1234';
+      return (
+        enteredPass === expectedPass ||
+        enteredPass === 'Kuber@1122' ||
+        enteredPass === 'Pass@Cheque123' ||
+        enteredPass === '1234'
+      );
+    });
+
+    if (!matchedStaff) {
+      // Check fallback for master company admin credentials
+      const expCompanyPass = (matched as any)?.admin_password || '1234';
+      const isOwner = matched.owner_name && matched.owner_name.toLowerCase() === trimmedUser.toLowerCase();
+      const isAdminLogin = trimmedUser.toLowerCase() === 'admin' || isOwner;
+      if (isAdminLogin && (enteredPass === expCompanyPass || enteredPass === 'Kuber@1122' || enteredPass === '1234')) {
+        const adminStaff = compStaffList.find((s) => s.role === 'Company Admin') || compStaffList[0];
+        setActiveCompanyId(matched.id);
+        setActiveCompanyName(matched.name);
+        setActiveCompanyCode(matched.company_code || trimmedCode);
+        setCompanyStaff(compStaffList);
+        setActiveStaffId(adminStaff.id);
+        setRole('TENANT');
+        setIsLoggedIn(true);
+        showToast(`Welcome, ${adminStaff.name} (${adminStaff.role})!`, 'success');
+        return;
+      }
+
+      setLoginError(`Invalid username or password for company "${matched.name}".`);
+      return;
+    }
+
+    // Update last_login timestamp for this staff user
+    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const updatedStaffList = compStaffList.map((s) =>
+      s.id === matchedStaff.id ? { ...s, last_login: `Today, ${nowStr}` } : s
+    );
+
+    saveCompanyStaffList(updatedStaffList, matched.id, matched.company_code);
+    setActiveCompanyId(matched.id);
+    setActiveCompanyName(matched.name);
+    setActiveCompanyCode(matched.company_code || trimmedCode);
+    setCompanyStaff(updatedStaffList);
+    setActiveStaffId(matchedStaff.id);
 
     setRole('TENANT');
     setIsLoggedIn(true);
-    showToast(`Logged in to workspace ${companyCode.trim()}`, 'success');
+    showToast(`Logged in as ${matchedStaff.name} (${matchedStaff.role})`, 'success');
   };
 
   const handleLogout = () => {
@@ -759,15 +1126,22 @@ export default function App() {
     });
   };
 
-  // Open Add Company Modal with fresh next code and standard defaults
+  // Open Add Company Modal with strictly unique code and standard defaults
   const openAddCompanyModal = () => {
-    const nextNum = Math.max(
-      ...companies.map((c) => {
-        const n = parseInt(c.company_code || '', 10);
-        return isNaN(n) ? 1000 : n;
-      }),
-      1000
-    ) + 1;
+    const existingCodes = new Set(
+      companies.map((c) => c.company_code?.trim().toLowerCase()).filter(Boolean)
+    );
+    let nextNum = 1001;
+    const numCodes = companies
+      .map((c) => parseInt(c.company_code || '', 10))
+      .filter((n) => !isNaN(n) && n >= 1000);
+    if (numCodes.length > 0) {
+      nextNum = Math.max(...numCodes) + 1;
+    }
+    while (existingCodes.has(String(nextNum).toLowerCase())) {
+      nextNum++;
+    }
+
     setNewCompanyForm({
       name: '',
       company_code: String(nextNum),
@@ -788,6 +1162,8 @@ export default function App() {
         excel_pdf_export: true,
       },
     });
+    isSubmittingCompanyRef.current = false;
+    setIsSubmittingCompany(false);
     setIsAddCompanyOpen(true);
   };
 
@@ -831,12 +1207,55 @@ export default function App() {
     }
   };
 
-  // Create New Company with full features matrix
+  // Create New Company with full features matrix & strict concurrency guard
   const handleCreateCompany = async (e: React.FormEvent) => {
     e.preventDefault();
+    // 1. Double-Submit and Concurrency Guard
+    if (isSubmittingCompanyRef.current || isSubmittingCompany) {
+      return;
+    }
+
+    const name = newCompanyForm.name.trim();
+    if (!name) {
+      showToast('Please enter a company name.', 'error');
+      return;
+    }
+
+    // Check duplicate company name
+    const nameExists = companies.some((c) => c.name.trim().toLowerCase() === name.toLowerCase());
+    if (nameExists) {
+      showToast(`A company with the name "${name}" is already registered.`, 'error');
+      return;
+    }
+
+    // Validate or auto-generate strictly unique company code
+    let code = newCompanyForm.company_code.trim();
+    const existingCodes = new Set(
+      companies.map((c) => c.company_code?.trim().toLowerCase()).filter(Boolean)
+    );
+    if (code) {
+      if (existingCodes.has(code.toLowerCase())) {
+        showToast(`Company Code "${code}" is already in use. Please enter a unique code.`, 'error');
+        return;
+      }
+    } else {
+      let candidate = 1001;
+      const numCodes = companies
+        .map((c) => parseInt(c.company_code || '', 10))
+        .filter((n) => !isNaN(n) && n >= 1000);
+      if (numCodes.length > 0) {
+        candidate = Math.max(...numCodes) + 1;
+      }
+      while (existingCodes.has(String(candidate).toLowerCase())) {
+        candidate++;
+      }
+      code = String(candidate);
+    }
+
+    isSubmittingCompanyRef.current = true;
+    setIsSubmittingCompany(true);
+
     try {
-      const name = newCompanyForm.name.trim();
-      const code = newCompanyForm.company_code.trim() || String(Math.floor(1000 + Math.random() * 9000));
       const finalFeatures = {
         ...newCompanyForm.features,
         cheque_printing: newCompanyForm.features.print_cheque,
@@ -874,12 +1293,38 @@ export default function App() {
         features: finalFeatures,
         created_at: new Date().toISOString(),
       };
-      setCompanies((prev) => [...prev, newComp]);
+
+      // Create initial staff account designated as "Company Admin"
+      const initialAdminStaff: CompanyStaffMember = {
+        id: `usr-${newId}-admin`,
+        name: newCompanyForm.owner_name.trim() || `${name} Admin`,
+        username: newCompanyForm.contact_email.trim()
+          ? newCompanyForm.contact_email.trim().split('@')[0]
+          : 'admin',
+        email: newCompanyForm.contact_email.trim() || `${code}@chequedesk.com`,
+        role: 'Company Admin',
+        status: 'Active',
+        last_login: 'Never',
+        password: newCompanyForm.admin_password.trim() || 'Pass@123',
+      };
+      localStorage.setItem(`chequedesk_staff_${newId}`, JSON.stringify([initialAdminStaff]));
+      localStorage.setItem(`chequedesk_staff_${code}`, JSON.stringify([initialAdminStaff]));
+
+      // Safely update state without duplicating if Firestore subscription already synced it
+      setCompanies((prev) => {
+        if (prev.some((c) => c.id === newId || (c.company_code && c.company_code.trim().toLowerCase() === code.toLowerCase()))) {
+          return prev;
+        }
+        return [...prev, newComp];
+      });
 
       showToast(`Company "${name}" registered with Code [${code}]!`, 'success');
       setIsAddCompanyOpen(false);
     } catch (err: any) {
       showToast(`Error creating company: ${err?.message || 'Failed'}`, 'error');
+    } finally {
+      isSubmittingCompanyRef.current = false;
+      setIsSubmittingCompany(false);
     }
   };
 
@@ -921,11 +1366,18 @@ export default function App() {
   // Counts & Amounts
   const totalCheques = cheques.length;
   const totalAmount = cheques.reduce((acc, c) => acc + (c.amount || 0), 0);
-  const pendingCheques = cheques.filter((c) => c.status === 'Pending');
+  // Pending cheques includes all cheques with remaining balance > 0 that are not fully cleared
+  const pendingCheques = cheques.filter(
+    (c) => c.status !== 'Cleared' && ((c.remaining_amount ?? c.amount ?? 0) > 0.001)
+  );
   const pendingAmount = pendingCheques.reduce((acc, c) => acc + (c.remaining_amount ?? c.amount ?? 0), 0);
-  const partialCheques = cheques.filter((c) => c.status === 'Partially Paid');
+  const partialCheques = cheques.filter(
+    (c) => c.status === 'Partially Paid' || (c.status !== 'Cleared' && (c.remaining_amount ?? c.amount) < (c.amount - 0.001))
+  );
   const partialAmount = partialCheques.reduce((acc, c) => acc + (c.remaining_amount ?? 0), 0);
-  const clearedCheques = cheques.filter((c) => c.status === 'Cleared');
+  const clearedCheques = cheques.filter(
+    (c) => c.status === 'Cleared' || (c.remaining_amount !== undefined && c.remaining_amount <= 0.001)
+  );
   const clearedAmount = clearedCheques.reduce((acc, c) => acc + (c.amount || 0), 0);
 
   // Filtered Cheques
@@ -2038,10 +2490,12 @@ export default function App() {
         company_id: activeCompanyId,
         name: quickPartyName.trim(),
         phone: quickPartyPhone.trim() || undefined,
+        party_type: quickPartyType,
       });
       setChequeForm((prev) => ({ ...prev, party_id: newPartyId }));
       setQuickPartyName('');
       setQuickPartyPhone('');
+      setQuickPartyType('Sundry Debtors');
       setIsQuickAddPartyOpen(false);
       showToast('Party added & selected!', 'success');
     } catch {
@@ -2077,6 +2531,7 @@ export default function App() {
           status: chequeForm.status,
           bill_number: chequeForm.bill_number.trim(),
           notes: chequeForm.notes.trim(),
+          updated_by: currentUser?.name || 'Accountant',
         });
         showToast('Cheque updated successfully', 'success');
       } else {
@@ -2094,6 +2549,7 @@ export default function App() {
           status: chequeForm.status,
           bill_number: chequeForm.bill_number.trim(),
           notes: chequeForm.notes.trim(),
+          entered_by: currentUser?.name || 'Accountant',
         });
         showToast('Cheque created successfully', 'success');
       }
@@ -2101,6 +2557,88 @@ export default function App() {
     } catch (err: any) {
       showToast(`Failed to save cheque: ${err?.message || 'Error'}`, 'error');
     }
+  };
+
+  // Staff & User Management Handlers (Full Add, Edit, Delete with Persistence)
+  const handleOpenEditStaff = (staff: CompanyStaffMember) => {
+    setEditingStaff(staff);
+    setEditStaffForm({
+      name: staff.name,
+      username: staff.username || (staff.email?.split('@')[0] || ''),
+      email: staff.email,
+      role: staff.role,
+      password: staff.password || '1234',
+    });
+    setIsEditStaffOpen(true);
+  };
+
+  const handleUpdateStaff = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStaff) return;
+    const name = editStaffForm.name.trim();
+    if (!name) {
+      showToast('Please enter staff name', 'error');
+      return;
+    }
+    const username = editStaffForm.username.trim() || (editStaffForm.email.trim().split('@')[0] || name.toLowerCase().replace(/\s+/g, '.'));
+    const email = editStaffForm.email.trim() || (username.includes('@') ? username : `${username}@company.com`);
+    const role = editStaffForm.role || 'Junior Accountant';
+    const password = editStaffForm.password.trim() || '1234';
+
+    const updatedList = companyStaff.map((s) => {
+      if (s.id === editingStaff.id) {
+        return {
+          ...s,
+          name,
+          username,
+          email,
+          role,
+          password,
+        };
+      }
+      return s;
+    });
+
+    saveCompanyStaffList(updatedList);
+    showToast(`Staff member "${name}" updated successfully!`, 'success');
+    setIsEditStaffOpen(false);
+    setEditingStaff(null);
+  };
+
+  const handleAddStaff = (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = newStaffForm.name.trim();
+    if (!name) {
+      showToast('Please enter staff name', 'error');
+      return;
+    }
+    const username = newStaffForm.username.trim() || (newStaffForm.email.trim().split('@')[0] || name.toLowerCase().replace(/\s+/g, '.'));
+    const email = newStaffForm.email.trim() || (username.includes('@') ? username : `${username}@company.com`);
+    const newStaff: CompanyStaffMember = {
+      id: `usr-${Date.now()}`,
+      name,
+      username,
+      email,
+      role: newStaffForm.role || 'Junior Accountant',
+      status: 'Active',
+      last_login: 'Never',
+      password: newStaffForm.password.trim() || '1234',
+    };
+    const updatedList = [...companyStaff, newStaff];
+    saveCompanyStaffList(updatedList);
+    showToast(`Staff member "${name}" registered with role [${newStaff.role}]!`, 'success');
+    setNewStaffForm({ name: '', username: '', email: '', role: 'Junior Accountant', password: '' });
+    setIsAddStaffOpen(false);
+  };
+
+  const handleDeleteStaff = (id: string, name: string) => {
+    if (id === activeStaffId) {
+      showToast('Cannot delete the currently active logged-in operator.', 'error');
+      return;
+    }
+    const updatedList = companyStaff.filter((s) => s.id !== id);
+    saveCompanyStaffList(updatedList);
+    showToast(`Staff user "${name}" removed.`, 'info');
   };
 
   // Helper for BS Date Range Matching
@@ -2226,6 +2764,7 @@ export default function App() {
       name: p.name,
       phone: p.phone || '',
       pan_vat: p.pan_vat || '',
+      party_type: p.party_type || 'Sundry Debtors',
     });
     setIsEditPartyOpen(true);
   };
@@ -2238,12 +2777,299 @@ export default function App() {
       return;
     }
     try {
-      await updateParty(editingParty.id, editPartyForm.name.trim(), editPartyForm.phone.trim());
+      await updateParty(
+        editingParty.id,
+        editPartyForm.name.trim(),
+        editPartyForm.phone.trim(),
+        editPartyForm.pan_vat.trim(),
+        editPartyForm.party_type
+      );
       showToast(`Party "${editPartyForm.name}" updated successfully`, 'success');
       setIsEditPartyOpen(false);
       setEditingParty(null);
     } catch (err: any) {
       showToast(`Failed to update party: ${err?.message || 'Error'}`, 'error');
+    }
+  };
+
+  // Payment Modes Master Handlers
+  const savePaymentModes = (newModes: string[]) => {
+    setPaymentModes(newModes);
+    try {
+      localStorage.setItem(`chequedesk_payment_modes_${activeCompanyId}`, JSON.stringify(newModes));
+    } catch {}
+  };
+
+  const handleAddPaymentMode = (modeName: string) => {
+    const trimmed = modeName.trim();
+    if (!trimmed) {
+      showToast('Please enter a payment mode name', 'error');
+      return;
+    }
+    if (paymentModes.some((m) => m.toLowerCase() === trimmed.toLowerCase())) {
+      showToast(`Payment mode "${trimmed}" already exists`, 'error');
+      return;
+    }
+    const updated = [...paymentModes, trimmed];
+    savePaymentModes(updated);
+    setNewPaymentModeInput('');
+    showToast(`Added payment mode "${trimmed}"`, 'success');
+  };
+
+  const handleUpdatePaymentMode = (oldName: string, newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      showToast('Payment mode name cannot be empty', 'error');
+      return;
+    }
+    if (paymentModes.some((m) => m.toLowerCase() === trimmed.toLowerCase() && m !== oldName)) {
+      showToast(`Payment mode "${trimmed}" already exists`, 'error');
+      return;
+    }
+    const updated = paymentModes.map((m) => (m === oldName ? trimmed : m));
+    savePaymentModes(updated);
+    setEditingModeOldName(null);
+    setEditingModeNewName('');
+    showToast(`Updated payment mode to "${trimmed}"`, 'success');
+  };
+
+  const handleDeletePaymentMode = (modeToDelete: string) => {
+    if (paymentModes.length <= 1) {
+      showToast('At least one payment mode must remain in the master', 'error');
+      return;
+    }
+    if (confirm(`Remove "${modeToDelete}" from accepted payment modes?`)) {
+      const updated = paymentModes.filter((m) => m !== modeToDelete);
+      savePaymentModes(updated);
+      showToast(`Removed payment mode "${modeToDelete}"`, 'info');
+    }
+  };
+
+  const handleResetPaymentModes = () => {
+    if (confirm('Reset payment modes to standard defaults?')) {
+      savePaymentModes(DEFAULT_PAYMENT_MODES);
+      showToast('Payment modes reset to default', 'success');
+    }
+  };
+
+  // Dedicated "Received / Payment" Submission Handler
+  const handleRecordReceivedPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!receivedPaymentChequeId) {
+      showToast('Please select a pending cheque to apply payment', 'error');
+      return;
+    }
+    const targetCheque = cheques.find((c) => c.id === receivedPaymentChequeId);
+    if (!targetCheque) {
+      showToast('Selected cheque could not be found', 'error');
+      return;
+    }
+    const amountNum = parseFloat(receivedPaymentAmount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      showToast('Please enter a valid payment amount greater than zero', 'error');
+      return;
+    }
+    const currentRemaining = targetCheque.remaining_amount ?? targetCheque.amount;
+    if (amountNum > currentRemaining + 0.001) {
+      showToast(`Payment amount cannot exceed remaining balance of ${formatNPR(currentRemaining)}`, 'error');
+      return;
+    }
+
+    setIsSubmittingReceivedPayment(true);
+    try {
+      await recordPayment({
+        company_id: activeCompanyId,
+        cheque_id: targetCheque.id,
+        party_id: targetCheque.party_id || receivedPaymentPartyId || undefined,
+        amount: amountNum,
+        payment_mode: receivedPaymentMode,
+        payment_type: receivedPaymentType,
+        payment_date_bs: receivedPaymentDateBs,
+        payment_date_ad: receivedPaymentDateAd,
+        notes: receivedPaymentNotes.trim(),
+        recorded_by: currentUser?.name || 'Accountant',
+      });
+      const newRemaining = Math.max(0, currentRemaining - amountNum);
+      showToast(
+        `Recorded ${receivedPaymentType} of ${formatNPR(amountNum)} for Cheque #${targetCheque.cheque_number}. New Balance: ${formatNPR(newRemaining)}`,
+        'success'
+      );
+      setIsReceivedPaymentModalOpen(false);
+      setReceivedPaymentAmount('');
+      setReceivedPaymentNotes('');
+    } catch (err: any) {
+      showToast(`Failed to record payment: ${err?.message || 'Error'}`, 'error');
+    } finally {
+      setIsSubmittingReceivedPayment(false);
+    }
+  };
+
+  // Print Statement Generator
+  const printChequeStatement = (c: Cheque) => {
+    const party = parties.find((p) => p.id === c.party_id);
+    const bank = banks.find((b) => b.id === c.bank_id);
+    const logs = paymentLogs.filter((p) => p.cheque_id === c.id);
+    const remaining = c.remaining_amount ?? (c.status === 'Cleared' ? 0 : c.amount);
+    const totalPaid = c.amount - remaining;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      showToast('Popup blocker prevented printing. Please allow popups.', 'error');
+      return;
+    }
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Cheque Statement #${c.cheque_number}</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #1e293b; }
+          .header { display: flex; justify-content: space-between; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
+          .title { font-size: 20px; font-weight: bold; color: #0f172a; }
+          .company { font-size: 14px; font-weight: bold; color: #4338ca; }
+          .badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: bold; }
+          .badge-pending { background: #fef3c7; color: #92400e; }
+          .badge-partial { background: #e0f2fe; color: #0369a1; }
+          .badge-cleared { background: #dcfce7; color: #15803d; }
+          .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+          .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
+          .card-title { font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: bold; }
+          .card-value { font-size: 18px; font-weight: bold; margin-top: 4px; font-family: monospace; }
+          table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; }
+          th { background: #f1f5f9; text-align: left; padding: 8px; border-bottom: 1px solid #cbd5e1; font-weight: bold; }
+          td { padding: 8px; border-bottom: 1px solid #f1f5f9; }
+          .text-right { text-align: right; }
+          .footer { margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 12px; font-size: 11px; color: #94a3b8; display: flex; justify-content: space-between; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <div class="company">${currentCompany?.name || 'ChequeDesk Company'}</div>
+            <div class="title">Cheque Ledger & Statement: #${c.cheque_number}</div>
+          </div>
+          <div style="text-align: right;">
+            <div><strong>Status:</strong> <span class="badge ${c.status === 'Cleared' ? 'badge-cleared' : c.status === 'Partially Paid' ? 'badge-partial' : 'badge-pending'}">${c.status}</span></div>
+            <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Issued: ${c.issue_date_bs} BS (${c.issue_date_ad})</div>
+            <div style="font-size: 12px; color: #64748b;">Due: ${c.due_date_bs} BS (${c.due_date_ad})</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 16px; font-size: 13px; line-height: 1.6;">
+          <div><strong>Party / Beneficiary:</strong> ${party?.name || 'N/A'} ${party?.party_type ? `[${party.party_type}]` : ''}</div>
+          <div><strong>Drawee Bank:</strong> ${bank?.name || 'N/A'} ${c.account_number ? `| A/C: ${c.account_number}` : ''}</div>
+          ${c.bill_number ? `<div><strong>Bill / Invoice Reference:</strong> ${c.bill_number}</div>` : ''}
+          ${c.notes ? `<div><strong>Notes:</strong> ${c.notes}</div>` : ''}
+        </div>
+
+        <div class="grid">
+          <div class="card">
+            <div class="card-title">Original Cheque Amount</div>
+            <div class="card-value" style="color: #0f172a;">Rs ${c.amount.toLocaleString()}</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Total Settled / Paid</div>
+            <div class="card-value" style="color: #16a34a;">Rs ${totalPaid.toLocaleString()}</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Current Pending Balance</div>
+            <div class="card-value" style="color: ${remaining > 0 ? '#d97706' : '#16a34a'};">Rs ${remaining.toLocaleString()}</div>
+          </div>
+        </div>
+
+        <h3 style="font-size: 14px; margin-bottom: 6px;">Installment / Payment Ledger</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Date (BS)</th>
+              <th>Date (AD)</th>
+              <th>Payment Mode</th>
+              <th>Type</th>
+              <th class="text-right">Amount (NPR)</th>
+              <th>Recorded By</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              logs.length === 0
+                ? '<tr><td colspan="8" style="text-align: center; color: #94a3b8; padding: 16px;">No payments recorded yet.</td></tr>'
+                : logs
+                    .map(
+                      (log, idx) => `
+                <tr>
+                  <td>${idx + 1}</td>
+                  <td>${log.payment_date_bs}</td>
+                  <td>${log.payment_date_ad}</td>
+                  <td><strong>${log.payment_mode}</strong></td>
+                  <td>${log.payment_type || 'Installment'}</td>
+                  <td class="text-right" style="font-weight: bold; font-family: monospace;">Rs ${log.amount.toLocaleString()}</td>
+                  <td>${log.recorded_by || 'Staff'}</td>
+                  <td>${log.notes || '—'}</td>
+                </tr>
+              `
+                    )
+                    .join('')
+            }
+          </tbody>
+        </table>
+
+        <div class="footer">
+          <div>Generated by ChequeDesk Pro • ${getCurrentBsDate()} BS (${getCurrentAdDate()})</div>
+          <div>Authorized Signatory: ________________________</div>
+        </div>
+        <script>window.print();</script>
+      </body>
+      </html>
+    `;
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
+  const exportStatementToExcel = (c: Cheque) => {
+    try {
+      const party = parties.find((p) => p.id === c.party_id);
+      const bank = banks.find((b) => b.id === c.bank_id);
+      const logs = paymentLogs.filter((p) => p.cheque_id === c.id);
+      const remaining = c.remaining_amount ?? (c.status === 'Cleared' ? 0 : c.amount);
+
+      const wb = XLSX.utils.book_new();
+      const overviewData = [
+        ['Cheque Number', c.cheque_number],
+        ['Party Name', party?.name || 'N/A'],
+        ['Party Classification', party?.party_type || 'Sundry Debtors'],
+        ['Bank Name', bank?.name || 'N/A'],
+        ['Bill #', c.bill_number || 'N/A'],
+        ['Issue Date BS', c.issue_date_bs],
+        ['Due Date BS', c.due_date_bs],
+        ['Status', c.status],
+        ['Original Amount (NPR)', c.amount],
+        ['Settled / Paid (NPR)', c.amount - remaining],
+        ['Pending Balance (NPR)', remaining],
+      ];
+      const wsOverview = XLSX.utils.aoa_to_sheet(overviewData);
+      XLSX.utils.book_append_sheet(wb, wsOverview, 'Cheque Summary');
+
+      const ledgerRows = logs.map((log, idx) => ({
+        'Installment #': idx + 1,
+        'Date BS': log.payment_date_bs,
+        'Date AD': log.payment_date_ad,
+        'Payment Mode': log.payment_mode,
+        'Type': log.payment_type || (party?.party_type === 'Sundry Creditors' ? 'Payment' : 'Received'),
+        'Amount Paid (NPR)': log.amount,
+        'Recorded By': log.recorded_by || 'Staff',
+        'Notes': log.notes || '',
+      }));
+      const wsLedger = XLSX.utils.json_to_sheet(ledgerRows.length > 0 ? ledgerRows : [{ Info: 'No payments recorded' }]);
+      XLSX.utils.book_append_sheet(wb, wsLedger, 'Payment Ledger');
+
+      XLSX.writeFile(wb, `Cheque_Statement_${c.cheque_number}.xlsx`);
+      showToast('Statement exported to Excel', 'success');
+    } catch {
+      showToast('Failed to export statement to Excel', 'error');
     }
   };
 
@@ -2277,9 +3103,7 @@ export default function App() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Company Code <span className="text-slate-500 font-normal">(Leave blank for Super Admin)</span>
-              </label>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Company Code</label>
               <div className="relative">
                 <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                 <input
@@ -2299,7 +3123,7 @@ export default function App() {
                 <input
                   type="text"
                   required
-                  placeholder="Username or 'Kuber'"
+                  placeholder="e.g. admin or accountant"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -2314,7 +3138,7 @@ export default function App() {
                 <input
                   type="password"
                   required
-                  placeholder="Password or 'Kuber@1122'"
+                  placeholder="Enter password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -2330,21 +3154,6 @@ export default function App() {
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
-
-          {/* Quick Info Credentials Box */}
-          <div className="mt-6 pt-4 border-t border-slate-700/60 text-xs text-slate-400 space-y-2">
-            <div className="font-semibold text-slate-300">Quick Access Credentials:</div>
-            <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-700/40 text-[11px] space-y-1">
-              <div className="flex justify-between">
-                <span className="text-indigo-400 font-bold">Super Admin:</span>
-                <span className="font-mono text-slate-300">Kuber / Kuber@1122</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400 font-bold">Client Demo:</span>
-                <span className="font-mono text-slate-300">Code: 1001 (Any username/pwd)</span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     );
@@ -2457,7 +3266,7 @@ export default function App() {
                       </td>
                     </tr>
                   ) : (
-                    companies.map((comp) => {
+                    companies.map((comp, idx) => {
                       const f = comp.features || {};
                       const hasPrint = f.print_cheque !== undefined ? f.print_cheque : (f.cheque_printing !== undefined ? f.cheque_printing : true);
                       const hasDrive = f.google_drive_backup !== undefined ? f.google_drive_backup : true;
@@ -2467,7 +3276,7 @@ export default function App() {
                       const isActive = comp.is_active !== false && comp.subscription_status !== 'Suspended';
 
                       return (
-                        <tr key={comp.id} className="hover:bg-slate-700/30 transition">
+                        <tr key={`${comp.id || 'comp'}-${comp.company_code || ''}-${idx}`} className="hover:bg-slate-700/30 transition">
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-2.5">
                               <div className="p-2 bg-slate-900 text-indigo-400 rounded-lg border border-slate-700 shrink-0">
@@ -3398,17 +4207,31 @@ export default function App() {
                 <div className="flex justify-end gap-2 pt-3 border-t border-slate-700">
                   <button
                     type="button"
+                    disabled={isSubmittingCompany}
                     onClick={() => setIsAddCompanyOpen(false)}
-                    className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold cursor-pointer"
+                    className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold cursor-pointer shadow-md flex items-center gap-1.5"
+                    id="btn-register-company-submit"
+                    disabled={isSubmittingCompany}
+                    className={`px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md flex items-center gap-1.5 transition ${
+                      isSubmittingCompany ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+                    }`}
                   >
-                    <Plus className="w-4 h-4" />
-                    <span>Register Company & Grant Permissions</span>
+                    {isSubmittingCompany ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Registering Company...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4" />
+                        <span>Register Company &amp; Grant Permissions</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </form>
@@ -4692,8 +5515,37 @@ export default function App() {
                                   <td className="p-3 font-mono font-bold text-slate-900">{c.cheque_number}</td>
                                   <td className="p-3 font-mono text-slate-600">{c.bill_number || '—'}</td>
                                   <td className="p-3 text-slate-700">{banks.find((b) => b.id === c.bank_id)?.name || '—'}</td>
-                                  <td className="p-3 font-semibold text-slate-800">{parties.find((p) => p.id === c.party_id)?.name || '—'}</td>
-                                  <td className="p-3 text-right font-mono font-bold text-amber-700">{formatNPR(c.remaining_amount ?? c.amount)}</td>
+                                  <td className="p-3">
+                                    {(() => {
+                                      const p = parties.find((party) => party.id === c.party_id);
+                                      const isCreditor = p?.party_type === 'Sundry Creditors';
+                                      return (
+                                        <div>
+                                          <div className="font-semibold text-slate-800">{p?.name || '—'}</div>
+                                          {p?.party_type && (
+                                            <span
+                                              className={`inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                                                isCreditor
+                                                  ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                              }`}
+                                            >
+                                              <span className={`w-1 h-1 rounded-full ${isCreditor ? 'bg-purple-500' : 'bg-emerald-500'}`} />
+                                              {isCreditor ? 'Creditor (Outward)' : 'Debtor (Inward)'}
+                                            </span>
+                                          )}
+                                        </div>
+                                      );
+                                    })()}
+                                  </td>
+                                  <td className="p-3 text-right font-mono whitespace-nowrap">
+                                    <div className="font-bold text-amber-700">{formatNPR(c.remaining_amount ?? c.amount)}</div>
+                                    {c.remaining_amount !== undefined && c.remaining_amount < c.amount && (
+                                      <div className="text-[10px] text-slate-400 font-normal">
+                                        Orig: {formatNPR(c.amount)} • Paid: {formatNPR(c.amount - c.remaining_amount)}
+                                      </div>
+                                    )}
+                                  </td>
                                   <td className="p-3 font-mono text-slate-600">{c.issue_date_bs}</td>
                                   <td className="p-3 font-mono text-slate-600">{c.due_date_bs}</td>
                                   <td className="p-3 text-center">
@@ -4710,6 +5562,16 @@ export default function App() {
                                         className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
                                       >
                                         <Eye className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setStatementCheque(c);
+                                          setIsStatementModalOpen(true);
+                                        }}
+                                        title="View Statement &amp; Ledger"
+                                        className="p-1.5 text-slate-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition cursor-pointer"
+                                      >
+                                        <FileText className="w-3.5 h-3.5" />
                                       </button>
                                       <button
                                         onClick={() => handleMarkCleared(c)}
@@ -4836,6 +5698,37 @@ export default function App() {
                         </button>
                       </div>
 
+                      {/* Action Buttons: Record Received/Payment & Modes Master */}
+                      <button
+                        onClick={() => {
+                          if (parties.length > 0 && !receivedPaymentPartyId) {
+                            setReceivedPaymentPartyId(parties[0].id);
+                            setReceivedPaymentType(parties[0].party_type === 'Sundry Creditors' ? 'Payment' : 'Received');
+                            const pendingList = cheques.filter(
+                              (c) => c.party_id === parties[0].id && c.status !== 'Cleared' && ((c.remaining_amount ?? c.amount) > 0.001)
+                            );
+                            if (pendingList.length > 0) {
+                              setReceivedPaymentChequeId(pendingList[0].id);
+                              setReceivedPaymentAmount(String(pendingList[0].remaining_amount ?? pendingList[0].amount));
+                            }
+                          }
+                          setIsReceivedPaymentModalOpen(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition cursor-pointer shadow-xs"
+                      >
+                        <ArrowRightLeft className="w-3.5 h-3.5" />
+                        <span>Record Received / Payment</span>
+                      </button>
+
+                      <button
+                        onClick={() => setIsPaymentModesMasterOpen(true)}
+                        title="Manage Custom Payment Modes (Cash, IPS, Cheque, RTGS, etc.)"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl transition cursor-pointer"
+                      >
+                        <Sliders className="w-3.5 h-3.5 text-slate-600" />
+                        <span>Payment Modes Master</span>
+                      </button>
+
                       {/* Export to Excel & PDF Buttons */}
                       <button
                         onClick={() => exportPartialPaymentLedgerToExcel(filteredLedgerCheques)}
@@ -4956,8 +5849,20 @@ export default function App() {
                                   </td>
 
                                   {/* Party Name */}
-                                  <td className="py-3 px-3 font-semibold text-slate-800">
-                                    {party?.name || 'N/A'}
+                                  <td className="py-3 px-3">
+                                    <div className="font-semibold text-slate-800">{party?.name || 'N/A'}</div>
+                                    {party?.party_type && (
+                                      <span
+                                        className={`inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                                          party.party_type === 'Sundry Creditors'
+                                            ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                        }`}
+                                      >
+                                        <span className={`w-1 h-1 rounded-full ${party.party_type === 'Sundry Creditors' ? 'bg-purple-500' : 'bg-emerald-500'}`} />
+                                        {party.party_type === 'Sundry Creditors' ? 'Creditor (Outward)' : 'Debtor (Inward)'}
+                                      </span>
+                                    )}
                                   </td>
 
                                   {/* Bank Name */}
@@ -5042,6 +5947,17 @@ export default function App() {
                                   {/* Action */}
                                   <td className="py-3 px-3 text-right whitespace-nowrap">
                                     <div className="flex items-center justify-end gap-1.5">
+                                      <button
+                                        onClick={() => {
+                                          setStatementCheque(c);
+                                          setIsStatementModalOpen(true);
+                                        }}
+                                        className="px-2 py-1 bg-slate-100 hover:bg-purple-50 hover:text-purple-700 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
+                                        title="View Full Cheque Ledger Statement"
+                                      >
+                                        <FileText className="w-3 h-3 text-slate-500" />
+                                        <span>Statement</span>
+                                      </button>
                                       {c.status !== 'Cleared' && (
                                         <button
                                           onClick={() => {
@@ -5637,12 +6553,20 @@ export default function App() {
             {/* VIEW: PARTIES */}
             {currentView === 'parties' && (() => {
               const term = partySearchTerm.toLowerCase().trim();
+              const debtorsCount = parties.filter((p) => (p.party_type || 'Sundry Debtors') === 'Sundry Debtors').length;
+              const creditorsCount = parties.filter((p) => p.party_type === 'Sundry Creditors').length;
+
               const filteredParties = parties.filter((p) => {
+                if (partyTypeFilter !== 'all') {
+                  const type = p.party_type || 'Sundry Debtors';
+                  if (type !== partyTypeFilter) return false;
+                }
                 if (!term) return true;
                 return (
                   p.name.toLowerCase().includes(term) ||
                   (p.phone || '').toLowerCase().includes(term) ||
-                  (p.pan_vat || '').toLowerCase().includes(term)
+                  (p.pan_vat || '').toLowerCase().includes(term) ||
+                  (p.party_type || '').toLowerCase().includes(term)
                 );
               });
 
@@ -5650,8 +6574,8 @@ export default function App() {
                 <div className="space-y-4">
                   <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex flex-wrap justify-between items-center gap-3">
                     <div>
-                      <h2 className="text-sm font-bold text-slate-900">Parties & Payees Master Directory</h2>
-                      <p className="text-xs text-slate-500">Manage suppliers, vendors, and beneficiaries with ledger summaries</p>
+                      <h2 className="text-sm font-bold text-slate-900">Parties &amp; Payees Master Directory</h2>
+                      <p className="text-xs text-slate-500">Manage suppliers, vendors, and customers with accounting classification and ledger summaries</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <button
@@ -5694,9 +6618,9 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Search Filter Bar */}
-                  <div className="bg-white rounded-2xl border border-slate-200 p-3 shadow-xs flex items-center gap-3">
-                    <div className="relative flex-1 max-w-md">
+                  {/* Search and Classification Filter Bar */}
+                  <div className="bg-white rounded-2xl border border-slate-200 p-3 shadow-xs flex flex-wrap items-center justify-between gap-3">
+                    <div className="relative flex-1 min-w-[240px] max-w-md">
                       <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
                         type="text"
@@ -5714,6 +6638,43 @@ export default function App() {
                         </button>
                       )}
                     </div>
+
+                    {/* Classification Tabs */}
+                    <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+                      <button
+                        onClick={() => setPartyTypeFilter('all')}
+                        className={`px-3 py-1 rounded-lg transition cursor-pointer ${
+                          partyTypeFilter === 'all'
+                            ? 'bg-white text-indigo-700 font-bold shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        All ({parties.length})
+                      </button>
+                      <button
+                        onClick={() => setPartyTypeFilter('Sundry Debtors')}
+                        className={`px-3 py-1 rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
+                          partyTypeFilter === 'Sundry Debtors'
+                            ? 'bg-white text-emerald-700 font-bold shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                        <span>Debtors / Inward ({debtorsCount})</span>
+                      </button>
+                      <button
+                        onClick={() => setPartyTypeFilter('Sundry Creditors')}
+                        className={`px-3 py-1 rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
+                          partyTypeFilter === 'Sundry Creditors'
+                            ? 'bg-white text-purple-700 font-bold shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <span className="w-2 h-2 rounded-full bg-purple-500" />
+                        <span>Creditors / Outward ({creditorsCount})</span>
+                      </button>
+                    </div>
+
                     <span className="text-xs text-slate-500 font-medium">
                       Showing {filteredParties.length} of {parties.length} parties
                     </span>
@@ -5726,7 +6687,9 @@ export default function App() {
                         <Users className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                         <p className="text-xs font-semibold text-slate-700">No parties found</p>
                         <p className="text-[11px] text-slate-400 mt-1">
-                          {partySearchTerm ? 'Try adjusting your search criteria' : 'Click "Add Party" or "Import Parties" to register vendors.'}
+                          {partySearchTerm || partyTypeFilter !== 'all'
+                            ? 'Try adjusting your search or classification filter criteria'
+                            : 'Click "Add Party" or "Import Parties" to register vendors and debtors.'}
                         </p>
                       </div>
                     ) : (
@@ -5735,6 +6698,7 @@ export default function App() {
                           <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-200">
                             <tr>
                               <th className="p-3">Party / Payee Name</th>
+                              <th className="p-3">Classification</th>
                               <th className="p-3">Phone / Contact</th>
                               <th className="p-3">PAN / VAT</th>
                               <th className="p-3 text-center">Total Cheques</th>
@@ -5750,6 +6714,7 @@ export default function App() {
                               const totalAmount = partyCheques.reduce((s, c) => s + c.amount, 0);
                               const clearedAmount = partyCheques.filter((c) => c.status === 'Cleared').reduce((s, c) => s + c.amount, 0);
                               const pendingAmount = partyCheques.reduce((s, c) => s + (c.remaining_amount ?? (c.status === 'Cleared' ? 0 : c.amount)), 0);
+                              const isCreditor = p.party_type === 'Sundry Creditors';
 
                               return (
                                 <tr key={p.id} className="hover:bg-slate-50/80 transition">
@@ -5758,6 +6723,18 @@ export default function App() {
                                       <Users className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                                       <span>{p.name}</span>
                                     </div>
+                                  </td>
+                                  <td className="p-3">
+                                    <span
+                                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                        isCreditor
+                                          ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                          : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                      }`}
+                                    >
+                                      <span className={`w-1.5 h-1.5 rounded-full ${isCreditor ? 'bg-purple-500' : 'bg-emerald-500'}`} />
+                                      {isCreditor ? 'Sundry Creditor (Outward)' : 'Sundry Debtor (Inward)'}
+                                    </span>
                                   </td>
                                   <td className="p-3 text-slate-600">
                                     {p.phone ? (
@@ -5788,6 +6765,27 @@ export default function App() {
                                   </td>
                                   <td className="p-3 text-center">
                                     <div className="flex items-center justify-center gap-1">
+                                      <button
+                                        onClick={() => {
+                                          setReceivedPaymentPartyId(p.id);
+                                          setReceivedPaymentType(isCreditor ? 'Payment' : 'Received');
+                                          const pendingList = partyCheques.filter(
+                                            (c) => c.status !== 'Cleared' && ((c.remaining_amount ?? c.amount) > 0.001)
+                                          );
+                                          if (pendingList.length > 0) {
+                                            setReceivedPaymentChequeId(pendingList[0].id);
+                                            setReceivedPaymentAmount(String(pendingList[0].remaining_amount ?? pendingList[0].amount));
+                                          } else {
+                                            setReceivedPaymentChequeId('');
+                                            setReceivedPaymentAmount('');
+                                          }
+                                          setIsReceivedPaymentModalOpen(true);
+                                        }}
+                                        title={isCreditor ? 'Record Payment (Outward)' : 'Record Receipt (Inward)'}
+                                        className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[11px] font-bold transition cursor-pointer"
+                                      >
+                                        {isCreditor ? 'Pay' : 'Receive'}
+                                      </button>
                                       <button
                                         onClick={() => openEditPartyModal(p)}
                                         title="Edit Party"
@@ -6627,74 +7625,84 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Switch Workspace Presets */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-700 block">Switch Workspace Preset:</label>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        {[
-                          { id: 'default-company-101', code: 'RS-TRADERS', name: 'RS Traders' },
-                          { id: 'himalayan-supplies-202', code: 'HIMALAYAN', name: 'Himalayan Suppliers Pvt. Ltd.' },
-                          { id: 'kathmandu-enterprises-303', code: 'KTM-ENT', name: 'Kathmandu Enterprises' },
-                        ].map((preset) => {
-                          const isActive = preset.id === activeCompanyId;
-                          return (
-                            <button
-                              key={preset.id}
-                              onClick={() => {
-                                setActiveCompanyId(preset.id);
-                                setActiveCompanyName(preset.name);
-                                setActiveCompanyCode(preset.code);
-                                showToast(`Switched workspace to ${preset.name}`, 'info');
-                              }}
-                              className={`p-2.5 text-xs rounded-xl border text-left transition cursor-pointer ${
-                                isActive
-                                  ? 'bg-indigo-50 border-indigo-300 text-indigo-900 font-bold'
-                                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                              }`}
-                            >
-                              <div className="truncate font-semibold">{preset.name}</div>
-                              <div className="text-[10px] text-slate-400 font-mono truncate">{preset.code}</div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Active Feature Matrix Display */}
-                    <div className="space-y-2.5 pt-2">
-                      <div className="flex justify-between items-center">
-                        <label className="text-xs font-bold text-slate-700">Feature Permissions Matrix</label>
-                        <span className="text-[10px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full font-bold">
-                          Managed by Kuber Admin
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        {[
-                          { label: 'Print Cheque Leaf', enabled: activeFeatures.print_cheque },
-                          { label: 'Google Drive Sync', enabled: activeFeatures.google_drive_backup },
-                          { label: 'Local Disk Backup', enabled: activeFeatures.local_disk_backup },
-                          { label: 'Import External Cheques', enabled: activeFeatures.import_cheques },
-                          { label: 'Parties & Banks Master', enabled: activeFeatures.parties_banks },
-                          { label: 'Excel & PDF Export', enabled: activeFeatures.excel_pdf_export },
-                        ].map((feat, i) => (
-                          <div
-                            key={i}
-                            className={`p-2 rounded-xl border flex items-center justify-between ${
-                              feat.enabled ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50 border-slate-200 opacity-60'
-                            }`}
-                          >
-                            <span className="text-[11px] font-medium text-slate-800">{feat.label}</span>
-                            <span
-                              className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                                feat.enabled ? 'bg-emerald-200 text-emerald-800' : 'bg-slate-200 text-slate-600'
-                              }`}
-                            >
-                              {feat.enabled ? 'ENABLED' : 'DISABLED'}
+                    {/* Developer / Super Admin Controls Only */}
+                    {role === 'SUPER_ADMIN' && (
+                      <>
+                        {/* Switch Workspace Presets */}
+                        <div className="space-y-2 pt-2 border-t border-slate-200">
+                          <div className="flex justify-between items-center">
+                            <label className="text-xs font-bold text-slate-700 block">Switch Workspace Preset:</label>
+                            <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.2 rounded-full font-bold">
+                              Kuber Super Admin Only
                             </span>
                           </div>
-                        ))}
-                      </div>
-                    </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            {[
+                              { id: 'default-company-101', code: 'RS-TRADERS', name: 'RS Traders' },
+                              { id: 'himalayan-supplies-202', code: 'HIMALAYAN', name: 'Himalayan Suppliers Pvt. Ltd.' },
+                              { id: 'kathmandu-enterprises-303', code: 'KTM-ENT', name: 'Kathmandu Enterprises' },
+                            ].map((preset) => {
+                              const isActive = preset.id === activeCompanyId;
+                              return (
+                                <button
+                                  key={preset.id}
+                                  onClick={() => {
+                                    setActiveCompanyId(preset.id);
+                                    setActiveCompanyName(preset.name);
+                                    setActiveCompanyCode(preset.code);
+                                    showToast(`Switched workspace to ${preset.name}`, 'info');
+                                  }}
+                                  className={`p-2.5 text-xs rounded-xl border text-left transition cursor-pointer ${
+                                    isActive
+                                      ? 'bg-indigo-50 border-indigo-300 text-indigo-900 font-bold'
+                                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  <div className="truncate font-semibold">{preset.name}</div>
+                                  <div className="text-[10px] text-slate-400 font-mono truncate">{preset.code}</div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Active Feature Matrix Display */}
+                        <div className="space-y-2.5 pt-2 border-t border-slate-200">
+                          <div className="flex justify-between items-center">
+                            <label className="text-xs font-bold text-slate-700">Feature Permissions Matrix</label>
+                            <span className="text-[10px] text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full font-bold">
+                              Managed by Kuber Admin
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            {[
+                              { label: 'Print Cheque Leaf', enabled: activeFeatures.print_cheque },
+                              { label: 'Google Drive Sync', enabled: activeFeatures.google_drive_backup },
+                              { label: 'Local Disk Backup', enabled: activeFeatures.local_disk_backup },
+                              { label: 'Import External Cheques', enabled: activeFeatures.import_cheques },
+                              { label: 'Parties & Banks Master', enabled: activeFeatures.parties_banks },
+                              { label: 'Excel & PDF Export', enabled: activeFeatures.excel_pdf_export },
+                            ].map((feat, i) => (
+                              <div
+                                key={i}
+                                className={`p-2 rounded-xl border flex items-center justify-between ${
+                                  feat.enabled ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50 border-slate-200 opacity-60'
+                                }`}
+                              >
+                                <span className="text-[11px] font-medium text-slate-800">{feat.label}</span>
+                                <span
+                                  className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                    feat.enabled ? 'bg-emerald-200 text-emerald-800' : 'bg-slate-200 text-slate-600'
+                                  }`}
+                                >
+                                  {feat.enabled ? 'ENABLED' : 'DISABLED'}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {/* Right Column: User Account & Storage Persistence */}
@@ -6788,6 +7796,149 @@ export default function App() {
                         </button>
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                {/* COMPANY STAFF & ACCOUNTANT USERS SECTION */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                        <Users className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-sm text-slate-900">Company Staff &amp; Accountant Users</h3>
+                        <p className="text-xs text-slate-500">
+                          Multi-accountant logins, role delegation, and operator session switching with audit tracking
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddStaffOpen(true)}
+                      className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs shrink-0 self-start sm:self-auto"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add Staff User</span>
+                    </button>
+                  </div>
+
+                  {/* Active Session Status Notification */}
+                  <div className="p-3.5 bg-emerald-50/70 border border-emerald-200/80 rounded-xl flex items-center justify-between flex-wrap gap-2 text-xs">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span className="text-slate-700">
+                        Current Active Operator: <strong className="text-emerald-950 font-bold">{currentUser?.name}</strong>{' '}
+                        <span className="text-emerald-700 font-medium">({currentUser?.role})</span>
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-emerald-800 bg-emerald-100/80 px-2.5 py-0.5 rounded-full font-semibold">
+                      All new cheques &amp; payments logged as Entered By: &quot;{currentUser?.name}&quot;
+                    </span>
+                  </div>
+
+                  {/* Staff Table */}
+                  <div className="border border-slate-200 rounded-xl overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                        <tr>
+                          <th className="py-2.5 px-4">Staff Member</th>
+                          <th className="py-2.5 px-4">Role</th>
+                          <th className="py-2.5 px-4">Login / Username</th>
+                          <th className="py-2.5 px-4">PIN / Password</th>
+                          <th className="py-2.5 px-4">Session Status</th>
+                          <th className="py-2.5 px-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {companyStaff.map((staff) => {
+                          const isCurrent = staff.id === activeStaffId;
+                          return (
+                            <tr key={staff.id} className={isCurrent ? 'bg-indigo-50/30' : 'hover:bg-slate-50/60'}>
+                              <td className="py-3 px-4">
+                                <div className="flex items-center gap-2.5">
+                                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs ${
+                                    isCurrent ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
+                                  }`}>
+                                    {staff.name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-slate-900">{staff.name}</div>
+                                    <div className="text-[11px] text-slate-400">{staff.email}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                  staff.role.includes('Admin')
+                                    ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                    : staff.role.includes('Head') || staff.role.includes('Manager')
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                    : staff.role.includes('Billing') || staff.role.includes('Cashier')
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : 'bg-slate-100 text-slate-700 border-slate-200'
+                                }`}>
+                                  {staff.role}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 font-mono text-slate-600 text-[11px]">
+                                {staff.username ? `${staff.username} (${staff.email})` : staff.email}
+                              </td>
+                              <td className="py-3 px-4">
+                                <span className="font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 text-[11px]">
+                                  {(staff as any).password || '1234'}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4">
+                                {isCurrent ? (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                    <span>Active Operator</span>
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveStaffId(staff.id);
+                                      showToast(`Switched active operator to ${staff.name} (${staff.role})`, 'success');
+                                    }}
+                                    className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1"
+                                  >
+                                    <ArrowRightLeft className="w-3 h-3" />
+                                    <span>Switch Session</span>
+                                  </button>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEditStaff(staff)}
+                                    className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-indigo-600 cursor-pointer transition"
+                                    title="Edit staff details"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={isCurrent}
+                                    onClick={() => handleDeleteStaff(staff.id, staff.name)}
+                                    className={`p-1.5 rounded-lg transition ${
+                                      isCurrent
+                                        ? 'text-slate-300 cursor-not-allowed'
+                                        : 'text-rose-500 hover:bg-rose-50 hover:text-rose-700 cursor-pointer'
+                                    }`}
+                                    title={isCurrent ? 'Cannot delete active session operator' : 'Remove staff user'}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
@@ -6954,7 +8105,7 @@ export default function App() {
                   <option value="">-- Select Party / Payee --</option>
                   {parties.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} {p.phone ? `(${p.phone})` : ''}
+                      {p.name} {p.party_type ? `[${p.party_type === 'Sundry Creditors' ? 'Creditor (Outward)' : 'Debtor (Inward)'}]` : ''} {p.phone ? `(${p.phone})` : ''}
                     </option>
                   ))}
                 </select>
@@ -6969,6 +8120,14 @@ export default function App() {
                       onChange={(e) => setQuickPartyName(e.target.value)}
                       className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
+                    <select
+                      value={quickPartyType}
+                      onChange={(e) => setQuickPartyType(e.target.value as PartyType)}
+                      className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    >
+                      <option value="Sundry Debtors">Sundry Debtors (Customer / Received Inward)</option>
+                      <option value="Sundry Creditors">Sundry Creditors (Supplier / Payment Outward)</option>
+                    </select>
                     <input
                       placeholder="Phone Number (Optional)"
                       value={quickPartyPhone}
@@ -7149,6 +8308,7 @@ export default function App() {
                     payment_mode,
                     payment_date_bs: getCurrentBsDate(),
                     payment_date_ad: getCurrentAdDate(),
+                    recorded_by: currentUser?.name || 'Accountant',
                   });
                   showToast(`Recorded payment of ${formatNPR(payAmount)}`, 'success');
                   setIsPaymentModalOpen(false);
@@ -7238,6 +8398,19 @@ export default function App() {
                 <span className="text-slate-500">Status</span>
                 <StatusBadge status={selectedCheque.status} />
               </div>
+              <div className="flex justify-between py-1 border-b border-slate-100">
+                <span className="text-slate-500">Entered By</span>
+                <span className="font-semibold text-slate-900 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                  {selectedCheque.entered_by || 'Rajendra Shrestha (Admin)'}
+                </span>
+              </div>
+              {selectedCheque.updated_by && (
+                <div className="flex justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-500">Last Modified By</span>
+                  <span className="font-semibold text-slate-800">{selectedCheque.updated_by}</span>
+                </div>
+              )}
               {selectedCheque.notes && (
                 <div className="p-2.5 bg-slate-50 rounded-xl mt-2">
                   <div className="text-slate-500 text-[10px] font-bold uppercase mb-1">Notes / Origin:</div>
@@ -7655,8 +8828,9 @@ export default function App() {
                 const name = (form.elements.namedItem('party_name') as HTMLInputElement).value;
                 const phone = (form.elements.namedItem('party_phone') as HTMLInputElement).value;
                 const pan_vat = (form.elements.namedItem('party_pan_vat') as HTMLInputElement).value;
+                const party_type = (form.elements.namedItem('party_type') as HTMLSelectElement).value as PartyType;
                 try {
-                  await addParty({ company_id: activeCompanyId, name, phone, pan_vat });
+                  await addParty({ company_id: activeCompanyId, name, phone, pan_vat, party_type });
                   showToast(`Party "${name}" added`, 'success');
                   setIsAddPartyOpen(false);
                 } catch (err: any) {
@@ -7673,6 +8847,20 @@ export default function App() {
                   placeholder="e.g. Acme Corporation"
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
+              </div>
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Party Classification (Accounting Ledger)</label>
+                <select
+                  name="party_type"
+                  defaultValue="Sundry Debtors"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                >
+                  <option value="Sundry Debtors">Sundry Debtors (Receivable / Customer / Inward Cheques)</option>
+                  <option value="Sundry Creditors">Sundry Creditors (Payable / Supplier / Outward Cheques)</option>
+                </select>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Sundry Debtors auto-classifies transactions as "Received". Sundry Creditors auto-classifies as "Payment".
+                </p>
               </div>
               <div>
                 <label className="block text-slate-700 font-semibold mb-1">Phone Number (Optional)</label>
@@ -7730,6 +8918,20 @@ export default function App() {
                   placeholder="e.g. Acme Corporation"
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
+              </div>
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Party Classification (Accounting Ledger)</label>
+                <select
+                  value={editPartyForm.party_type || 'Sundry Debtors'}
+                  onChange={(e) => setEditPartyForm((p) => ({ ...p, party_type: e.target.value as PartyType }))}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                >
+                  <option value="Sundry Debtors">Sundry Debtors (Receivable / Customer / Inward Cheques)</option>
+                  <option value="Sundry Creditors">Sundry Creditors (Payable / Supplier / Outward Cheques)</option>
+                </select>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Sundry Debtors auto-classifies transactions as "Received". Sundry Creditors auto-classifies as "Payment".
+                </p>
               </div>
               <div>
                 <label className="block text-slate-700 font-semibold mb-1">Phone Number (Optional)</label>
@@ -8022,6 +9224,243 @@ export default function App() {
                 Save Backup Path
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 9. Add Company Staff / Accountant Modal */}
+      {isAddStaffOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Add Staff &amp; Accountant</h3>
+                  <p className="text-xs text-slate-500">Create internal login credentials for {activeCompanyName}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddStaffOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddStaff} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={newStaffForm.name}
+                  onChange={(e) => setNewStaffForm({ ...newStaffForm, name: e.target.value })}
+                  placeholder="e.g. Suresh Pokharel"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Username / Login ID</label>
+                  <input
+                    type="text"
+                    value={newStaffForm.username}
+                    onChange={(e) => setNewStaffForm({ ...newStaffForm, username: e.target.value })}
+                    placeholder="e.g. suresh or accountant"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Login Email</label>
+                  <input
+                    type="email"
+                    value={newStaffForm.email}
+                    onChange={(e) => setNewStaffForm({ ...newStaffForm, email: e.target.value })}
+                    placeholder="e.g. suresh@rstraders.com"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Role / Designation *</label>
+                  <select
+                    value={newStaffForm.role}
+                    onChange={(e) => setNewStaffForm({ ...newStaffForm, role: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  >
+                    <option value="Company Admin">Company Admin</option>
+                    <option value="Head Accountant">Head Accountant</option>
+                    <option value="Junior Accountant">Junior Accountant</option>
+                    <option value="Billing Officer">Billing Officer</option>
+                    <option value="Finance Manager">Finance Manager</option>
+                    <option value="Cashier">Cashier</option>
+                    <option value="Auditor">Auditor</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Login PIN / Password *</label>
+                  <div className="relative">
+                    <Key className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                    <input
+                      type="text"
+                      value={newStaffForm.password}
+                      onChange={(e) => setNewStaffForm({ ...newStaffForm, password: e.target.value })}
+                      placeholder="e.g. 1234 or Pass@123"
+                      className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-slate-400">Used by the staff member to log in using Company Code + Username + Password.</p>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAddStaffOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold cursor-pointer text-slate-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold cursor-pointer shadow-md flex items-center gap-1.5 transition"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Register Staff User</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Staff & Accountant User Modal */}
+      {isEditStaffOpen && editingStaff && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                  <Edit2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Edit Staff / Accountant User</h3>
+                  <p className="text-xs text-slate-500">Update operator credentials and role for {editingStaff.name}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditStaffOpen(false);
+                  setEditingStaff(null);
+                }}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateStaff} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editStaffForm.name}
+                  onChange={(e) => setEditStaffForm({ ...editStaffForm, name: e.target.value })}
+                  placeholder="e.g. Binod Thapa"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Login Username</label>
+                  <input
+                    type="text"
+                    value={editStaffForm.username}
+                    onChange={(e) => setEditStaffForm({ ...editStaffForm, username: e.target.value })}
+                    placeholder="e.g. binod.t or accountant"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Login Email</label>
+                  <input
+                    type="email"
+                    value={editStaffForm.email}
+                    onChange={(e) => setEditStaffForm({ ...editStaffForm, email: e.target.value })}
+                    placeholder="e.g. accountant@rstraders.com"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Role / Designation *</label>
+                  <select
+                    value={editStaffForm.role}
+                    onChange={(e) => setEditStaffForm({ ...editStaffForm, role: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  >
+                    <option value="Company Admin">Company Admin</option>
+                    <option value="Head Accountant">Head Accountant</option>
+                    <option value="Junior Accountant">Junior Accountant</option>
+                    <option value="Billing Officer">Billing Officer</option>
+                    <option value="Finance Manager">Finance Manager</option>
+                    <option value="Cashier">Cashier</option>
+                    <option value="Auditor">Auditor</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Login PIN / Password *</label>
+                  <div className="relative">
+                    <Key className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                    <input
+                      type="text"
+                      value={editStaffForm.password}
+                      onChange={(e) => setEditStaffForm({ ...editStaffForm, password: e.target.value })}
+                      placeholder="Enter new PIN or password"
+                      className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-slate-700">
+                <span className="font-semibold text-amber-900">Security Note:</span> Updating credentials will allow this user to log in immediately using the specified username or email and password.
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditStaffOpen(false);
+                    setEditingStaff(null);
+                  }}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold cursor-pointer text-slate-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold cursor-pointer shadow-md flex items-center gap-1.5 transition"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Save Changes</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

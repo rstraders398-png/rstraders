@@ -19,6 +19,7 @@ import {
   Cheque,
   ChequeStatus,
   Party,
+  PartyType,
   PaymentLog,
   PaymentMode,
   CreateChequeInput,
@@ -401,6 +402,7 @@ export interface AddPartyInput {
   name: string;
   phone?: string;
   pan_vat?: string;
+  party_type?: PartyType;
   company_id?: string;
 }
 
@@ -413,11 +415,13 @@ export async function addParty(
   let finalName = '';
   let finalPhone = '';
   let finalPanVat = '';
+  let finalPartyType: PartyType = 'Sundry Debtors';
 
   if (typeof companyIdOrNameOrInput === 'object' && companyIdOrNameOrInput !== null) {
     finalName = companyIdOrNameOrInput.name || '';
     finalPhone = companyIdOrNameOrInput.phone || '';
     finalPanVat = companyIdOrNameOrInput.pan_vat || '';
+    finalPartyType = companyIdOrNameOrInput.party_type || 'Sundry Debtors';
     finalCompanyId = companyIdOrNameOrInput.company_id || getCurrentUserCompanyId();
   } else if (typeof companyIdOrNameOrInput === 'string' && nameOrPhone !== undefined && phoneArg !== undefined) {
     finalCompanyId = companyIdOrNameOrInput || getCurrentUserCompanyId();
@@ -454,6 +458,7 @@ export async function addParty(
     name: finalName.trim(),
     phone: (finalPhone || '').trim(),
     pan_vat: (finalPanVat || '').trim(),
+    party_type: finalPartyType,
     created_at: new Date().toISOString(),
   };
 
@@ -467,6 +472,7 @@ export async function addParty(
         name: party.name,
         phone: party.phone,
         pan_vat: party.pan_vat,
+        party_type: party.party_type,
         created_at: party.created_at,
       });
     } catch (err) {
@@ -490,12 +496,25 @@ export async function addParty(
   return newId;
 }
 
-export async function updateParty(id: string, name: string, phone: string = '') {
+export async function updateParty(
+  id: string,
+  name: string,
+  phone: string = '',
+  pan_vat: string = '',
+  party_type?: PartyType
+) {
   const isOnline = syncManager.getEffectiveOnline();
   const parties = await getLocalParties(activeCompanyId);
   const found = parties.find((p) => p.id === id);
+  const resolvedPartyType = party_type || found?.party_type || 'Sundry Debtors';
   if (found) {
-    await saveLocalParty({ ...found, name: name.trim(), phone: phone.trim() }, !isOnline);
+    await saveLocalParty({
+      ...found,
+      name: name.trim(),
+      phone: phone.trim(),
+      pan_vat: pan_vat.trim(),
+      party_type: resolvedPartyType,
+    }, !isOnline);
   }
 
   if (isOnline) {
@@ -504,12 +523,14 @@ export async function updateParty(id: string, name: string, phone: string = '') 
       await updateDoc(partyRef, {
         name: name.trim(),
         phone: phone.trim(),
+        pan_vat: pan_vat.trim(),
+        party_type: resolvedPartyType,
       });
     } catch (err) {
       await enqueueSyncItem({
         entity_type: 'parties',
         operation: 'update',
-        data: { id, name: name.trim(), phone: phone.trim() },
+        data: { id, name: name.trim(), phone: phone.trim(), pan_vat: pan_vat.trim(), party_type: resolvedPartyType },
         company_id: activeCompanyId,
       });
     }
@@ -517,7 +538,7 @@ export async function updateParty(id: string, name: string, phone: string = '') 
     await enqueueSyncItem({
       entity_type: 'parties',
       operation: 'update',
-      data: { id, name: name.trim(), phone: phone.trim() },
+      data: { id, name: name.trim(), phone: phone.trim(), pan_vat: pan_vat.trim(), party_type: resolvedPartyType },
       company_id: activeCompanyId,
     });
   }
@@ -666,6 +687,7 @@ export async function createCheque(input: CreateChequeInput): Promise<string> {
     due_date_ad: input.due_date_ad,
     status: input.status || 'Pending',
     notes: (input.notes || '').trim(),
+    entered_by: input.entered_by || undefined,
     created_at: new Date().toISOString(),
   };
 
@@ -689,6 +711,7 @@ export async function createCheque(input: CreateChequeInput): Promise<string> {
         due_date_ad: cheque.due_date_ad,
         status: cheque.status,
         notes: cheque.notes,
+        entered_by: cheque.entered_by || null,
         created_at: cheque.created_at,
       });
     } catch (err) {
@@ -869,11 +892,14 @@ export async function recordPayment(
       id: logId,
       cheque_id: input.cheque_id,
       company_id: input.company_id,
+      party_id: input.party_id || matchedCheque.party_id || undefined,
       amount: input.amount,
       payment_mode: input.payment_mode,
+      payment_type: input.payment_type || 'Received',
       payment_date_bs: input.payment_date_bs,
       payment_date_ad: input.payment_date_ad,
       notes: (input.notes || '').trim(),
+      recorded_by: input.recorded_by || 'Staff',
       created_at: new Date().toISOString(),
     };
     await saveLocalPaymentLog(newLog, !isOnline);
@@ -913,11 +939,14 @@ export async function recordPayment(
         transaction.set(logRef, {
           cheque_id: input.cheque_id,
           company_id: input.company_id,
+          party_id: input.party_id || chequeData.party_id || null,
           amount: input.amount,
           payment_mode: input.payment_mode,
+          payment_type: input.payment_type || 'Received',
           payment_date_bs: input.payment_date_bs,
           payment_date_ad: input.payment_date_ad,
           notes: (input.notes || '').trim(),
+          recorded_by: input.recorded_by || 'Staff',
           created_at: new Date().toISOString(),
         });
 
