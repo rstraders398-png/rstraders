@@ -5,6 +5,7 @@ export interface Party {
   company_id: string;
   name: string;
   phone?: string;
+  address?: string;
   pan_vat?: string;
   email?: string;
   party_type?: PartyType;
@@ -150,6 +151,7 @@ export interface BackupConfig {
   backupOnExit: boolean;
   autoEmailBackup: boolean;
   emailRecipient: string;
+  emailRecipients?: string[];
   emailFrequency: 'daily' | 'weekly' | 'on_sync';
   cloudSnapshotEnabled: boolean;
   encryptionEnabled: boolean;
@@ -177,6 +179,7 @@ export interface Company {
   owner_name?: string;
   contact_phone?: string;
   contact_email?: string;
+  backup_emails?: string[];
   subscription_plan?: SubscriptionPlan;
   subscription_status?: SubscriptionStatus;
   expiry_date_bs?: string;

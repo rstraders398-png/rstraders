@@ -401,6 +401,7 @@ export function subscribeToAllPaymentLogs(
 export interface AddPartyInput {
   name: string;
   phone?: string;
+  address?: string;
   pan_vat?: string;
   party_type?: PartyType;
   company_id?: string;
@@ -414,12 +415,14 @@ export async function addParty(
   let finalCompanyId = '';
   let finalName = '';
   let finalPhone = '';
+  let finalAddress = '';
   let finalPanVat = '';
   let finalPartyType: PartyType = 'Sundry Debtors';
 
   if (typeof companyIdOrNameOrInput === 'object' && companyIdOrNameOrInput !== null) {
     finalName = companyIdOrNameOrInput.name || '';
     finalPhone = companyIdOrNameOrInput.phone || '';
+    finalAddress = companyIdOrNameOrInput.address || '';
     finalPanVat = companyIdOrNameOrInput.pan_vat || '';
     finalPartyType = companyIdOrNameOrInput.party_type || 'Sundry Debtors';
     finalCompanyId = companyIdOrNameOrInput.company_id || getCurrentUserCompanyId();
@@ -457,6 +460,7 @@ export async function addParty(
     company_id: finalCompanyId.trim(),
     name: finalName.trim(),
     phone: (finalPhone || '').trim(),
+    address: (finalAddress || '').trim(),
     pan_vat: (finalPanVat || '').trim(),
     party_type: finalPartyType,
     created_at: new Date().toISOString(),
@@ -501,17 +505,20 @@ export async function updateParty(
   name: string,
   phone: string = '',
   pan_vat: string = '',
-  party_type?: PartyType
+  party_type?: PartyType,
+  address?: string
 ) {
   const isOnline = syncManager.getEffectiveOnline();
   const parties = await getLocalParties(activeCompanyId);
   const found = parties.find((p) => p.id === id);
   const resolvedPartyType = party_type || found?.party_type || 'Sundry Debtors';
+  const resolvedAddress = address !== undefined ? address.trim() : (found?.address || '');
   if (found) {
     await saveLocalParty({
       ...found,
       name: name.trim(),
       phone: phone.trim(),
+      address: resolvedAddress,
       pan_vat: pan_vat.trim(),
       party_type: resolvedPartyType,
     }, !isOnline);
@@ -523,6 +530,7 @@ export async function updateParty(
       await updateDoc(partyRef, {
         name: name.trim(),
         phone: phone.trim(),
+        address: resolvedAddress,
         pan_vat: pan_vat.trim(),
         party_type: resolvedPartyType,
       });
@@ -530,7 +538,7 @@ export async function updateParty(
       await enqueueSyncItem({
         entity_type: 'parties',
         operation: 'update',
-        data: { id, name: name.trim(), phone: phone.trim(), pan_vat: pan_vat.trim(), party_type: resolvedPartyType },
+        data: { id, name: name.trim(), phone: phone.trim(), address: resolvedAddress, pan_vat: pan_vat.trim(), party_type: resolvedPartyType },
         company_id: activeCompanyId,
       });
     }
@@ -538,7 +546,7 @@ export async function updateParty(
     await enqueueSyncItem({
       entity_type: 'parties',
       operation: 'update',
-      data: { id, name: name.trim(), phone: phone.trim(), pan_vat: pan_vat.trim(), party_type: resolvedPartyType },
+      data: { id, name: name.trim(), phone: phone.trim(), address: resolvedAddress, pan_vat: pan_vat.trim(), party_type: resolvedPartyType },
       company_id: activeCompanyId,
     });
   }

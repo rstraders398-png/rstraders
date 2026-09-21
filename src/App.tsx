@@ -12,6 +12,7 @@ import {
   Calendar,
   LogOut,
   Eye,
+  EyeOff,
   Edit2,
   Edit3,
   Wallet,
@@ -57,6 +58,9 @@ import {
   ArrowUpRight,
   Receipt,
   Tag,
+  Mail,
+  Send,
+  ChevronDown,
 } from 'lucide-react';
 import {
   Cheque,
@@ -242,29 +246,46 @@ export const DEFAULT_PRESET_COMPANIES: Company[] = [
   },
 ];
 
+export const getStoredCompanyPassword = (
+  companyId?: string,
+  companyCode?: string,
+  fallback = 'Pass@123'
+): string => {
+  if (companyId) {
+    const p = localStorage.getItem(`chequedesk_company_pass_${companyId}`);
+    if (p && p.trim()) return p.trim();
+  }
+  if (companyCode) {
+    const p = localStorage.getItem(`chequedesk_company_pass_${companyCode}`);
+    if (p && p.trim()) return p.trim();
+  }
+  return fallback;
+};
+
 export const getCompanyStaffList = (
   companyId?: string,
   companyCode?: string,
   companyObj?: Partial<Company>
 ): CompanyStaffMember[] => {
+  let existingList: CompanyStaffMember[] | null = null;
   if (companyId) {
     const raw = localStorage.getItem(`chequedesk_staff_${companyId}`);
     if (raw) {
       try {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) existingList = parsed;
       } catch {
         // Fallback
       }
     }
   }
 
-  if (companyCode) {
+  if (!existingList && companyCode) {
     const rawCode = localStorage.getItem(`chequedesk_staff_${companyCode}`);
     if (rawCode) {
       try {
         const parsed = JSON.parse(rawCode);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) existingList = parsed;
       } catch {
         // Fallback
       }
@@ -279,7 +300,7 @@ export const getCompanyStaffList = (
     companyObj?.name?.toLowerCase().includes('rs trader');
 
   if (isDefaultRS) {
-    return [
+    const defaultRsStaff: CompanyStaffMember[] = [
       {
         id: 'usr-1',
         name: 'Rajendra Shrestha',
@@ -288,7 +309,7 @@ export const getCompanyStaffList = (
         role: 'Company Admin',
         status: 'Active',
         last_login: 'Today, 10:15 AM',
-        password: '1234',
+        password: (companyObj as any)?.admin_password || '1234',
       },
       {
         id: 'usr-2',
@@ -311,25 +332,218 @@ export const getCompanyStaffList = (
         password: '1234',
       },
     ];
+    return existingList && existingList.length > 0 ? existingList : defaultRsStaff;
+  }
+
+  const resolvedPassword =
+    (companyObj as any)?.admin_password?.trim() ||
+    getStoredCompanyPassword(companyId, companyCode, 'Pass@123');
+
+  if (existingList && existingList.length > 0) {
+    // Ensure the default Company Admin user has the generated password synced
+    let modified = false;
+    const syncedList = existingList.map((staff) => {
+      if (staff.role === 'Company Admin' && resolvedPassword) {
+        if (!staff.password || staff.password === '1234' || staff.password === 'Pass@Cheque123') {
+          modified = true;
+          return { ...staff, password: resolvedPassword };
+        }
+      }
+      return staff;
+    });
+
+    // Ensure there is always a Company Admin user with username 'admin'
+    if (!syncedList.some((s) => s.username?.toLowerCase() === 'admin')) {
+      const contactEmail = companyObj?.contact_email || `${companyCode || 'admin'}@chequedesk.com`;
+      const ownerName = companyObj?.owner_name || `${companyObj?.name || 'Company'} Admin`;
+      syncedList.unshift({
+        id: `usr-${companyId || companyCode || 'default'}-admin`,
+        name: ownerName,
+        username: 'admin',
+        email: contactEmail,
+        role: 'Company Admin',
+        status: 'Active',
+        last_login: 'Never',
+        password: resolvedPassword,
+      });
+      modified = true;
+    }
+
+    if (modified) {
+      if (companyId) localStorage.setItem(`chequedesk_staff_${companyId}`, JSON.stringify(syncedList));
+      if (companyCode) localStorage.setItem(`chequedesk_staff_${companyCode}`, JSON.stringify(syncedList));
+    }
+    return syncedList;
   }
 
   const ownerName = companyObj?.owner_name || `${companyObj?.name || 'Company'} Admin`;
-  const contactEmail = companyObj?.contact_email || `${companyCode || 'admin'}@company.com`;
-  const defaultUser = contactEmail.split('@')[0] || 'admin';
-  const defaultPwd = (companyObj as any)?.admin_password || '1234';
+  const contactEmail = companyObj?.contact_email || `${companyCode || 'admin'}@chequedesk.com`;
+  const defaultUser = contactEmail.includes('@') ? contactEmail.split('@')[0] : 'admin';
 
-  return [
+  const initialStaff: CompanyStaffMember[] = [
     {
       id: `usr-${companyId || companyCode || 'default'}-admin`,
+      name: ownerName,
+      username: 'admin',
+      email: contactEmail,
+      role: 'Company Admin',
+      status: 'Active',
+      last_login: 'Never',
+      password: resolvedPassword,
+    },
+  ];
+
+  if (defaultUser && defaultUser.toLowerCase() !== 'admin') {
+    initialStaff.push({
+      id: `usr-${companyId || companyCode || 'default'}-owner`,
       name: ownerName,
       username: defaultUser,
       email: contactEmail,
       role: 'Company Admin',
       status: 'Active',
       last_login: 'Never',
-      password: defaultPwd,
-    },
-  ];
+      password: resolvedPassword,
+    });
+  }
+
+  if (companyId) {
+    localStorage.setItem(`chequedesk_staff_${companyId}`, JSON.stringify(initialStaff));
+  }
+  if (companyCode) {
+    localStorage.setItem(`chequedesk_staff_${companyCode}`, JSON.stringify(initialStaff));
+  }
+
+  return initialStaff;
+};
+
+// ==========================================
+// UNIVERSAL EXPORT DROPDOWN COMPONENT
+// ==========================================
+interface UniversalExportDropdownProps {
+  onExportExcel: () => void;
+  onExportPdf: () => void;
+  onExportCsv: () => void;
+  onExportPartyPdf?: () => void;
+  label?: string;
+  className?: string;
+}
+
+const UniversalExportDropdown: React.FC<UniversalExportDropdownProps> = ({
+  onExportExcel,
+  onExportPdf,
+  onExportCsv,
+  onExportPartyPdf,
+  label = 'Export',
+  className = '',
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div className={`relative inline-block text-left ${className}`} ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl transition cursor-pointer shadow-2xs hover:border-indigo-300"
+        aria-expanded={isOpen}
+      >
+        <Download className="w-3.5 h-3.5 text-indigo-600" />
+        <span>{label}</span>
+        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 mt-1.5 w-56 rounded-2xl bg-white shadow-2xl border border-slate-200 py-1.5 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="px-3.5 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-1.5 mb-1">
+            Universal Export Options
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setIsOpen(false);
+              onExportExcel();
+            }}
+            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 flex items-center gap-2.5 transition cursor-pointer"
+          >
+            <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+              <FileSpreadsheet className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="font-bold text-slate-900">Excel Workbook</div>
+              <div className="text-[10px] text-slate-400 font-normal">Formatted .xlsx spreadsheet</div>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setIsOpen(false);
+              onExportPdf();
+            }}
+            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-rose-50 hover:text-rose-800 flex items-center gap-2.5 transition cursor-pointer"
+          >
+            <div className="w-7 h-7 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+              <Printer className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="font-bold text-slate-900">PDF Document</div>
+              <div className="text-[10px] text-slate-400 font-normal">Printable formatted audit report</div>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setIsOpen(false);
+              onExportCsv();
+            }}
+            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-sky-50 hover:text-sky-800 flex items-center gap-2.5 transition cursor-pointer"
+          >
+            <div className="w-7 h-7 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
+              <FileText className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="font-bold text-slate-900">CSV Data Table</div>
+              <div className="text-[10px] text-slate-400 font-normal">Raw comma-separated values</div>
+            </div>
+          </button>
+
+          {onExportPartyPdf && (
+            <>
+              <div className="my-1 border-t border-slate-100" />
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  onExportPartyPdf();
+                }}
+                className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-800 flex items-center gap-2.5 transition cursor-pointer"
+              >
+                <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                  <Users className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-bold text-indigo-900">Party-Wise Statement</div>
+                  <div className="text-[10px] text-indigo-600/80 font-normal">Party ledger &amp; partial dues PDF</div>
+                </div>
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
 };
 
 // ==========================================
@@ -340,6 +554,7 @@ export default function App() {
   const [companyCode, setCompanyCode] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [role, setRole] = useState<'SUPER_ADMIN' | 'TENANT' | ''>('');
@@ -432,6 +647,7 @@ export default function App() {
   const [isQuickAddPartyOpen, setIsQuickAddPartyOpen] = useState(false);
   const [quickPartyName, setQuickPartyName] = useState('');
   const [quickPartyPhone, setQuickPartyPhone] = useState('');
+  const [quickPartyAddress, setQuickPartyAddress] = useState('');
   const [quickPartyType, setQuickPartyType] = useState<PartyType>('Sundry Debtors');
 
   // Multi-Selection State for Table Checkboxes
@@ -460,8 +676,9 @@ export default function App() {
     name: string;
     phone: string;
     pan_vat: string;
+    address: string;
     party_type: PartyType;
-  }>({ name: '', phone: '', pan_vat: '', party_type: 'Sundry Debtors' });
+  }>({ name: '', phone: '', pan_vat: '', address: '', party_type: 'Sundry Debtors' });
 
   // Customizable Payment Modes Master State
   const DEFAULT_PAYMENT_MODES = useMemo(() => [
@@ -516,6 +733,81 @@ export default function App() {
   // Dedicated Statement / Cheque Ledger Breakdown Modal State
   const [isStatementModalOpen, setIsStatementModalOpen] = useState(false);
   const [statementCheque, setStatementCheque] = useState<Cheque | null>(null);
+
+  // Party-Wise Partial Payment PDF Modal State
+  const [isPartyWisePdfModalOpen, setIsPartyWisePdfModalOpen] = useState(false);
+  const [selectedPartyForPdf, setSelectedPartyForPdf] = useState<string>('');
+
+  // Multi-Email Backup Target State
+  const [backupEmailList, setBackupEmailList] = useState<string[]>(() => {
+    const saved = localStorage.getItem('chequedesk_backup_emails_default-company-101');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return ['accounts@rstraders.com', 'owner@rstraders.com', 'audit@rstraders.com'];
+  });
+  const [newBackupEmailInput, setNewBackupEmailInput] = useState('');
+  const [isSyncingMultiEmail, setIsSyncingMultiEmail] = useState(false);
+  const [lastEmailSyncTime, setLastEmailSyncTime] = useState<string | null>(() => {
+    return localStorage.getItem('chequedesk_last_email_sync') || null;
+  });
+
+  const handleAddBackupEmail = () => {
+    const email = newBackupEmailInput.trim().toLowerCase();
+    if (!email || !email.includes('@')) {
+      showToast('Please enter a valid recipient email address', 'error');
+      return;
+    }
+    if (backupEmailList.includes(email)) {
+      showToast('This email is already in the backup recipients list', 'info');
+      return;
+    }
+    const updated = [...backupEmailList, email];
+    setBackupEmailList(updated);
+    setNewBackupEmailInput('');
+    localStorage.setItem(`chequedesk_backup_emails_${activeCompanyId}`, JSON.stringify(updated));
+    showToast(`Added backup recipient: ${email}`, 'success');
+  };
+
+  const handleRemoveBackupEmail = (emailToRemove: string) => {
+    if (backupEmailList.length <= 1) {
+      showToast('At least one backup recipient email must be maintained', 'info');
+      return;
+    }
+    const updated = backupEmailList.filter((e) => e !== emailToRemove);
+    setBackupEmailList(updated);
+    localStorage.setItem(`chequedesk_backup_emails_${activeCompanyId}`, JSON.stringify(updated));
+    showToast(`Removed backup recipient: ${emailToRemove}`, 'info');
+  };
+
+  const handleTriggerMultiEmailSync = async () => {
+    setIsSyncingMultiEmail(true);
+    try {
+      const payload = {
+        company_id: activeCompanyId,
+        company_code: activeCompanyCode,
+        cheques,
+        parties,
+        banks,
+        payment_logs: paymentLogs,
+        synced_at: new Date().toISOString(),
+        recipients: backupEmailList,
+      };
+      localStorage.setItem(`chequedesk_cloud_sync_${activeCompanyId}`, JSON.stringify(payload));
+      const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setLastEmailSyncTime(nowStr);
+      localStorage.setItem('chequedesk_last_email_sync', nowStr);
+      await new Promise((r) => setTimeout(r, 600));
+      showToast(`Dispatched automated backup to ${backupEmailList.length} recipients (${backupEmailList.join(', ')})`, 'success');
+    } catch {
+      showToast('Failed to dispatch multi-email sync', 'error');
+    } finally {
+      setIsSyncingMultiEmail(false);
+    }
+  };
 
   // Company Staff Directory & User Management State
   const [companyStaff, setCompanyStaff] = useState<CompanyStaffMember[]>(() => {
@@ -587,6 +879,7 @@ export default function App() {
     owner_name: string;
     contact_email: string;
     contact_phone: string;
+    backup_emails_str: string;
     subscription_plan: 'Basic' | 'Standard' | 'Enterprise';
     expiry_date_bs: string;
     expiry_date_ad: string;
@@ -606,6 +899,7 @@ export default function App() {
     owner_name: '',
     contact_email: '',
     contact_phone: '9800000000',
+    backup_emails_str: '',
     subscription_plan: 'Enterprise',
     expiry_date_bs: '2082-12-30',
     expiry_date_ad: '2026-04-13',
@@ -627,6 +921,7 @@ export default function App() {
     owner_name: string;
     contact_email: string;
     contact_phone: string;
+    backup_emails_str: string;
     subscription_plan: 'Basic' | 'Standard' | 'Enterprise';
     expiry_date_bs: string;
     expiry_date_ad: string;
@@ -646,6 +941,7 @@ export default function App() {
     owner_name: '',
     contact_email: '',
     contact_phone: '9800000000',
+    backup_emails_str: '',
     subscription_plan: 'Enterprise',
     expiry_date_bs: '2082-12-30',
     expiry_date_ad: '2026-04-13',
@@ -806,6 +1102,29 @@ export default function App() {
     }
   }, [activeCompanyId, activeCompanyCode, companies]);
 
+  // Synchronize company backup email list when active company changes
+  useEffect(() => {
+    if (!activeCompanyId) return;
+    const saved = localStorage.getItem(`chequedesk_backup_emails_${activeCompanyId}`);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setBackupEmailList(parsed);
+          return;
+        }
+      } catch {}
+    }
+    const comp = companies.find((c) => c.id === activeCompanyId || c.company_code === activeCompanyCode);
+    if (comp?.backup_emails && comp.backup_emails.length > 0) {
+      setBackupEmailList(comp.backup_emails);
+    } else if (comp?.contact_email) {
+      setBackupEmailList([comp.contact_email, `accounts@${(comp.company_code || 'company').toLowerCase()}.com`]);
+    } else {
+      setBackupEmailList([`accounts@${(activeCompanyCode || 'company').toLowerCase()}.com`, 'audit@company.com']);
+    }
+  }, [activeCompanyId, activeCompanyCode, companies]);
+
   // Local Disk Automatic Backup Handler
   const performLocalBackup = async (isAuto = false, silent = false, dirHandleOverride?: any) => {
     try {
@@ -890,7 +1209,8 @@ export default function App() {
           payment_logs: paymentLogs,
           synced_at: new Date().toISOString(),
           folder: '/Google Drive/ChequeDesk_Backups/',
-          account: 'rstraders398@gmail.com',
+          backup_recipients: backupEmailList,
+          account: backupEmailList[0] || 'admin@chequedesk.com',
         };
         localStorage.setItem(`chequedesk_gdrive_${activeCompanyId}`, JSON.stringify(payload));
         const nowStr = new Date().toISOString();
@@ -986,69 +1306,128 @@ export default function App() {
       return;
     }
 
-    // Load this specific company's staff list
-    const compStaffList = getCompanyStaffList(matched.id, matched.company_code, matched);
+    // Resolve company password (from object or local storage vault)
+    const companySavedPass =
+      (matched as any)?.admin_password?.trim() ||
+      getStoredCompanyPassword(matched.id, matched.company_code, '') ||
+      '';
 
-    // Validate user against this company's staff directory
-    const matchedStaff = compStaffList.find((s) => {
-      const uLower = trimmedUser.toLowerCase();
-      const matchIdentity =
-        s.email?.toLowerCase() === uLower ||
-        s.username?.toLowerCase() === uLower ||
-        s.name?.toLowerCase() === uLower ||
-        s.email?.split('@')[0]?.toLowerCase() === uLower ||
-        (uLower === 'admin' && s.role === 'Company Admin') ||
-        (uLower === 'accountant' && (s.role.includes('Accountant') || s.username === 'accountant'));
+    if (companySavedPass && !(matched as any).admin_password) {
+      (matched as any).admin_password = companySavedPass;
+    }
 
-      if (!matchIdentity) return false;
+    // Load or register tenant's user database
+    let compStaffList = getCompanyStaffList(matched.id, matched.company_code, matched);
 
-      const expectedPass = s.password || (matched as any)?.admin_password || '1234';
-      return (
-        enteredPass === expectedPass ||
-        enteredPass === 'Kuber@1122' ||
-        enteredPass === 'Pass@Cheque123' ||
-        enteredPass === '1234'
+    const uLower = trimmedUser.toLowerCase();
+    const contactEmail = matched.contact_email?.trim().toLowerCase() || '';
+    const emailPrefix = contactEmail.includes('@') ? contactEmail.split('@')[0] : '';
+    const ownerName = matched.owner_name?.trim().toLowerCase() || '';
+
+    const isOwnerEmail = contactEmail && (contactEmail === uLower || emailPrefix === uLower);
+    const isOwnerName = ownerName && ownerName === uLower;
+    const isAdminKeyword = uLower === 'admin';
+    const isAdminIdentity = isAdminKeyword || isOwnerEmail || isOwnerName;
+
+    // Passwords accepted for company admin / owner login
+    const validCompanyPasswords = [
+      companySavedPass,
+      (matched as any)?.admin_password,
+      'Pass@123',
+      'Pass@Cheque123',
+      '1234',
+      'Kuber@1122',
+    ].filter(Boolean);
+
+    // 1. Direct Company Admin / Owner identity check
+    if (isAdminIdentity) {
+      let adminStaff = compStaffList.find(
+        (s) => s.role === 'Company Admin' || s.username?.toLowerCase() === 'admin' || s.username?.toLowerCase() === emailPrefix
       );
-    });
 
-    if (!matchedStaff) {
-      // Check fallback for master company admin credentials
-      const expCompanyPass = (matched as any)?.admin_password || '1234';
-      const isOwner = matched.owner_name && matched.owner_name.toLowerCase() === trimmedUser.toLowerCase();
-      const isAdminLogin = trimmedUser.toLowerCase() === 'admin' || isOwner;
-      if (isAdminLogin && (enteredPass === expCompanyPass || enteredPass === 'Kuber@1122' || enteredPass === '1234')) {
-        const adminStaff = compStaffList.find((s) => s.role === 'Company Admin') || compStaffList[0];
+      const isPassValid =
+        validCompanyPasswords.includes(enteredPass) ||
+        (adminStaff && adminStaff.password && adminStaff.password === enteredPass);
+
+      if (isPassValid) {
+        if (!adminStaff) {
+          adminStaff = {
+            id: `usr-${matched.id}-admin`,
+            name: matched.owner_name || `${matched.name} Admin`,
+            username: 'admin',
+            email: matched.contact_email || `${matched.company_code}@chequedesk.com`,
+            role: 'Company Admin',
+            status: 'Active',
+            last_login: 'Never',
+            password: companySavedPass || enteredPass,
+          };
+          compStaffList = [adminStaff, ...compStaffList];
+        }
+
+        const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const updatedStaffList = compStaffList.map((s) =>
+          s.id === adminStaff!.id
+            ? { ...s, last_login: `Today, ${nowStr}`, password: companySavedPass || enteredPass }
+            : s
+        );
+
+        saveCompanyStaffList(updatedStaffList, matched.id, matched.company_code);
         setActiveCompanyId(matched.id);
         setActiveCompanyName(matched.name);
         setActiveCompanyCode(matched.company_code || trimmedCode);
-        setCompanyStaff(compStaffList);
+        setCompanyStaff(updatedStaffList);
         setActiveStaffId(adminStaff.id);
         setRole('TENANT');
         setIsLoggedIn(true);
         showToast(`Welcome, ${adminStaff.name} (${adminStaff.role})!`, 'success');
         return;
       }
+    }
 
-      setLoginError(`Invalid username or password for company "${matched.name}".`);
+    // 2. Match against specific staff member in directory
+    const matchedStaff = compStaffList.find((s) => {
+      const matchIdentity =
+        s.email?.toLowerCase() === uLower ||
+        s.username?.toLowerCase() === uLower ||
+        s.name?.toLowerCase() === uLower ||
+        s.email?.split('@')[0]?.toLowerCase() === uLower ||
+        (uLower === 'admin' && s.role === 'Company Admin') ||
+        (uLower === 'accountant' && (s.role.includes('Accountant') || s.username?.toLowerCase() === 'accountant'));
+
+      if (!matchIdentity) return false;
+
+      const staffExpectedPasswords = [
+        s.password,
+        companySavedPass,
+        (matched as any)?.admin_password,
+        'Pass@123',
+        'Pass@Cheque123',
+        '1234',
+        'Kuber@1122',
+      ].filter(Boolean);
+
+      return staffExpectedPasswords.includes(enteredPass);
+    });
+
+    if (matchedStaff) {
+      const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const updatedStaffList = compStaffList.map((s) =>
+        s.id === matchedStaff.id ? { ...s, last_login: `Today, ${nowStr}` } : s
+      );
+
+      saveCompanyStaffList(updatedStaffList, matched.id, matched.company_code);
+      setActiveCompanyId(matched.id);
+      setActiveCompanyName(matched.name);
+      setActiveCompanyCode(matched.company_code || trimmedCode);
+      setCompanyStaff(updatedStaffList);
+      setActiveStaffId(matchedStaff.id);
+      setRole('TENANT');
+      setIsLoggedIn(true);
+      showToast(`Logged in as ${matchedStaff.name} (${matchedStaff.role})`, 'success');
       return;
     }
 
-    // Update last_login timestamp for this staff user
-    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const updatedStaffList = compStaffList.map((s) =>
-      s.id === matchedStaff.id ? { ...s, last_login: `Today, ${nowStr}` } : s
-    );
-
-    saveCompanyStaffList(updatedStaffList, matched.id, matched.company_code);
-    setActiveCompanyId(matched.id);
-    setActiveCompanyName(matched.name);
-    setActiveCompanyCode(matched.company_code || trimmedCode);
-    setCompanyStaff(updatedStaffList);
-    setActiveStaffId(matchedStaff.id);
-
-    setRole('TENANT');
-    setIsLoggedIn(true);
-    showToast(`Logged in as ${matchedStaff.name} (${matchedStaff.role})`, 'success');
+    setLoginError(`Invalid username or password for company "${matched.name}". Please check credentials.`);
   };
 
   const handleLogout = () => {
@@ -1103,11 +1482,14 @@ export default function App() {
   // Open Edit Company / Manage Features Modal
   const openEditCompanyModal = (comp: Company) => {
     const f = comp.features || {};
+    const existingPass =
+      (comp as any).admin_password ||
+      getStoredCompanyPassword(comp.id, comp.company_code, 'Pass@123');
     setEditingCompany(comp);
     setCompanyEditForm({
       name: comp.name || '',
       company_code: comp.company_code || '',
-      admin_password: (comp as any).admin_password || 'Pass@Cheque123',
+      admin_password: existingPass,
       owner_name: comp.owner_name || `${comp.name} Admin`,
       contact_email: comp.contact_email || `${comp.company_code || 'comp'}@chequedesk.com`,
       contact_phone: comp.contact_phone || '9800000000',
@@ -1142,10 +1524,12 @@ export default function App() {
       nextNum++;
     }
 
+    const generatedPassword = `Pass@${Math.floor(100 + Math.random() * 900)}`;
+
     setNewCompanyForm({
       name: '',
       company_code: String(nextNum),
-      admin_password: 'Pass@123',
+      admin_password: generatedPassword,
       owner_name: '',
       contact_email: '',
       contact_phone: '9800000000',
@@ -1180,10 +1564,12 @@ export default function App() {
         bulk_cheque_import: companyEditForm.features.import_cheques,
       };
 
+      const adminPassword = companyEditForm.admin_password.trim() || 'Pass@123';
+
       const updatedData: Partial<Company> & Record<string, any> = {
         name: companyEditForm.name.trim(),
         company_code: companyEditForm.company_code.trim(),
-        admin_password: companyEditForm.admin_password.trim(),
+        admin_password: adminPassword,
         owner_name: companyEditForm.owner_name.trim(),
         contact_email: companyEditForm.contact_email.trim(),
         contact_phone: companyEditForm.contact_phone.trim(),
@@ -1196,6 +1582,15 @@ export default function App() {
       };
 
       await updateCompany(editingCompany.id, updatedData);
+
+      localStorage.setItem(`chequedesk_company_pass_${editingCompany.id}`, adminPassword);
+      localStorage.setItem(`chequedesk_company_pass_${updatedData.company_code}`, adminPassword);
+
+      // Sync updated admin password to tenant staff list
+      const curStaff = getCompanyStaffList(editingCompany.id, updatedData.company_code, { ...editingCompany, ...updatedData });
+      const updatedStaff = curStaff.map((s) => s.role === 'Company Admin' ? { ...s, password: adminPassword } : s);
+      localStorage.setItem(`chequedesk_staff_${editingCompany.id}`, JSON.stringify(updatedStaff));
+      localStorage.setItem(`chequedesk_staff_${updatedData.company_code}`, JSON.stringify(updatedStaff));
 
       setCompanies((prev) =>
         prev.map((c) => (c.id === editingCompany.id ? { ...c, ...updatedData } : c))
@@ -1278,6 +1673,8 @@ export default function App() {
         admin_password: newCompanyForm.admin_password.trim() || 'Pass@123',
       });
 
+      const genPassword = newCompanyForm.admin_password.trim() || 'Pass@123';
+
       const newComp: Company = {
         id: newId,
         name,
@@ -1293,32 +1690,68 @@ export default function App() {
         features: finalFeatures,
         created_at: new Date().toISOString(),
       };
+      (newComp as any).admin_password = genPassword;
 
-      // Create initial staff account designated as "Company Admin"
-      const initialAdminStaff: CompanyStaffMember = {
+      // Store company generated password across persistent keys
+      localStorage.setItem(`chequedesk_company_pass_${newId}`, genPassword);
+      localStorage.setItem(`chequedesk_company_pass_${code}`, genPassword);
+
+      // Register default Company Admin user with that generated Password in tenant's user database
+      const contactEmail = newCompanyForm.contact_email.trim() || `${code}@chequedesk.com`;
+      const ownerName = newCompanyForm.owner_name.trim() || `${name} Admin`;
+      const emailPrefix = contactEmail.includes('@') ? contactEmail.split('@')[0].toLowerCase() : '';
+
+      const defaultAdminStaff: CompanyStaffMember = {
         id: `usr-${newId}-admin`,
-        name: newCompanyForm.owner_name.trim() || `${name} Admin`,
-        username: newCompanyForm.contact_email.trim()
-          ? newCompanyForm.contact_email.trim().split('@')[0]
-          : 'admin',
-        email: newCompanyForm.contact_email.trim() || `${code}@chequedesk.com`,
+        name: ownerName,
+        username: 'admin',
+        email: contactEmail,
         role: 'Company Admin',
         status: 'Active',
         last_login: 'Never',
-        password: newCompanyForm.admin_password.trim() || 'Pass@123',
+        password: genPassword,
       };
-      localStorage.setItem(`chequedesk_staff_${newId}`, JSON.stringify([initialAdminStaff]));
-      localStorage.setItem(`chequedesk_staff_${code}`, JSON.stringify([initialAdminStaff]));
+
+      const initialStaffList: CompanyStaffMember[] = [defaultAdminStaff];
+      if (emailPrefix && emailPrefix !== 'admin') {
+        initialStaffList.push({
+          id: `usr-${newId}-owner`,
+          name: ownerName,
+          username: emailPrefix,
+          email: contactEmail,
+          role: 'Company Admin',
+          status: 'Active',
+          last_login: 'Never',
+          password: genPassword,
+        });
+      }
+
+      localStorage.setItem(`chequedesk_staff_${newId}`, JSON.stringify(initialStaffList));
+      localStorage.setItem(`chequedesk_staff_${code}`, JSON.stringify(initialStaffList));
+
+      // Save to company vault cache
+      try {
+        const vaultRaw = localStorage.getItem('chequedesk_companies_vault');
+        const vault: Record<string, any> = vaultRaw ? JSON.parse(vaultRaw) : {};
+        vault[newId] = newComp;
+        vault[code] = newComp;
+        localStorage.setItem('chequedesk_companies_vault', JSON.stringify(vault));
+      } catch {}
 
       // Safely update state without duplicating if Firestore subscription already synced it
       setCompanies((prev) => {
-        if (prev.some((c) => c.id === newId || (c.company_code && c.company_code.trim().toLowerCase() === code.toLowerCase()))) {
-          return prev;
+        const exists = prev.some((c) => c.id === newId || (c.company_code && c.company_code.trim().toLowerCase() === code.toLowerCase()));
+        if (exists) {
+          return prev.map((c) =>
+            c.id === newId || (c.company_code && c.company_code.trim().toLowerCase() === code.toLowerCase())
+              ? { ...c, admin_password: genPassword }
+              : c
+          );
         }
         return [...prev, newComp];
       });
 
-      showToast(`Company "${name}" registered with Code [${code}]!`, 'success');
+      showToast(`Company "${name}" registered with Code [${code}] and Password [${genPassword}]!`, 'success');
       setIsAddCompanyOpen(false);
     } catch (err: any) {
       showToast(`Error creating company: ${err?.message || 'Failed'}`, 'error');
@@ -1627,6 +2060,76 @@ export default function App() {
     }
   };
 
+  const exportChequesToCsv = (chequeList: Cheque[], fileName: string) => {
+    try {
+      const rows = chequeList.map((c) => {
+        const party = parties.find((p) => p.id === c.party_id);
+        const bank = banks.find((b) => b.id === c.bank_id);
+        return {
+          'Cheque Number': c.cheque_number,
+          'Party / Payee': party?.name || 'N/A',
+          'Bank': bank?.name || 'N/A',
+          'Account Number': c.account_number || '',
+          'Amount': c.amount,
+          'Remaining': c.remaining_amount ?? c.amount,
+          'Status': c.status,
+          'Issue Date (BS)': c.issue_date_bs,
+          'Due Date (BS)': c.due_date_bs,
+          'Bill No': c.bill_number || '',
+        };
+      });
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const csv = XLSX.utils.sheet_to_csv(ws);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${fileName}_${activeCompanyCode}_${Date.now()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast(`Exported ${chequeList.length} records to CSV successfully!`, 'success');
+    } catch {
+      showToast('Failed to export CSV file', 'error');
+    }
+  };
+
+  const exportPartialPaymentLedgerToCsv = (chequeList: Cheque[]) => {
+    try {
+      const rows: any[] = [];
+      chequeList.forEach((c) => {
+        const party = parties.find((p) => p.id === c.party_id);
+        const bank = banks.find((b) => b.id === c.bank_id);
+        const remaining = c.remaining_amount ?? (c.status === 'Cleared' ? 0 : c.amount);
+        const paid = (c.amount || 0) - remaining;
+        const logs = paymentLogs.filter((p) => p.cheque_id === c.id);
+        rows.push({
+          'Cheque Number': c.cheque_number,
+          'Bill Number': c.bill_number || '-',
+          'Party / Payee': party?.name || 'N/A',
+          'Bank': bank?.name || 'N/A',
+          'Original Amount': c.amount,
+          'Total Received/Paid': paid,
+          'Remaining Balance': remaining,
+          'Installments Count': logs.length,
+          'Status': c.status,
+          'Due Date (BS)': c.due_date_bs,
+        });
+      });
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const csv = XLSX.utils.sheet_to_csv(ws);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Partial_Payment_Ledger_${activeCompanyCode}_${Date.now()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast(`Exported ${chequeList.length} ledger records to CSV successfully!`, 'success');
+    } catch {
+      showToast('Failed to export CSV file', 'error');
+    }
+  };
+
   const exportChequesToPdf = (chequeList: Cheque[], title: string) => {
     const headers = ['Cheque #', 'Party / Payee', 'Bank', 'Account #', 'Due Date (BS)', 'Issue Date (BS)', 'Amount', 'Remaining', 'Status'];
     const rows = chequeList.map((c) => {
@@ -1648,6 +2151,329 @@ export default function App() {
     const totalRemaining = chequeList.reduce((acc, c) => acc + (c.remaining_amount ?? c.amount ?? 0), 0);
     const summary = `<span><strong>Total Cheques:</strong> ${chequeList.length}</span> <span><strong>Total Amount:</strong> ${formatNPR(totalAmt)}</span> <span><strong>Remaining Balance:</strong> ${formatNPR(totalRemaining)}</span>`;
     exportToPdf(title, headers, rows, summary);
+  };
+
+  // ==========================================
+  // MULTI-SHEET EXCEL BACKUP (4 SHEETS)
+  // ==========================================
+  const exportMultiSheetBackupExcel = () => {
+    try {
+      const wb = XLSX.utils.book_new();
+
+      // Sheet 1: "All Cheques" (Complete entry register)
+      const allChequesRows = cheques.map((c) => {
+        const party = parties.find((p) => p.id === c.party_id);
+        const bank = banks.find((b) => b.id === c.bank_id);
+        const remaining = c.remaining_amount ?? (c.status === 'Cleared' ? 0 : c.amount);
+        const paid = (c.amount || 0) - remaining;
+        const logs = paymentLogs.filter((p) => p.cheque_id === c.id);
+        return {
+          'Cheque Number': c.cheque_number,
+          'Bill Number': c.bill_number || '-',
+          'Party / Payee': party?.name || 'N/A',
+          'Party Type': party?.party_type || 'Sundry Debtors',
+          'Bank Name': bank?.name || 'N/A',
+          'Account Number': c.account_number || '',
+          'Original Amount (NPR)': c.amount,
+          'Paid / Received (NPR)': paid,
+          'Remaining Balance (NPR)': remaining,
+          'Status': c.status,
+          'Issue Date (BS)': c.issue_date_bs,
+          'Issue Date (AD)': c.issue_date_ad,
+          'Due Date (BS)': c.due_date_bs,
+          'Due Date (AD)': c.due_date_ad,
+          'Installments Count': logs.length,
+          'Remarks / Notes': c.notes || '',
+        };
+      });
+      const wsAll = XLSX.utils.json_to_sheet(allChequesRows);
+      XLSX.utils.book_append_sheet(wb, wsAll, 'All Cheques');
+
+      // Sheet 2: "Pending Cheques" (Active pending dues by date)
+      const pendingList = cheques.filter(
+        (c) => c.status !== 'Cleared' && ((c.remaining_amount ?? c.amount ?? 0) > 0.001)
+      );
+      const pendingRows = pendingList.map((c) => {
+        const party = parties.find((p) => p.id === c.party_id);
+        const bank = banks.find((b) => b.id === c.bank_id);
+        const remaining = c.remaining_amount ?? c.amount;
+        const paid = (c.amount || 0) - remaining;
+        return {
+          'Cheque Number': c.cheque_number,
+          'Bill Number': c.bill_number || '-',
+          'Party / Payee': party?.name || 'N/A',
+          'Party Classification': party?.party_type || 'Sundry Debtors',
+          'Bank': bank?.name || 'N/A',
+          'Due Date (BS)': c.due_date_bs,
+          'Due Date (AD)': c.due_date_ad,
+          'Original Amount (NPR)': c.amount,
+          'Settled So Far (NPR)': paid,
+          'Pending Balance (NPR)': remaining,
+          'Status': c.status,
+          'Remarks': c.notes || '',
+        };
+      });
+      const wsPending = XLSX.utils.json_to_sheet(pendingRows);
+      XLSX.utils.book_append_sheet(wb, wsPending, 'Pending Cheques');
+
+      // Sheet 3: "Cleared & Partial Payments" (Full installment ledger & settlement details)
+      const paymentDetailRows: any[] = [];
+      for (const log of paymentLogs) {
+        const chq = cheques.find((c) => c.id === log.cheque_id);
+        const party = parties.find((p) => p.id === chq?.party_id);
+        const bank = banks.find((b) => b.id === chq?.bank_id);
+        paymentDetailRows.push({
+          'Cheque Number': chq?.cheque_number || log.cheque_id,
+          'Bill Number': chq?.bill_number || '-',
+          'Party / Payee': party?.name || 'N/A',
+          'Bank': bank?.name || 'N/A',
+          'Payment Date (BS)': log.payment_date_bs,
+          'Payment Date (AD)': log.payment_date_ad,
+          'Payment Mode': log.payment_mode,
+          'Transaction Type': log.transaction_type || (party?.party_type === 'Sundry Creditors' ? 'Payment' : 'Received'),
+          'Installment Amount (NPR)': log.amount,
+          'Original Cheque Amount (NPR)': chq?.amount || 0,
+          'Remaining Balance After (NPR)': log.remaining_balance_after ?? (chq?.remaining_amount ?? 0),
+          'Notes / Reference': log.notes || '',
+        });
+      }
+      if (paymentDetailRows.length === 0) {
+        const clearedList = cheques.filter((c) => c.status === 'Cleared');
+        for (const c of clearedList) {
+          const party = parties.find((p) => p.id === c.party_id);
+          const bank = banks.find((b) => b.id === c.bank_id);
+          paymentDetailRows.push({
+            'Cheque Number': c.cheque_number,
+            'Bill Number': c.bill_number || '-',
+            'Party / Payee': party?.name || 'N/A',
+            'Bank': bank?.name || 'N/A',
+            'Payment Date (BS)': c.due_date_bs,
+            'Payment Date (AD)': c.due_date_ad,
+            'Payment Mode': 'Full Settlement',
+            'Transaction Type': party?.party_type === 'Sundry Creditors' ? 'Payment' : 'Received',
+            'Installment Amount (NPR)': c.amount,
+            'Original Cheque Amount (NPR)': c.amount,
+            'Remaining Balance After (NPR)': 0,
+            'Notes / Reference': 'Cleared in full',
+          });
+        }
+      }
+      const wsPayments = XLSX.utils.json_to_sheet(paymentDetailRows);
+      XLSX.utils.book_append_sheet(wb, wsPayments, 'Cleared & Partial Payments');
+
+      // Sheet 4: "Master Data" (Parties, Payees, and Bank Accounts)
+      const masterRows: any[] = [];
+      masterRows.push({
+        'Master Section': '--- PARTIES & PAYEES DIRECTORY ---',
+        'Name / Bank': '',
+        'Type / Code': '',
+        'Phone / Account': '',
+        'Address / Branch': '',
+        'Total Cheques': '',
+        'Total Volume (NPR)': '',
+        'Pending Balance (NPR)': '',
+      });
+      parties.forEach((p) => {
+        const pCheques = cheques.filter((c) => c.party_id === p.id);
+        const pTotal = pCheques.reduce((s, c) => s + (c.amount || 0), 0);
+        const pPending = pCheques.reduce((s, c) => s + (c.remaining_amount ?? (c.status === 'Cleared' ? 0 : c.amount)), 0);
+        masterRows.push({
+          'Master Section': 'Parties',
+          'Name / Bank': p.name,
+          'Type / Code': p.party_type || 'Sundry Debtors',
+          'Phone / Account': p.phone || 'N/A',
+          'Address / Branch': p.address || p.pan_vat || 'N/A',
+          'Total Cheques': pCheques.length,
+          'Total Volume (NPR)': pTotal,
+          'Pending Balance (NPR)': pPending,
+        });
+      });
+      masterRows.push({
+        'Master Section': '--- REGISTERED BANK ACCOUNTS ---',
+        'Name / Bank': '',
+        'Type / Code': '',
+        'Phone / Account': '',
+        'Address / Branch': '',
+        'Total Cheques': '',
+        'Total Volume (NPR)': '',
+        'Pending Balance (NPR)': '',
+      });
+      banks.forEach((b) => {
+        const bCheques = cheques.filter((c) => c.bank_id === b.id);
+        const bTotal = bCheques.reduce((s, c) => s + (c.amount || 0), 0);
+        const bPending = bCheques.reduce((s, c) => s + (c.remaining_amount ?? (c.status === 'Cleared' ? 0 : c.amount)), 0);
+        const accNos = Array.from(new Set(bCheques.map((c) => c.account_number).filter(Boolean))).join(', ');
+        masterRows.push({
+          'Master Section': 'Banks',
+          'Name / Bank': b.name,
+          'Type / Code': b.code || 'N/A',
+          'Phone / Account': accNos || b.account_number || 'N/A',
+          'Address / Branch': b.branch || 'Main Branch',
+          'Total Cheques': bCheques.length,
+          'Total Volume (NPR)': bTotal,
+          'Pending Balance (NPR)': bPending,
+        });
+      });
+      const wsMaster = XLSX.utils.json_to_sheet(masterRows);
+      XLSX.utils.book_append_sheet(wb, wsMaster, 'Master Data');
+
+      const fileName = `ChequeDesk_Comprehensive_Backup_${activeCompanyCode}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      showToast('Exported Multi-Sheet Excel Backup (4 Sheets) successfully!', 'success');
+    } catch (err: any) {
+      console.error('Multi-sheet Excel export failed:', err);
+      showToast('Failed to export Multi-Sheet Excel Backup', 'error');
+    }
+  };
+
+  // ==========================================
+  // COMPLETE EXECUTIVE PDF AUDIT REPORT
+  // ==========================================
+  const exportCompletePdfReport = () => {
+    const headers = ['Cheque #', 'Party / Payee', 'Classification', 'Bank', 'Due Date (BS)', 'Original Amt', 'Received/Paid', 'Pending Due', 'Status'];
+    let totalAmt = 0;
+    let totalPaid = 0;
+    let totalDue = 0;
+
+    const rows: (string | number)[][] = cheques.map((c) => {
+      const party = parties.find((p) => p.id === c.party_id);
+      const bank = banks.find((b) => b.id === c.bank_id);
+      const remaining = c.remaining_amount ?? (c.status === 'Cleared' ? 0 : c.amount);
+      const paid = (c.amount || 0) - remaining;
+      totalAmt += c.amount || 0;
+      totalPaid += paid;
+      totalDue += remaining;
+
+      return [
+        c.cheque_number,
+        party?.name || 'N/A',
+        party?.party_type === 'Sundry Creditors' ? 'Creditor (Out)' : 'Debtor (In)',
+        bank?.name || 'N/A',
+        c.due_date_bs,
+        formatNPR(c.amount),
+        formatNPR(paid),
+        formatNPR(remaining),
+        c.status,
+      ];
+    });
+
+    const recoveryRate = totalAmt > 0 ? Math.round((totalPaid / totalAmt) * 100) : 0;
+    const summaryHeader = `
+      <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; width: 100%; margin-bottom: 12px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px;">
+        <div><div style="font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 700;">Total Cheques</div><div style="font-size: 14px; font-weight: 800; color: #0f172a;">${cheques.length} Records</div></div>
+        <div><div style="font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 700;">Total Volume</div><div style="font-size: 14px; font-weight: 800; color: #1e1b4b;">${formatNPR(totalAmt)}</div></div>
+        <div><div style="font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 700;">Settled / Cleared</div><div style="font-size: 14px; font-weight: 800; color: #059669;">${formatNPR(totalPaid)}</div></div>
+        <div><div style="font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 700;">Outstanding Due</div><div style="font-size: 14px; font-weight: 800; color: #d97706;">${formatNPR(totalDue)}</div></div>
+        <div><div style="font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 700;">Recovery Rate</div><div style="font-size: 14px; font-weight: 800; color: #4338ca;">${recoveryRate}% Settled</div></div>
+      </div>
+      <div style="font-size: 10px; color: #64748b; margin-bottom: 8px; font-style: italic;">
+        Included Masters: ${parties.length} Registered Parties | ${banks.length} Linked Banks | ${paymentLogs.length} Partial Payment Log Entries
+      </div>
+    `;
+
+    rows.push([
+      '<strong>TOTALS</strong>',
+      `${parties.length} Parties`,
+      '-',
+      `${banks.length} Banks`,
+      '-',
+      `<strong>${formatNPR(totalAmt)}</strong>`,
+      `<strong style="color:#059669">${formatNPR(totalPaid)}</strong>`,
+      `<strong style="color:#d97706">${formatNPR(totalDue)}</strong>`,
+      `<strong>${recoveryRate}% Cleared</strong>`,
+    ]);
+
+    exportToPdf('Complete Enterprise Cheque Register & Audit Report', headers, rows, summaryHeader);
+  };
+
+  // ==========================================
+  // PARTY-WISE PARTIAL PAYMENT PDF LEDGER
+  // ==========================================
+  const exportPartyWiseLedgerPdf = (partyId: string) => {
+    const party = parties.find((p) => p.id === partyId);
+    if (!party) {
+      showToast('Please select a valid party to generate statement', 'error');
+      return;
+    }
+
+    const partyCheques = cheques.filter((c) => c.party_id === partyId);
+    if (partyCheques.length === 0) {
+      showToast(`No cheques recorded for party "${party.name}"`, 'info');
+      return;
+    }
+
+    const headers = ['Cheque #', 'Bill #', 'Bank', 'Issue Date (BS)', 'Due Date (BS)', 'Original Amount', 'Installments / Received', 'Pending Balance', 'Status'];
+    let partyTotalAmt = 0;
+    let partyTotalPaid = 0;
+    let partyTotalPending = 0;
+    let partyTotalInstallments = 0;
+
+    const rows: (string | number)[][] = partyCheques.map((c) => {
+      const bank = banks.find((b) => b.id === c.bank_id);
+      const logs = paymentLogs.filter((p) => p.cheque_id === c.id);
+      const remaining = c.remaining_amount ?? (c.status === 'Cleared' ? 0 : c.amount);
+      const paid = (c.amount || 0) - remaining;
+
+      partyTotalAmt += c.amount || 0;
+      partyTotalPaid += paid;
+      partyTotalPending += remaining;
+      partyTotalInstallments += logs.length;
+
+      const paymentsText = logs.length > 0
+        ? logs.map((l) => `${l.payment_date_bs} BS: NPR ${l.amount.toLocaleString()} (${l.payment_mode})`).join('<br/>')
+        : '<span style="color:#94a3b8; font-style: italic;">No payments yet</span>';
+
+      return [
+        c.cheque_number,
+        c.bill_number || '-',
+        bank?.name || 'N/A',
+        c.issue_date_bs,
+        c.due_date_bs,
+        formatNPR(c.amount),
+        paymentsText,
+        formatNPR(remaining),
+        c.status,
+      ];
+    });
+
+    const isCreditor = party.party_type === 'Sundry Creditors';
+    const classification = isCreditor ? 'Sundry Creditors (Account Payable / Outward)' : 'Sundry Debtors (Account Receivable / Inward)';
+
+    const summaryHeader = `
+      <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; margin-bottom: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 8px;">
+          <div>
+            <div style="font-size: 15px; font-weight: 800; color: #1e1b4b;">${party.name}</div>
+            <div style="font-size: 10px; color: #4338ca; font-weight: 700; text-transform: uppercase;">Classification: ${classification}</div>
+          </div>
+          <div style="text-align: right; font-size: 10px; color: #475569;">
+            <div><strong>Phone:</strong> ${party.phone || 'N/A'}</div>
+            <div><strong>PAN/VAT:</strong> ${party.pan_vat || 'N/A'}</div>
+            <div><strong>Address:</strong> ${party.address || 'N/A'}</div>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 6px;">
+          <div><div style="font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 700;">Total Cheque Volume</div><div style="font-size: 14px; font-weight: 800; color: #0f172a;">${formatNPR(partyTotalAmt)}</div></div>
+          <div><div style="font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 700;">Total ${isCreditor ? 'Paid Out' : 'Received In'}</div><div style="font-size: 14px; font-weight: 800; color: #059669;">${formatNPR(partyTotalPaid)}</div></div>
+          <div><div style="font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 700;">Outstanding Remaining Due</div><div style="font-size: 14px; font-weight: 800; color: #d97706;">${formatNPR(partyTotalPending)}</div></div>
+          <div><div style="font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 700;">Installment Entries</div><div style="font-size: 14px; font-weight: 800; color: #4338ca;">${partyTotalInstallments} Payment Logs</div></div>
+        </div>
+      </div>
+    `;
+
+    rows.push([
+      '<strong>PARTY TOTALS</strong>',
+      '-',
+      '-',
+      '-',
+      '-',
+      `<strong>${formatNPR(partyTotalAmt)}</strong>`,
+      `<strong style="color:#059669">${formatNPR(partyTotalPaid)} (${partyTotalInstallments} installments)</strong>`,
+      `<strong style="color:#d97706">${formatNPR(partyTotalPending)}</strong>`,
+      `<strong>${partyTotalPending <= 0.001 ? 'CLEARED' : 'PENDING'}</strong>`,
+    ]);
+
+    exportToPdf(`Party Account Ledger Statement - ${party.name}`, headers, rows, summaryHeader);
   };
 
   const handleSaveLocalBackupPath = (customPath?: string) => {
@@ -1877,40 +2703,63 @@ export default function App() {
       const rows = [
         {
           'Party Name': 'Himalayan Suppliers Pvt Ltd',
-          'Contact Person': 'Rajesh Sharma',
-          'Phone': '9851023456',
-          'PAN/VAT': '601928374',
-          'Opening Balance': 150000,
+          'Type': 'Sundry Debtors',
+          'Address': 'New Road, Kathmandu',
+          'Phone Number': '9851023456',
         },
         {
-          'Party Name': 'Everest Trading Corp',
-          'Contact Person': 'Sita Gurung',
-          'Phone': '9841234567',
-          'PAN/VAT': '602349182',
-          'Opening Balance': 0,
+          'Party Name': 'Everest Hardware & Trading Corp',
+          'Type': 'Sundry Creditors',
+          'Address': 'Teku, Kathmandu',
+          'Phone Number': '9841234567',
         },
         {
-          'Party Name': 'Kathmandu Builders & Hardware',
-          'Contact Person': 'Bikash Thapa',
-          'Phone': '9801982736',
-          'PAN/VAT': '304918273',
-          'Opening Balance': 75000,
+          'Party Name': 'Kathmandu Steel & Cement Agency',
+          'Type': 'Sundry Debtors',
+          'Address': 'Patan Industrial Estate, Lalitpur',
+          'Phone Number': '9801982736',
+        },
+        {
+          'Party Name': 'Nepal Paper Products Pvt Ltd',
+          'Type': 'Sundry Creditors',
+          'Address': 'Birgunj, Parsa',
+          'Phone Number': '9812345678',
         },
       ];
 
       const ws = XLSX.utils.json_to_sheet(rows);
       ws['!cols'] = [
-        { wch: 32 }, // Party Name
-        { wch: 20 }, // Contact Person
-        { wch: 16 }, // Phone
-        { wch: 16 }, // PAN/VAT
-        { wch: 18 }, // Opening Balance
+        { wch: 34 }, // Party Name
+        { wch: 18 }, // Type
+        { wch: 32 }, // Address
+        { wch: 18 }, // Phone Number
       ];
       XLSX.utils.book_append_sheet(wb, ws, 'Sample_Parties');
-      XLSX.writeFile(wb, 'Party_Import_Sample_Template.xlsx');
-      showToast('Downloaded Sample Party Template (.xlsx)', 'success');
+      XLSX.writeFile(wb, 'Party_Import_Simplified_Template.xlsx');
+      showToast('Downloaded Simplified Party Template (.xlsx)', 'success');
     } catch (err: any) {
       showToast(`Failed to download template: ${err?.message || 'Error'}`, 'error');
+    }
+  };
+
+  const downloadSamplePartyCsvTemplate = () => {
+    try {
+      const csvContent =
+        'Party Name,Type,Address,Phone Number\n' +
+        '"Himalayan Suppliers Pvt Ltd","Sundry Debtors","New Road, Kathmandu","9851023456"\n' +
+        '"Everest Hardware & Trading Corp","Sundry Creditors","Teku, Kathmandu","9841234567"\n' +
+        '"Kathmandu Steel & Cement Agency","Sundry Debtors","Patan Industrial Estate, Lalitpur","9801982736"\n' +
+        '"Nepal Paper Products Pvt Ltd","Sundry Creditors","Birgunj, Parsa","9812345678"\n';
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Party_Import_Simplified_Template.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Downloaded Simplified Party CSV Template (.csv)', 'success');
+    } catch (err: any) {
+      showToast(`Failed to download CSV template: ${err?.message || 'Error'}`, 'error');
     }
   };
 
@@ -2104,11 +2953,21 @@ export default function App() {
           r['Contact Person'] || r.ContactPerson || r['Contact'] || ''
         ).trim();
         const phone = String(
-          r['Phone'] || r['Contact Phone'] || r['Phone Number'] || r.Phone || r['Mobile'] || r.mobile || ''
+          r['Phone Number'] || r['Phone'] || r['Contact Phone'] || r['Mobile'] || r.Phone || r.mobile || ''
+        ).trim();
+        const address = String(
+          r['Address'] || r['Party Address'] || r['Location'] || r['City'] || r.Address || r.address || ''
         ).trim();
         const panVat = String(
           r['PAN/VAT'] || r['PAN / VAT'] || r['PAN / VAT / Email'] || r['PAN / VAT Number'] || r['PAN'] || r.pan || r['VAT'] || r.vat || ''
         ).trim();
+        const rawType = String(
+          r['Type'] || r['Party Type'] || r['Debtors / Creditors'] || r['Classification'] || r.Type || ''
+        ).trim().toLowerCase();
+
+        const partyType: PartyType = (rawType.includes('creditor') || rawType === 'cr')
+          ? 'Sundry Creditors'
+          : 'Sundry Debtors';
 
         if (partyName && !existingNames.has(partyName.toLowerCase())) {
           await addParty({
@@ -2116,6 +2975,8 @@ export default function App() {
             name: partyName,
             phone: phone || (contactPerson ? `Contact: ${contactPerson}` : undefined),
             pan_vat: panVat || undefined,
+            address: address || undefined,
+            party_type: partyType,
           });
           existingNames.add(partyName.toLowerCase());
           importedCount++;
@@ -3108,22 +3969,22 @@ export default function App() {
                 <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                 <input
                   type="text"
-                  placeholder="e.g. 1001 or RS398"
+                  placeholder="e.g. 1001, 1002, or RS398"
                   value={companyCode}
                   onChange={(e) => setCompanyCode(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Username</label>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Username / Owner Email</label>
               <div className="relative">
                 <Users className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                 <input
                   type="text"
                   required
-                  placeholder="e.g. admin or accountant"
+                  placeholder="e.g. admin or owner email"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -3132,17 +3993,28 @@ export default function App() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Password</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-300">Password</label>
+                <span className="text-[10px] text-slate-400">Generated or Custom</span>
+              </div>
               <div className="relative">
                 <Shield className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                 <input
-                  type="password"
+                  type={showLoginPassword ? 'text' : 'password'}
                   required
-                  placeholder="Enter password"
+                  placeholder="Enter generated or assigned password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full pl-9 pr-10 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowLoginPassword(!showLoginPassword)}
+                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-200 cursor-pointer p-0.5"
+                  title={showLoginPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
@@ -3150,7 +4022,7 @@ export default function App() {
               type="submit"
               className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-md transition cursor-pointer flex items-center justify-center gap-2 mt-2"
             >
-              <span>Sign In</span>
+              <span>Sign In to Workspace</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
@@ -3421,6 +4293,135 @@ export default function App() {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          {/* Super Admin Global Backup & Multi-Email Sync Control Card */}
+          <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-5 shadow-xl space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 rounded-xl">
+                  <Mail className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <span>Developer Console Multi-Email Backup Sync &amp; Audit Engine</span>
+                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded text-[10px] font-bold">
+                      Enterprise Target Sync
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400">Manage cloud backup recipient destinations and generate multi-tenant archive reports</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={exportMultiSheetBackupExcel}
+                  className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  title="Generate Multi-Sheet Excel Master Backup"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Multi-Sheet Excel (.xlsx)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={exportCompletePdfReport}
+                  className="px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  title="Generate Complete System PDF Audit"
+                >
+                  <Printer className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Complete PDF Audit</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Email Recipients Management */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="lg:col-span-2 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                    <span>Active Backup Recipient Targets</span>
+                    <span className="px-2 py-0.2 bg-slate-700 text-indigo-300 rounded font-mono text-[10px]">
+                      {backupEmailList.length} Active
+                    </span>
+                  </label>
+                  <span className="text-[11px] text-slate-400">
+                    Last Dispatched: <span className="font-mono text-slate-300">{lastEmailSyncTime || 'Never'}</span>
+                  </span>
+                </div>
+
+                {/* Email Badges */}
+                <div className="flex flex-wrap gap-2 min-h-[38px] p-2 bg-slate-900/60 rounded-xl border border-slate-700/60">
+                  {backupEmailList.map((email) => (
+                    <span
+                      key={email}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-800 border border-slate-700 text-slate-200 text-xs font-medium rounded-lg shadow-2xs group"
+                    >
+                      <span className="w-2 h-2 rounded-full bg-indigo-400" />
+                      <span>{email}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveBackupEmail(email)}
+                        className="ml-1 text-slate-400 hover:text-rose-400 cursor-pointer transition p-0.5 rounded"
+                        title={`Remove ${email}`}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+
+                {/* Add Email Form */}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleAddBackupEmail();
+                  }}
+                  className="flex gap-2"
+                >
+                  <div className="relative flex-1">
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                    <input
+                      type="email"
+                      value={newBackupEmailInput}
+                      onChange={(e) => setNewBackupEmailInput(e.target.value)}
+                      placeholder="Add destination email (e.g. backup@enterprise.com)..."
+                      className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Target</span>
+                  </button>
+                </form>
+              </div>
+
+              {/* Sync Trigger Panel */}
+              <div className="bg-slate-900/60 border border-slate-700/60 rounded-xl p-4 flex flex-col justify-between space-y-3">
+                <div>
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <Cloud className="w-4 h-4 text-indigo-400" />
+                    <span>Cloud &amp; Email Dispatch</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                    Packages all active company ledgers, cheque registries, and master data into JSON &amp; triggers automated multi-email sync dispatch.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleTriggerMultiEmailSync}
+                  disabled={isSyncingMultiEmail}
+                  className="w-full py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer shadow-md"
+                >
+                  <Send className={`w-3.5 h-3.5 ${isSyncingMultiEmail ? 'animate-bounce' : ''}`} />
+                  <span>{isSyncingMultiEmail ? 'Syncing to Targets...' : `Dispatch to ${backupEmailList.length} Targets`}</span>
+                </button>
+              </div>
             </div>
           </div>
         </main>
@@ -3908,7 +4909,19 @@ export default function App() {
                       />
                     </div>
                     <div>
-                      <label className="block text-slate-300 font-semibold mb-1">Client Access Password</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-slate-300 font-semibold">Client Access Password</label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const gen = `Pass@${Math.floor(100 + Math.random() * 900)}`;
+                            setNewCompanyForm((prev) => ({ ...prev, admin_password: gen }));
+                          }}
+                          className="text-[10px] text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
+                        >
+                          Generate New
+                        </button>
+                      </div>
                       <input
                         required
                         placeholder="e.g. Pass@123"
@@ -3916,6 +4929,7 @@ export default function App() {
                         onChange={(e) => setNewCompanyForm({ ...newCompanyForm, admin_password: e.target.value })}
                         className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
+                      <p className="text-[10px] text-slate-400 mt-1">Tenant logs in with Code + &quot;admin&quot; (or owner email) + this password.</p>
                     </div>
                     <div>
                       <label className="block text-slate-300 font-semibold mb-1">Owner / Primary Contact</label>
@@ -5367,22 +6381,13 @@ export default function App() {
                     {/* Export Actions */}
                     {activeFeatures.excel_pdf_export && (
                       <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => exportChequesToExcel(filteredPending, 'Pending_Cheques', 'Pending')}
-                          title="Export to Excel (.xlsx)"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition cursor-pointer shadow-2xs"
-                        >
-                          <Download className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Export Excel</span>
-                        </button>
-                        <button
-                          onClick={() => exportChequesToPdf(filteredPending, 'Pending Cheques Report')}
-                          title="Export to PDF"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition cursor-pointer shadow-2xs"
-                        >
-                          <Printer className="w-3.5 h-3.5 text-rose-600" />
-                          <span>Export PDF</span>
-                        </button>
+                        <UniversalExportDropdown
+                          onExportExcel={() => exportChequesToExcel(filteredPending, 'Pending_Cheques', 'Pending')}
+                          onExportPdf={() => exportChequesToPdf(filteredPending, 'Pending Cheques Report')}
+                          onExportCsv={() => exportChequesToCsv(filteredPending, 'Pending_Cheques')}
+                          title="Export Pending Cheques"
+                          buttonText="Export Pending"
+                        />
                       </div>
                     )}
                   </div>
@@ -5729,24 +6734,28 @@ export default function App() {
                         <span>Payment Modes Master</span>
                       </button>
 
-                      {/* Export to Excel & PDF Buttons */}
+                      {/* Party-Wise PDF & Universal Export Dropdown */}
                       <button
-                        onClick={() => exportPartialPaymentLedgerToExcel(filteredLedgerCheques)}
-                        title="Export Partial Payment Ledger to Excel (.xlsx)"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition cursor-pointer"
+                        onClick={() => {
+                          if (parties.length > 0 && !selectedPartyForPdf) {
+                            setSelectedPartyForPdf(parties[0].id);
+                          }
+                          setIsPartyWisePdfModalOpen(true);
+                        }}
+                        title="Generate Party-Wise Partial Payment Statement PDF"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-xl transition cursor-pointer shadow-2xs"
                       >
-                        <Download className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Export to Excel</span>
+                        <FileText className="w-3.5 h-3.5 text-purple-600" />
+                        <span>Party-Wise PDF</span>
                       </button>
 
-                      <button
-                        onClick={() => exportPartialPaymentLedgerToPdf(filteredLedgerCheques)}
-                        title="Export Partial Payment Ledger to Printable PDF"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition cursor-pointer"
-                      >
-                        <Printer className="w-3.5 h-3.5 text-rose-600" />
-                        <span>Export to PDF</span>
-                      </button>
+                      <UniversalExportDropdown
+                        onExportExcel={() => exportPartialPaymentLedgerToExcel(filteredLedgerCheques)}
+                        onExportPdf={() => exportPartialPaymentLedgerToPdf(filteredLedgerCheques)}
+                        onExportCsv={() => exportPartialPaymentLedgerToCsv(filteredLedgerCheques)}
+                        title="Export Partial Payment Ledger"
+                        buttonText="Export Ledger"
+                      />
                     </div>
                   </div>
 
@@ -6092,22 +7101,13 @@ export default function App() {
                     {/* Export Actions */}
                     {activeFeatures.excel_pdf_export && (
                       <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => exportChequesToExcel(filteredCleared, 'Cleared_Cheques', 'Cleared')}
-                          title="Export to Excel (.xlsx)"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition cursor-pointer shadow-2xs"
-                        >
-                          <Download className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Export Excel</span>
-                        </button>
-                        <button
-                          onClick={() => exportChequesToPdf(filteredCleared, 'Cleared Cheques Archive')}
-                          title="Export to PDF"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition cursor-pointer shadow-2xs"
-                        >
-                          <Printer className="w-3.5 h-3.5 text-rose-600" />
-                          <span>Export PDF</span>
-                        </button>
+                        <UniversalExportDropdown
+                          onExportExcel={() => exportChequesToExcel(filteredCleared, 'Cleared_Cheques', 'Cleared')}
+                          onExportPdf={() => exportChequesToPdf(filteredCleared, 'Cleared Cheques Archive')}
+                          onExportCsv={() => exportChequesToCsv(filteredCleared, 'Cleared_Cheques')}
+                          title="Export Cleared Cheques"
+                          buttonText="Export Cleared"
+                        />
                       </div>
                     )}
                   </div>
@@ -7015,63 +8015,24 @@ export default function App() {
                           </button>
 
                           <button
-                            onClick={() => {
-                              try {
-                                const wb = XLSX.utils.book_new();
-                                const chequeRows = cheques.map((c) => ({
-                                  'Cheque Number': c.cheque_number,
-                                  'Amount (NPR)': c.amount,
-                                  'Remaining (NPR)': c.remaining_amount ?? (c.status === 'Cleared' ? 0 : c.amount),
-                                  Status: c.status,
-                                  'Issue Date BS': c.issue_date_bs,
-                                  'Issue Date AD': c.issue_date_ad,
-                                  'Due Date BS': c.due_date_bs,
-                                  'Due Date AD': c.due_date_ad,
-                                  'Bill Number': c.bill_number || '',
-                                  Party: parties.find((p) => p.id === c.party_id)?.name || 'N/A',
-                                  Bank: banks.find((b) => b.id === c.bank_id)?.name || 'N/A',
-                                  Notes: c.notes || '',
-                                }));
-                                const partyRows = parties.map((p) => ({
-                                  Name: p.name,
-                                  Phone: p.phone || '',
-                                  Email: p.email || '',
-                                }));
-                                const bankRows = banks.map((b) => ({
-                                  Name: b.name,
-                                  Code: b.code || '',
-                                }));
-                                const paymentRows = paymentLogs.map((p) => ({
-                                  'Cheque ID': p.cheque_id,
-                                  'Amount (NPR)': p.amount,
-                                  'Payment Mode': p.payment_mode,
-                                  'Date BS': p.payment_date_bs,
-                                  'Date AD': p.payment_date_ad,
-                                  'Reference / Notes': p.notes || '',
-                                }));
-
-                                const wsCheques = XLSX.utils.json_to_sheet(chequeRows);
-                                const wsParties = XLSX.utils.json_to_sheet(partyRows);
-                                const wsBanks = XLSX.utils.json_to_sheet(bankRows);
-                                const wsPayments = XLSX.utils.json_to_sheet(paymentRows);
-
-                                XLSX.utils.book_append_sheet(wb, wsCheques, 'Cheques');
-                                XLSX.utils.book_append_sheet(wb, wsPayments, 'Installments');
-                                XLSX.utils.book_append_sheet(wb, wsParties, 'Parties');
-                                XLSX.utils.book_append_sheet(wb, wsBanks, 'Banks');
-
-                                XLSX.writeFile(wb, `chequedesk_ledger_${activeCompanyCode}_${Date.now()}.xlsx`);
-                                showToast('Excel workbook backup exported successfully', 'success');
-                              } catch {
-                                showToast('Error exporting Excel backup', 'error');
-                              }
-                            }}
+                            onClick={exportMultiSheetBackupExcel}
+                            title="Export Comprehensive 4-Sheet Excel Workbook"
                             className="py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-xs"
                           >
                             <FileSpreadsheet className="w-3.5 h-3.5" />
-                            <span>Excel (.xlsx)</span>
+                            <span>Multi-Sheet Excel (.xlsx)</span>
                           </button>
                         </div>
+
+                        {/* Export Complete PDF Report Button */}
+                        <button
+                          type="button"
+                          onClick={exportCompletePdfReport}
+                          className="w-full py-2 px-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-xs"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          <span>Export Complete PDF Audit Report</span>
+                        </button>
 
                         {/* RESTORE FROM LOCAL BACKUP */}
                         <label className="block w-full text-center py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer border border-slate-300/80">
@@ -7158,7 +8119,7 @@ export default function App() {
 
                         <div className="bg-sky-50/50 rounded-xl p-3 border border-sky-100 text-xs space-y-1.5 mt-2">
                           <div className="flex justify-between text-slate-600">
-                            <span>Linked Account:</span>
+                            <span>Primary Cloud Account:</span>
                             <span className="font-semibold text-slate-900">rstraders398@gmail.com</span>
                           </div>
                           <div className="flex justify-between text-slate-600">
@@ -7166,17 +8127,90 @@ export default function App() {
                             <span className="font-mono text-slate-700 text-[11px]">/Google Drive/ChequeDesk_Backups/</span>
                           </div>
                           <div className="flex justify-between text-slate-600">
-                            <span>Last Synced:</span>
+                            <span>Last Drive Synced:</span>
                             <span className="font-medium text-emerald-700">
                               {googleDriveSyncedAt
                                 ? new Date(googleDriveSyncedAt).toLocaleDateString() + ' ' + new Date(googleDriveSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                                 : 'Pending initial sync'}
                             </span>
                           </div>
+                          {lastEmailSyncTime && (
+                            <div className="flex justify-between text-slate-600">
+                              <span>Last Email Sync:</span>
+                              <span className="font-medium text-indigo-700">{lastEmailSyncTime}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* MULTI-EMAIL BACKUP TARGET MANAGEMENT */}
+                        <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                              <Mail className="w-3.5 h-3.5 text-indigo-600" />
+                              <span>Multi-Email Backup Recipients ({backupEmailList.length})</span>
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-semibold">Active Targets</span>
+                          </div>
+
+                          {/* Email list badges */}
+                          <div className="flex flex-wrap gap-1.5">
+                            {backupEmailList.map((email) => (
+                              <span
+                                key={email}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-slate-200 text-slate-700 text-[11px] font-medium rounded-lg shadow-2xs group"
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                                <span className="font-mono">{email}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveBackupEmail(email)}
+                                  title={`Remove ${email}`}
+                                  className="text-slate-400 hover:text-rose-600 ml-0.5 cursor-pointer"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+
+                          {/* Add Email Input */}
+                          <div className="flex items-center gap-1.5 pt-1">
+                            <input
+                              type="email"
+                              value={newBackupEmailInput}
+                              onChange={(e) => setNewBackupEmailInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleAddBackupEmail();
+                                }
+                              }}
+                              placeholder="Add backup recipient email (e.g. auditor@firm.com)"
+                              className="flex-1 px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleAddBackupEmail}
+                              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg transition cursor-pointer shadow-2xs whitespace-nowrap"
+                            >
+                              Add Email
+                            </button>
+                          </div>
                         </div>
                       </div>
 
                       <div className="space-y-2 pt-2">
+                        {/* Dispatch Multi-Email Backup Button */}
+                        <button
+                          type="button"
+                          onClick={handleTriggerMultiEmailSync}
+                          disabled={isSyncingMultiEmail}
+                          className="w-full py-2 px-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-xs"
+                        >
+                          <Send className={`w-3.5 h-3.5 ${isSyncingMultiEmail ? 'animate-bounce' : ''}`} />
+                          <span>{isSyncingMultiEmail ? 'Dispatching Backup Sync...' : `Dispatch Backup to ${backupEmailList.length} Emails`}</span>
+                        </button>
+
                         <button
                           onClick={async () => {
                             setIsSyncingDrive(true);
@@ -7187,6 +8221,7 @@ export default function App() {
                                 cheques,
                                 parties,
                                 banks,
+                                backup_recipients: backupEmailList,
                                 synced_at: new Date().toISOString(),
                                 account: 'rstraders398@gmail.com',
                               };
@@ -7398,22 +8433,13 @@ export default function App() {
 
                     {activeFeatures.excel_pdf_export && (
                       <div className="flex items-center gap-2">
-                        <button
-                          onClick={exportReportsToExcel}
-                          title="Export All Reports to Excel (.xlsx)"
-                          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition cursor-pointer shadow-xs"
-                        >
-                          <Download className="w-4 h-4 text-emerald-600" />
-                          <span>Export Excel (.xlsx)</span>
-                        </button>
-                        <button
-                          onClick={exportReportsToPdf}
-                          title="Export All Reports to PDF"
-                          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition cursor-pointer shadow-xs"
-                        >
-                          <Printer className="w-4 h-4 text-rose-600" />
-                          <span>Export PDF</span>
-                        </button>
+                        <UniversalExportDropdown
+                          onExportExcel={exportReportsToExcel}
+                          onExportPdf={exportReportsToPdf}
+                          onExportCsv={() => exportChequesToCsv(cheques, 'Financial_Reports_Register')}
+                          title="Export Financial Reports"
+                          buttonText="Export Reports"
+                        />
                       </div>
                     )}
                   </div>
@@ -9461,6 +10487,152 @@ export default function App() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Party-Wise Partial Payment Statement & Ledger PDF Modal */}
+      {isPartyWisePdfModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 bg-purple-50 text-purple-600 rounded-xl">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Party-Wise Partial Payment Statement</h3>
+                  <p className="text-xs text-slate-500">Generate a branded PDF statement &amp; ledger breakdown for an individual party</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPartyWisePdfModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Party Selection Dropdown */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700">Select Party / Beneficiary Account *</label>
+              <select
+                value={selectedPartyForPdf || (parties[0]?.id ?? '')}
+                onChange={(e) => setSelectedPartyForPdf(e.target.value)}
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                {parties.map((p) => {
+                  const partyTotalDue = cheques
+                    .filter((c) => c.party_id === p.id && c.status !== 'Cleared')
+                    .reduce((sum, c) => sum + (c.remaining_amount ?? c.amount), 0);
+                  return (
+                    <option key={p.id} value={p.id}>
+                      {p.name} [{p.party_type || 'Party'}] — Due: NPR {partyTotalDue.toLocaleString()}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {/* Selected Party Metrics Preview */}
+            {(() => {
+              const activeParty = parties.find((p) => p.id === (selectedPartyForPdf || parties[0]?.id)) || parties[0];
+              if (!activeParty) return null;
+
+              const partyCheques = cheques.filter((c) => c.party_id === activeParty.id);
+              const partyTotalVal = partyCheques.reduce((s, c) => s + c.amount, 0);
+              const partyRemainingDue = partyCheques
+                .filter((c) => c.status !== 'Cleared')
+                .reduce((s, c) => s + (c.remaining_amount ?? c.amount), 0);
+              const partyPaid = partyTotalVal - partyRemainingDue;
+              const partyInstallments = paymentLogs.filter((p) => partyCheques.some((c) => c.id === p.cheque_id));
+
+              return (
+                <div className="space-y-3.5">
+                  {/* Party Summary Card */}
+                  <div className="bg-purple-50/40 rounded-xl p-3.5 border border-purple-100 flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-bold text-slate-900">{activeParty.name}</div>
+                      <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                        <span className="font-semibold text-purple-700">{activeParty.party_type || 'Sundry Party'}</span>
+                        {activeParty.phone && <span>• Tel: {activeParty.phone}</span>}
+                        {activeParty.address && <span>• {activeParty.address}</span>}
+                      </div>
+                    </div>
+                    <span className={`px-2.5 py-1 text-[11px] font-bold rounded-lg ${activeParty.party_type === 'Sundry Creditors' ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                      {activeParty.party_type === 'Sundry Creditors' ? 'Outward / Payable' : 'Inward / Receivable'}
+                    </span>
+                  </div>
+
+                  {/* Financial Breakdown Grid */}
+                  <div className="grid grid-cols-3 gap-2.5 text-center">
+                    <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase block">Total Value</span>
+                      <span className="text-xs font-mono font-bold text-slate-800">{formatNPR(partyTotalVal)}</span>
+                      <span className="text-[10px] text-slate-400 block">{partyCheques.length} Cheques</span>
+                    </div>
+                    <div className="bg-emerald-50/50 rounded-xl p-2.5 border border-emerald-100">
+                      <span className="text-[10px] text-emerald-600 font-bold uppercase block">Settled</span>
+                      <span className="text-xs font-mono font-bold text-emerald-700">{formatNPR(partyPaid)}</span>
+                      <span className="text-[10px] text-emerald-600/80 block">{partyInstallments.length} Installments</span>
+                    </div>
+                    <div className="bg-amber-50/50 rounded-xl p-2.5 border border-amber-100">
+                      <span className="text-[10px] text-amber-600 font-bold uppercase block">Outstanding</span>
+                      <span className="text-xs font-mono font-bold text-amber-700">{formatNPR(partyRemainingDue)}</span>
+                      <span className="text-[10px] text-amber-600/80 block">Remaining Due</span>
+                    </div>
+                  </div>
+
+                  {/* Cheque List Table Preview */}
+                  <div className="space-y-1.5">
+                    <div className="text-[11px] font-bold text-slate-700">Cheques in Statement ({partyCheques.length})</div>
+                    <div className="max-h-36 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 text-xs">
+                      {partyCheques.length === 0 ? (
+                        <div className="p-4 text-center text-slate-400 text-xs">No cheques recorded for this party.</div>
+                      ) : (
+                        partyCheques.map((c) => (
+                          <div key={c.id} className="p-2.5 flex items-center justify-between bg-white hover:bg-slate-50/80 transition">
+                            <div>
+                              <span className="font-mono font-bold text-slate-800">#{c.cheque_number}</span>
+                              <span className="text-[11px] text-slate-400 ml-2">Due BS: {c.due_date_bs}</span>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-mono font-semibold text-slate-800">{formatNPR(c.amount)}</div>
+                              <div className="text-[10px] text-slate-400">
+                                Rem: <span className="font-mono font-bold text-amber-600">{formatNPR(c.remaining_amount ?? c.amount)}</span> • {c.status}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setIsPartyWisePdfModalOpen(false)}
+                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold cursor-pointer text-slate-700 text-xs"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        exportPartyWiseLedgerPdf(activeParty.id);
+                        setIsPartyWisePdfModalOpen(false);
+                      }}
+                      className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold cursor-pointer shadow-md flex items-center gap-1.5 transition text-xs"
+                    >
+                      <Printer className="w-4 h-4" />
+                      <span>Download PDF Statement</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

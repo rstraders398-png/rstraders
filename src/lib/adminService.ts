@@ -440,6 +440,7 @@ export function subscribeToCompanies(callback: (companies: Company[]) => void) {
           created_at: d.created_at || new Date().toISOString(),
           sales_date: d.sales_date || (d.created_at ? d.created_at.slice(0, 10) : getCurrentAdDate()),
           features: d.features ? { ...DEFAULT_COMPANY_FEATURES, ...d.features } : { ...DEFAULT_COMPANY_FEATURES },
+          admin_password: d.admin_password || '',
         });
       });
       list.sort((a, b) => (a.company_code || '').localeCompare(b.company_code || ''));
@@ -493,6 +494,7 @@ export async function createCompany(input: CreateCompanyInput): Promise<string> 
     is_active: input.is_active ?? true,
     sales_date: input.sales_date || getCurrentAdDate(),
     features: input.features || { ...DEFAULT_COMPANY_FEATURES },
+    admin_password: input.admin_password || 'Pass@123',
     created_at: new Date().toISOString(),
   });
 
