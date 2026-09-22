@@ -17,7 +17,7 @@ export const BS_MONTH_NAMES = [
 ];
 
 // Days in each month for BS years 2075-2090
-const BS_CALENDAR_DATA: Record<number, number[]> = {
+export const BS_CALENDAR_DATA: Record<number, number[]> = {
   2075: [31, 31, 32, 31, 31, 31, 30, 29, 30, 29, 30, 30],
   2076: [31, 32, 31, 32, 31, 30, 30, 30, 29, 29, 30, 30],
   2077: [31, 32, 31, 32, 31, 31, 30, 29, 30, 29, 30, 30],

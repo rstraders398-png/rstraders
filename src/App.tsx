@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import {
   CreditCard,
   Building2,
@@ -89,6 +91,7 @@ import {
   updateBank,
   deleteBank,
 } from './lib/chequeService';
+import { getLocalCheques, getLocalPaymentLogs } from './lib/offlineDb';
 import {
   subscribeToCompanies,
   deleteCompany,
@@ -102,6 +105,8 @@ import {
   adToBs,
   bsToAd,
   formatBsDateFriendly,
+  BS_MONTH_NAMES,
+  BS_CALENDAR_DATA,
 } from './lib/dateUtils';
 import { syncManager } from './lib/syncWorker';
 
@@ -176,6 +181,406 @@ const StatusBadge: React.FC<{ status: ChequeStatus | string }> = ({ status }) =>
     <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold border ${styles[status] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
       {status}
     </span>
+  );
+};
+
+// ==========================================
+// BS & AD DUAL DATE PICKER WIDGET
+// ==========================================
+export interface DualDatePickerProps {
+  id?: string;
+  label?: string;
+  adDate: string;
+  bsDate: string;
+  onDateChange: (adDate: string, bsDate: string) => void;
+  required?: boolean;
+  compact?: boolean;
+  className?: string;
+}
+
+export const formatAdDateMMDDYYYY = (adStr: string): string => {
+  if (!adStr) return '';
+  const parts = adStr.split('-');
+  if (parts.length === 3) {
+    const [y, m, d] = parts;
+    return `${m}/${d}/${y}`;
+  }
+  return adStr;
+};
+
+export const DualDatePicker: React.FC<DualDatePickerProps> = ({
+  id,
+  label,
+  adDate,
+  bsDate,
+  onDateChange,
+  required = false,
+  className = '',
+}) => {
+  const parseBs = (bs: string, ad: string) => {
+    let targetBs = bs;
+    if (!targetBs && ad) {
+      targetBs = adToBs(ad);
+    }
+    if (!targetBs) {
+      targetBs = getCurrentBsDate();
+    }
+    const parts = targetBs.split('-');
+    const y = parseInt(parts[0], 10) || 2081;
+    const m = parseInt(parts[1], 10) || 1;
+    const d = parseInt(parts[2], 10) || 1;
+    return {
+      year: y >= 2075 && y <= 2090 ? y : 2081,
+      month: m >= 1 && m <= 12 ? m : 1,
+      day: d >= 1 && d <= 32 ? d : 1,
+    };
+  };
+
+  const parsed = parseBs(bsDate, adDate);
+  const [selectedYear, setSelectedYear] = useState<number>(parsed.year);
+  const [selectedMonth, setSelectedMonth] = useState<number>(parsed.month);
+  const [selectedDay, setSelectedDay] = useState<number>(parsed.day);
+
+  useEffect(() => {
+    const p = parseBs(bsDate, adDate);
+    setSelectedYear(p.year);
+    setSelectedMonth(p.month);
+    setSelectedDay(p.day);
+  }, [bsDate, adDate]);
+
+  const maxDays = useMemo(() => {
+    return BS_CALENDAR_DATA[selectedYear]?.[selectedMonth - 1] || 30;
+  }, [selectedYear, selectedMonth]);
+
+  const handleBsComponentChange = (newYear: number, newMonth: number, newDay: number) => {
+    const daysInMonth = BS_CALENDAR_DATA[newYear]?.[newMonth - 1] || 30;
+    const clampedDay = Math.min(newDay, daysInMonth);
+    setSelectedYear(newYear);
+    setSelectedMonth(newMonth);
+    setSelectedDay(clampedDay);
+
+    const formattedBs = `${newYear}-${String(newMonth).padStart(2, '0')}-${String(clampedDay).padStart(2, '0')}`;
+    let convertedAd = '';
+    try {
+      convertedAd = bsToAd(formattedBs);
+    } catch {}
+    if (!convertedAd || convertedAd.includes('NaN')) {
+      convertedAd = getCurrentAdDate();
+    }
+    onDateChange(convertedAd, formattedBs);
+  };
+
+  const handleAdChange = (newAdDate: string) => {
+    if (!newAdDate) {
+      onDateChange('', '');
+      return;
+    }
+    let convertedBs = '';
+    try {
+      convertedBs = adToBs(newAdDate);
+    } catch {}
+    if (convertedBs && /^\d{4}-\d{2}-\d{2}$/.test(convertedBs)) {
+      const parts = convertedBs.split('-');
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      const d = parseInt(parts[2], 10);
+      if (y >= 2075 && y <= 2090) {
+        setSelectedYear(y);
+        setSelectedMonth(m);
+        setSelectedDay(d);
+      }
+      onDateChange(newAdDate, convertedBs);
+    } else {
+      onDateChange(newAdDate, bsDate);
+    }
+  };
+
+  const handleSetToday = () => {
+    const todayBs = getCurrentBsDate();
+    const todayAd = getCurrentAdDate();
+    const parts = todayBs.split('-');
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    const d = parseInt(parts[2], 10);
+    setSelectedYear(y);
+    setSelectedMonth(m);
+    setSelectedDay(d);
+    onDateChange(todayAd, todayBs);
+  };
+
+  const currentBsFormatted = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
+  const friendlyBs = formatBsDateFriendly(currentBsFormatted);
+  const friendlyAd = formatAdDateMMDDYYYY(adDate || bsToAd(currentBsFormatted));
+
+  const BS_YEARS = [2075, 2076, 2077, 2078, 2079, 2080, 2081, 2082, 2083, 2084, 2085, 2086, 2087, 2088, 2089, 2090];
+
+  return (
+    <div id={id || `dual-date-picker-${(label || 'date').toLowerCase().replace(/\s+/g, '-')}`} className={`bg-slate-50/80 border border-slate-200 rounded-xl p-3 space-y-2.5 transition ${className}`}>
+      {/* Header with Label and Formatted Synced Badges */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+          <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+            {label} {required && <span className="text-rose-500">*</span>}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 text-[11px]">
+          <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200" title="Nepali BS Date">
+            {friendlyBs}
+          </span>
+          <span className="font-mono text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200" title="English AD Date (MM/DD/YYYY)">
+            {friendlyAd}
+          </span>
+          <button
+            type="button"
+            onClick={handleSetToday}
+            className="px-2 py-0.5 text-[10px] font-bold text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 rounded cursor-pointer transition shadow-2xs"
+            title="Set to Today (BS & AD)"
+          >
+            Today
+          </button>
+        </div>
+      </div>
+
+      {/* Main Pickers: BS Year/Month/Day + AD English Date Sync */}
+      <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 text-xs">
+        {/* BS Year */}
+        <div className="sm:col-span-3">
+          <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+            Year (BS)
+          </label>
+          <select
+            value={selectedYear}
+            onChange={(e) => handleBsComponentChange(parseInt(e.target.value, 10), selectedMonth, selectedDay)}
+            className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            {BS_YEARS.map((y) => (
+              <option key={y} value={y}>
+                {y} BS
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* BS Month */}
+        <div className="sm:col-span-4">
+          <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+            Month (BS)
+          </label>
+          <select
+            value={selectedMonth}
+            onChange={(e) => handleBsComponentChange(selectedYear, parseInt(e.target.value, 10), selectedDay)}
+            className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            {BS_MONTH_NAMES.map((name, idx) => (
+              <option key={idx + 1} value={idx + 1}>
+                {String(idx + 1).padStart(2, '0')}: {name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* BS Day */}
+        <div className="sm:col-span-2">
+          <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+            Day
+          </label>
+          <select
+            value={selectedDay > maxDays ? maxDays : selectedDay}
+            onChange={(e) => handleBsComponentChange(selectedYear, selectedMonth, parseInt(e.target.value, 10))}
+            className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            {Array.from({ length: maxDays }, (_, i) => i + 1).map((d) => (
+              <option key={d} value={d}>
+                {String(d).padStart(2, '0')}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Synced English AD Date (MM/DD/YYYY) with Native Picker */}
+        <div className="sm:col-span-3">
+          <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 flex items-center justify-between">
+            <span>English (AD)</span>
+            <span className="text-slate-400 font-normal">MM/DD/YYYY</span>
+          </label>
+          <div className="relative">
+            <input
+              type="date"
+              value={adDate || bsToAd(currentBsFormatted)}
+              onChange={(e) => handleAdChange(e.target.value)}
+              className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              required={required}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
+// UNIVERSAL DATE RANGE FILTER & SUMMARY STRIP
+// ==========================================
+export interface DateRangeFilterStripProps {
+  id?: string;
+  title?: string;
+  fromDateBs: string;
+  toDateBs: string;
+  onFromDateChange: (val: string) => void;
+  onToDateChange: (val: string) => void;
+  onClear: () => void;
+  onPresetSelect: (preset: 'all' | 'today' | 'this_month' | 'last_month' | 'this_year') => void;
+  activePreset?: string;
+  filteredCount: number;
+  totalAmount: number;
+  totalCount?: number;
+  extraStats?: { label: string; value: string; color?: string }[];
+  accentColor?: 'indigo' | 'amber' | 'emerald' | 'purple';
+}
+
+export const DateRangeFilterStrip: React.FC<DateRangeFilterStripProps> = ({
+  id,
+  title = 'Date Range Filter (BS)',
+  fromDateBs,
+  toDateBs,
+  onFromDateChange,
+  onToDateChange,
+  onClear,
+  onPresetSelect,
+  activePreset = 'all',
+  filteredCount,
+  totalAmount,
+  totalCount,
+  extraStats = [],
+  accentColor = 'indigo',
+}) => {
+  const isFiltered = Boolean(fromDateBs || toDateBs || (activePreset && activePreset !== 'all'));
+
+  const accentStyles = {
+    indigo: 'border-indigo-100 bg-indigo-50/20 text-indigo-700',
+    amber: 'border-amber-100 bg-amber-50/20 text-amber-700',
+    emerald: 'border-emerald-100 bg-emerald-50/20 text-emerald-700',
+    purple: 'border-purple-100 bg-purple-50/20 text-purple-700',
+  }[accentColor];
+
+  return (
+    <div id={id} className="bg-white rounded-2xl border border-slate-200 p-3.5 shadow-xs space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+        {/* From Date -> To Date Inputs */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 font-bold text-slate-700">
+            <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+            <span>{title}:</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <div className="relative">
+              <input
+                type="text"
+                value={fromDateBs}
+                onChange={(e) => onFromDateChange(e.target.value)}
+                placeholder="From: YYYY-MM-DD"
+                className="w-36 px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-mono placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <span className="text-slate-400 font-medium">to</span>
+            <div className="relative">
+              <input
+                type="text"
+                value={toDateBs}
+                onChange={(e) => onToDateChange(e.target.value)}
+                placeholder="To: YYYY-MM-DD"
+                className="w-36 px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-mono placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
+
+          {/* Quick Presets */}
+          <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-[11px] font-medium">
+            <button
+              type="button"
+              onClick={() => onPresetSelect('all')}
+              className={`px-2 py-1 rounded transition cursor-pointer ${activePreset === 'all' && !fromDateBs && !toDateBs ? 'bg-white text-indigo-700 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => onPresetSelect('today')}
+              className={`px-2 py-1 rounded transition cursor-pointer ${activePreset === 'today' ? 'bg-white text-indigo-700 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              onClick={() => onPresetSelect('this_month')}
+              className={`px-2 py-1 rounded transition cursor-pointer ${activePreset === 'this_month' ? 'bg-white text-indigo-700 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              This Month
+            </button>
+            <button
+              type="button"
+              onClick={() => onPresetSelect('last_month')}
+              className={`px-2 py-1 rounded transition cursor-pointer ${activePreset === 'last_month' ? 'bg-white text-indigo-700 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              Last Month
+            </button>
+            <button
+              type="button"
+              onClick={() => onPresetSelect('this_year')}
+              className={`px-2 py-1 rounded transition cursor-pointer ${activePreset === 'this_year' ? 'bg-white text-indigo-700 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              This Year
+            </button>
+          </div>
+
+          {isFiltered && (
+            <button
+              type="button"
+              onClick={onClear}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition cursor-pointer"
+              title="Clear active date filters"
+            >
+              <X className="w-3 h-3" />
+              <span>Reset Filter</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* REAL-TIME SUMMARY CALCULATION STRIP */}
+      <div className={`p-2.5 rounded-xl border flex flex-wrap items-center justify-between gap-3 text-xs ${accentStyles}`}>
+        <div className="flex flex-wrap items-center gap-3 sm:gap-6">
+          <div className="flex items-center gap-1.5 font-semibold">
+            <span className="text-slate-500 uppercase tracking-wide text-[10px]">Filtered Count:</span>
+            <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 font-bold text-slate-800">
+              {filteredCount} {totalCount !== undefined ? `of ${totalCount}` : 'Records'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 font-semibold">
+            <span className="text-slate-500 uppercase tracking-wide text-[10px]">Total Amount:</span>
+            <span className="font-mono font-extrabold text-sm sm:text-base text-slate-900">
+              {formatNPR(totalAmount)}
+            </span>
+          </div>
+
+          {extraStats.map((stat, idx) => (
+            <div key={idx} className="flex items-center gap-1.5 font-semibold">
+              <span className="text-slate-500 uppercase tracking-wide text-[10px]">{stat.label}:</span>
+              <span className={`font-mono font-bold ${stat.color || 'text-slate-800'}`}>{stat.value}</span>
+            </div>
+          ))}
+        </div>
+
+        {isFiltered && (
+          <div className="text-[11px] text-slate-500 italic">
+            Active Filter: {fromDateBs || 'Beginning'} → {toDateBs || 'Present'}
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 
@@ -494,11 +899,11 @@ const UniversalExportDropdown: React.FC<UniversalExportDropdownProps> = ({
             className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-rose-50 hover:text-rose-800 flex items-center gap-2.5 transition cursor-pointer"
           >
             <div className="w-7 h-7 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
-              <Printer className="w-4 h-4" />
+              <Download className="w-4 h-4" />
             </div>
             <div>
               <div className="font-bold text-slate-900">PDF Document</div>
-              <div className="text-[10px] text-slate-400 font-normal">Printable formatted audit report</div>
+              <div className="text-[10px] text-slate-400 font-normal">Instant direct PDF download</div>
             </div>
           </button>
 
@@ -531,11 +936,11 @@ const UniversalExportDropdown: React.FC<UniversalExportDropdownProps> = ({
                 className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-800 flex items-center gap-2.5 transition cursor-pointer"
               >
                 <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
-                  <Users className="w-4 h-4" />
+                  <Download className="w-4 h-4" />
                 </div>
                 <div>
                   <div className="font-bold text-indigo-900">Party-Wise Statement</div>
-                  <div className="text-[10px] text-indigo-600/80 font-normal">Party ledger &amp; partial dues PDF</div>
+                  <div className="text-[10px] text-indigo-600/80 font-normal">Instant download party ledger PDF</div>
                 </div>
               </button>
             </>
@@ -655,11 +1060,36 @@ export default function App() {
 
   // Filters & State for Pending Cheques View
   const [pendingDateRange, setPendingDateRange] = useState<string>('all');
+  const [pendingFromDateBs, setPendingFromDateBs] = useState<string>('');
+  const [pendingToDateBs, setPendingToDateBs] = useState<string>('');
   const [pendingSearchTerm, setPendingSearchTerm] = useState<string>('');
 
   // Filters & State for Cleared Cheques View
   const [clearedDateRange, setClearedDateRange] = useState<string>('all');
+  const [clearedFromDateBs, setClearedFromDateBs] = useState<string>('');
+  const [clearedToDateBs, setClearedToDateBs] = useState<string>('');
   const [clearedSearchTerm, setClearedSearchTerm] = useState<string>('');
+
+  // Filters & State for Partial Payments View
+  const [partialDatePreset, setPartialDatePreset] = useState<string>('all');
+  const [partialFromDateBs, setPartialFromDateBs] = useState<string>('');
+  const [partialToDateBs, setPartialToDateBs] = useState<string>('');
+
+  // Filters & State for Reports View
+  const [reportsDatePreset, setReportsDatePreset] = useState<string>('all');
+  const [reportsFromDateBs, setReportsFromDateBs] = useState<string>('');
+  const [reportsToDateBs, setReportsToDateBs] = useState<string>('');
+
+  // Payment Modal Date State
+  const [paymentModalDateBs, setPaymentModalDateBs] = useState<string>(getCurrentBsDate());
+  const [paymentModalDateAd, setPaymentModalDateAd] = useState<string>(getCurrentAdDate());
+
+  // Company Transaction Counts (for Deletion Protection)
+  const [companyTransactionCounts, setCompanyTransactionCounts] = useState<Record<string, number>>({});
+
+  // Tenant Company Name Inline Edit State
+  const [isEditingTenantCompanyName, setIsEditingTenantCompanyName] = useState(false);
+  const [tenantCompanyNameInput, setTenantCompanyNameInput] = useState('');
 
   // Search & Edit States for Bank Directory
   const [bankSearchTerm, setBankSearchTerm] = useState<string>('');
@@ -1467,8 +1897,23 @@ export default function App() {
     }
   };
 
-  // Delete Company Action in Dev Console
+  // Delete Company Action in Dev Console (Protected by Transaction Deletion Rule)
   const handleDeleteCompany = async (comp: Company) => {
+    const txCount =
+      companyTransactionCounts[comp.id] !== undefined
+        ? companyTransactionCounts[comp.id]
+        : comp.id === activeCompanyId
+        ? cheques.length + paymentLogs.length
+        : 0;
+
+    if (txCount > 0) {
+      showToast(
+        `Action Blocked: Company "${comp.name}" has ${txCount} transaction record(s). Deletion is prohibited for audit compliance. Please deactivate instead.`,
+        'error'
+      );
+      return;
+    }
+
     try {
       await deleteCompany(comp.id, comp.name);
       setCompanies((prev) => prev.filter((c) => c.id !== comp.id));
@@ -1476,6 +1921,64 @@ export default function App() {
       showToast(`Company "${comp.name}" deleted successfully`, 'success');
     } catch (err: any) {
       showToast(`Failed to delete company: ${err?.message || 'Error'}`, 'error');
+    }
+  };
+
+  // Toggle Deactivate / Activate Company Action
+  const handleToggleDeactivateCompany = async (comp: Company) => {
+    const newActiveState = !comp.is_active;
+    try {
+      await updateCompany(comp.id, {
+        is_active: newActiveState,
+        subscription_status: newActiveState ? 'Active' : 'Suspended',
+      });
+      setCompanies((prev) =>
+        prev.map((c) =>
+          c.id === comp.id
+            ? {
+                ...c,
+                is_active: newActiveState,
+                subscription_status: newActiveState ? 'Active' : 'Suspended',
+              }
+            : c
+        )
+      );
+      if (companyToDelete?.id === comp.id) {
+        setCompanyToDelete(null);
+      }
+      showToast(
+        `Company "${comp.name}" ${newActiveState ? 'activated' : 'deactivated'} successfully.`,
+        'success'
+      );
+    } catch (err: any) {
+      showToast(`Failed to update company status: ${err?.message || 'Error'}`, 'error');
+    }
+  };
+
+  // Company Admin Inline Edit for Company Name (Settings / Organization Profile)
+  const handleSaveTenantCompanyName = async () => {
+    const trimmed = tenantCompanyNameInput.trim();
+    if (!trimmed) {
+      showToast('Company name cannot be empty', 'error');
+      return;
+    }
+    try {
+      if (activeCompanyId) {
+        await updateCompany(activeCompanyId, { name: trimmed });
+      }
+      setActiveCompanyName(trimmed);
+      setCompanies((prev) =>
+        prev.map((c) =>
+          c.id === activeCompanyId || c.company_code === activeCompanyCode
+            ? { ...c, name: trimmed }
+            : c
+        )
+      );
+      localStorage.setItem('chequedesk_active_company_name', trimmed);
+      setIsEditingTenantCompanyName(false);
+      showToast(`Company name updated to "${trimmed}" successfully`, 'success');
+    } catch (err: any) {
+      showToast(`Failed to update company name: ${err?.message || 'Error'}`, 'error');
     }
   };
 
@@ -1595,6 +2098,10 @@ export default function App() {
       setCompanies((prev) =>
         prev.map((c) => (c.id === editingCompany.id ? { ...c, ...updatedData } : c))
       );
+      if (editingCompany.id === activeCompanyId && updatedData.name) {
+        setActiveCompanyName(updatedData.name);
+        localStorage.setItem('chequedesk_active_company_name', updatedData.name);
+      }
       showToast(`Features and permissions for "${companyEditForm.name}" updated!`, 'success');
       setEditingCompany(null);
     } catch (err: any) {
@@ -1778,6 +2285,73 @@ export default function App() {
     };
   }, [currentCompany]);
 
+  // Software Subscription Expiry Calculation & <= 60-day Warning
+  const subscriptionExpiryInfo = useMemo(() => {
+    if (!currentCompany) return null;
+    let expiryDateAd = currentCompany.expiry_date_ad;
+    if (!expiryDateAd && currentCompany.expiry_date_bs) {
+      try {
+        expiryDateAd = bsToAd(currentCompany.expiry_date_bs);
+      } catch {}
+    }
+    if (!expiryDateAd && (currentCompany as any).subscription_expiry) {
+      expiryDateAd = (currentCompany as any).subscription_expiry;
+    }
+    if (!expiryDateAd) {
+      expiryDateAd = '2026-04-13';
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expDate = new Date(expiryDateAd);
+    expDate.setHours(0, 0, 0, 0);
+
+    const diffTime = expDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    const displayDate = currentCompany.expiry_date_bs
+      ? `${currentCompany.expiry_date_bs} BS`
+      : `${expiryDateAd} AD`;
+
+    return {
+      expiryDateAd,
+      displayDate,
+      diffDays,
+      isExpired: diffDays < 0,
+      isExpiringSoon: diffDays <= 60,
+    };
+  }, [currentCompany]);
+
+  // Load transaction counts across companies for Deletion Protection
+  useEffect(() => {
+    let isMounted = true;
+    const loadTxCounts = async () => {
+      const counts: Record<string, number> = {};
+      for (const comp of companies) {
+        try {
+          if (comp.id === activeCompanyId) {
+            counts[comp.id] = cheques.length + paymentLogs.length;
+          } else {
+            const [localC, localP] = await Promise.all([
+              getLocalCheques(comp.id).catch(() => []),
+              getLocalPaymentLogs(comp.id).catch(() => []),
+            ]);
+            counts[comp.id] = (localC?.length || 0) + (localP?.length || 0);
+          }
+        } catch {
+          counts[comp.id] = 0;
+        }
+      }
+      if (isMounted) {
+        setCompanyTransactionCounts(counts);
+      }
+    };
+    loadTxCounts();
+    return () => {
+      isMounted = false;
+    };
+  }, [companies, cheques.length, paymentLogs.length, activeCompanyId]);
+
   // Client Routing Guard: Fallback to dashboard if navigating to disabled feature
   useEffect(() => {
     if (role === 'TENANT') {
@@ -1840,77 +2414,183 @@ export default function App() {
   // ==========================================
   // EXCEL & PDF EXPORT UTILITIES (STANDARDIZED)
   // ==========================================
-  const exportToPdf = (title: string, headers: string[], rows: (string | number)[][], summaryText?: string) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      showToast('Please allow popups to export PDF', 'error');
-      return;
+  const exportToPdf = (
+    title: string,
+    headers: string[],
+    rows: (string | number)[][],
+    summaryText?: string,
+    customFilename?: string,
+    summaryCards?: { label: string; value: string; color?: [number, number, number] }[]
+  ) => {
+    try {
+      const compName = currentCompany?.name || activeCompanyName || 'ChequeDesk';
+      const operatorName = currentUser?.name || 'Accountant';
+      const cleanSummary = summaryText ? summaryText.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim() : '';
+
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+      
+      // Top header banner line
+      doc.setFillColor(79, 70, 229);
+      doc.rect(40, 24, 762, 3, 'F');
+
+      // Company Name
+      doc.setFontSize(15);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 27, 75);
+      doc.text(compName, 40, 44);
+
+      // Report Title
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(79, 70, 229);
+      doc.text(title, 40, 60);
+
+      // System Tagline
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Company Code: ${activeCompanyCode} • ChequeDesk Multi-Tenant Financial ERP`, 40, 72);
+
+      // Top Right Meta Info
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Generated Date (BS): ${getCurrentBsDate()}`, 802, 44, { align: 'right' });
+      doc.text(`Generated Date (AD): ${getCurrentAdDate()}`, 802, 56, { align: 'right' });
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 41, 59);
+      doc.text(`Total Records: ${rows.length}`, 802, 68, { align: 'right' });
+
+      let startY = 82;
+
+      // Render Executive Metric Summary Cards if provided
+      if (summaryCards && summaryCards.length > 0) {
+        const gap = 8;
+        const totalW = 762;
+        const cardW = (totalW - (summaryCards.length - 1) * gap) / summaryCards.length;
+        const cardH = 34;
+
+        summaryCards.forEach((card, idx) => {
+          const cardX = 40 + idx * (cardW + gap);
+          // Background box
+          doc.setFillColor(248, 250, 252);
+          doc.setDrawColor(226, 232, 240);
+          doc.roundedRect(cardX, startY, cardW, cardH, 4, 4, 'FD');
+
+          // Label
+          doc.setFontSize(6.5);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(100, 116, 139);
+          doc.text(card.label.toUpperCase(), cardX + 8, startY + 12);
+
+          // Value
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'bold');
+          const [r, g, b] = card.color || [15, 23, 42];
+          doc.setTextColor(r, g, b);
+          doc.text(card.value, cardX + 8, startY + 26);
+        });
+
+        startY += cardH + 10;
+      } else if (cleanSummary) {
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(226, 232, 240);
+        doc.roundedRect(40, startY, 762, 22, 4, 4, 'FD');
+        doc.setFontSize(7.5);
+        doc.setTextColor(30, 41, 59);
+        doc.setFont('helvetica', 'bold');
+        doc.text(cleanSummary.slice(0, 160), 48, startY + 14);
+        startY += 30;
+      }
+
+      const formattedRows = rows.map((r) =>
+        r.map((c) => {
+          if (c === null || c === undefined) return '';
+          let s = String(c);
+          s = s.replace(/<br\s*\/?>/gi, '\n');
+          s = s.replace(/<[^>]*>?/gm, '');
+          return s;
+        })
+      );
+
+      const autoTableFn = (autoTable as any).default || autoTable;
+
+      autoTableFn(doc, {
+        head: [headers],
+        body: formattedRows,
+        startY: startY,
+        margin: { left: 40, right: 40, bottom: 65 },
+        theme: 'striped',
+        headStyles: {
+          fillColor: [79, 70, 229],
+          textColor: [255, 255, 255],
+          fontSize: 8,
+          fontStyle: 'bold',
+          halign: 'left',
+          cellPadding: 4,
+        },
+        styles: {
+          fontSize: 7.5,
+          cellPadding: 4,
+          overflow: 'linebreak',
+          textColor: [30, 41, 59],
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252],
+        },
+        didParseCell: (data: any) => {
+          const rowData = data.row.raw;
+          if (Array.isArray(rowData)) {
+            const firstCell = String(rowData[0] || '').toUpperCase();
+            if (firstCell.includes('TOTAL') || firstCell.includes('GRAND')) {
+              data.cell.styles.fontStyle = 'bold';
+              data.cell.styles.fillColor = [241, 245, 249];
+              data.cell.styles.textColor = [15, 23, 42];
+            }
+          }
+        },
+        didDrawPage: (data: any) => {
+          const pageCount = (doc as any).internal.getNumberOfPages();
+          const currentPage = data.pageNumber;
+
+          doc.setDrawColor(226, 232, 240);
+          doc.line(40, 545, 802, 545);
+
+          doc.setFontSize(8);
+          doc.setTextColor(71, 85, 105);
+          doc.text(`Prepared By: ${operatorName}`, 40, 558);
+          doc.text(`Accountant / Verified By: ____________________`, 320, 558);
+          doc.text(`Authorized Signatory: ____________________`, 600, 558);
+
+          doc.setFontSize(7.5);
+          doc.setTextColor(148, 163, 184);
+          doc.text(`ChequeDesk Multi-Tenant Financial ERP • Certified Record`, 40, 575);
+          doc.text(`Page ${currentPage} of ${pageCount}`, 802, 575, { align: 'right' });
+        },
+      });
+
+      const finalFilename = customFilename || `${title.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+      try {
+        const blob = doc.output('blob');
+        const blobUrl = URL.createObjectURL(blob);
+        const downloadLink = document.createElement('a');
+        downloadLink.href = blobUrl;
+        downloadLink.download = finalFilename;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        setTimeout(() => {
+          try {
+            document.body.removeChild(downloadLink);
+            URL.revokeObjectURL(blobUrl);
+          } catch {}
+        }, 300);
+      } catch {
+        doc.save(finalFilename);
+      }
+      showToast(`Downloaded ${finalFilename} directly without print dialog!`, 'success');
+    } catch (err: any) {
+      console.error('Direct PDF export error:', err);
+      showToast(`PDF generation error: ${err?.message || 'Failed'}`, 'error');
     }
-    const compName = currentCompany?.name || activeCompanyName || 'ChequeDesk';
-    const operatorName = currentUser?.name || 'Rajendra Shrestha';
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${title} - ${compName}</title>
-          <style>
-            @page { size: A4 landscape; margin: 10mm; }
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #0f172a; margin: 0; padding: 14px; font-size: 11px; }
-            .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #4f46e5; padding-bottom: 10px; margin-bottom: 12px; }
-            .company-name { font-size: 18px; font-weight: 800; color: #1e1b4b; }
-            .report-title { font-size: 13px; font-weight: 700; color: #4338ca; margin-top: 3px; }
-            .meta { font-size: 10px; color: #64748b; text-align: right; line-height: 1.5; }
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-            th { background: #f1f5f9; color: #334155; font-weight: 700; text-align: left; padding: 6px 8px; font-size: 10px; border: 1px solid #cbd5e1; text-transform: uppercase; }
-            td { padding: 6px 8px; border: 1px solid #e2e8f0; font-size: 10px; }
-            tr:nth-child(even) { background: #f8fafc; }
-            .num { text-align: right; font-family: monospace; font-weight: 600; }
-            .summary-box { margin-top: 14px; padding: 10px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; display: flex; justify-content: space-between; font-weight: 600; font-size: 11px; }
-            .footer { margin-top: 35px; display: flex; justify-content: space-between; padding-top: 10px; font-size: 10px; color: #475569; }
-            .sign-line { border-top: 1px dashed #94a3b8; width: 160px; text-align: center; padding-top: 4px; font-size: 10px; font-weight: 600; }
-            .page-footer { display: flex; justify-content: space-between; margin-top: 14px; font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 4px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div>
-              <div class="company-name">${compName}</div>
-              <div class="report-title">${title}</div>
-              <div style="font-size: 10px; color: #64748b; margin-top: 2px;">Company Code: ${activeCompanyCode} | Generated via ChequeDesk Ledger System</div>
-            </div>
-            <div class="meta">
-              <div><strong>Generated Date (BS):</strong> ${getCurrentBsDate()}</div>
-              <div><strong>Generated Date (AD):</strong> ${getCurrentAdDate()}</div>
-              <div><strong>Total Records:</strong> ${rows.length}</div>
-            </div>
-          </div>
-          ${summaryText ? `<div>${summaryText}</div>` : ''}
-          <table>
-            <thead>
-              <tr>${headers.map((h) => `<th>${h}</th>`).join('')}</tr>
-            </thead>
-            <tbody>
-              ${rows.map((r) => `<tr>${r.map((c) => `<td class="${typeof c === 'number' || (typeof c === 'string' && c.startsWith('NPR')) ? 'num' : ''}">${c}</td>`).join('')}</tr>`).join('')}
-            </tbody>
-          </table>
-          <div class="footer">
-            <div class="sign-line">Prepared By: ${operatorName}</div>
-            <div class="sign-line">Accountant / Verified By</div>
-            <div class="sign-line">Authorized Signatory</div>
-          </div>
-          <div class="page-footer">
-            <span>ChequeDesk Multi-Tenant Financial ERP • Certified Record</span>
-            <span>Page 1 of 1</span>
-          </div>
-          <script>
-            window.onload = function() { window.print(); };
-          </script>
-        </body>
-      </html>
-    `;
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
   };
 
   const exportPartialPaymentLedgerToExcel = (chequeList: Cheque[]) => {
@@ -1957,10 +2637,10 @@ export default function App() {
       'Bill #',
       'Party Name',
       'Bank Name',
-      'Issue Date (BS/AD)',
-      'Due Date (BS/AD)',
+      'Issue Date',
+      'Due Date',
       'Total Amount',
-      'Date-wise Payment Entries',
+      'Payment Entries / Installments',
       'Remaining Balance',
       'Status',
     ];
@@ -1983,16 +2663,16 @@ export default function App() {
       grandTotalInstallments += logs.length;
 
       const paymentsText = logs.length > 0
-        ? logs.map((l) => `${l.payment_date_bs} BS: NPR ${l.amount.toLocaleString()} (${l.payment_mode})`).join('<br/>')
-        : '<span style="color:#94a3b8; font-style: italic;">No payments</span>';
+        ? logs.map((l) => `${l.payment_date_bs} BS: NPR ${l.amount.toLocaleString()} (${l.payment_mode})`).join('\n')
+        : 'No installments recorded';
 
       return [
         c.cheque_number,
         c.bill_number || '-',
         party?.name || 'N/A',
         bank?.name || 'N/A',
-        `${c.issue_date_bs}<br/><small style="color:#64748b">${c.issue_date_ad}</small>`,
-        `${c.due_date_bs}<br/><small style="color:#64748b">${c.due_date_ad}</small>`,
+        `${c.issue_date_bs}\n(${c.issue_date_ad})`,
+        `${c.due_date_bs}\n(${c.due_date_ad})`,
         formatNPR(c.amount),
         paymentsText,
         formatNPR(remaining),
@@ -2002,31 +2682,36 @@ export default function App() {
 
     const recoveryPct = grandTotalAmount > 0 ? Math.round((grandTotalReceived / grandTotalAmount) * 100) : 0;
 
-    const summaryHeader = `
-      <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; width: 100%; margin-bottom: 12px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 12px;">
-        <div><div style="font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 700;">Total Cheque Value</div><div style="font-size: 13px; font-weight: 800; color: #0f172a;">${formatNPR(grandTotalAmount)}</div></div>
-        <div><div style="font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 700;">Total Received</div><div style="font-size: 13px; font-weight: 800; color: #059669;">${formatNPR(grandTotalReceived)}</div></div>
-        <div><div style="font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 700;">Remaining Due</div><div style="font-size: 13px; font-weight: 800; color: #d97706;">${formatNPR(grandTotalRemaining)}</div></div>
-        <div><div style="font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 700;">Total Installments</div><div style="font-size: 13px; font-weight: 800; color: #4338ca;">${grandTotalInstallments} Entries</div></div>
-        <div><div style="font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 700;">Recovery Rate</div><div style="font-size: 13px; font-weight: 800; color: #0284c7;">${recoveryPct}% Settled</div></div>
-      </div>
-    `;
-
     // Append Grand Totals Row
     rows.push([
-      '<strong>GRAND TOTALS</strong>',
+      'GRAND TOTALS',
+      '-',
+      `${parties.length} Parties`,
       '-',
       '-',
       '-',
-      '-',
-      '-',
-      `<strong>${formatNPR(grandTotalAmount)}</strong>`,
-      `<strong>${grandTotalInstallments} Installments (${formatNPR(grandTotalReceived)})</strong>`,
-      `<strong style="color:#d97706">${formatNPR(grandTotalRemaining)}</strong>`,
-      `<strong>${recoveryPct}% Cleared</strong>`,
+      formatNPR(grandTotalAmount),
+      `${grandTotalInstallments} Entries (${formatNPR(grandTotalReceived)})`,
+      formatNPR(grandTotalRemaining),
+      `${recoveryPct}% Cleared`,
     ]);
 
-    exportToPdf('Partial Payment Ledger & Installment Audit Report', headers, rows, summaryHeader);
+    const summaryCards = [
+      { label: 'TOTAL CHEQUE VALUE', value: formatNPR(grandTotalAmount), color: [15, 23, 42] as [number, number, number] },
+      { label: 'TOTAL SETTLED / PAID', value: formatNPR(grandTotalReceived), color: [5, 150, 105] as [number, number, number] },
+      { label: 'REMAINING DUE', value: formatNPR(grandTotalRemaining), color: [217, 119, 6] as [number, number, number] },
+      { label: 'INSTALLMENT ENTRIES', value: `${grandTotalInstallments} Logs`, color: [67, 56, 202] as [number, number, number] },
+      { label: 'RECOVERY RATE', value: `${recoveryPct}% Settled`, color: [2, 132, 199] as [number, number, number] },
+    ];
+
+    exportToPdf(
+      'Partial Payment Ledger & Installment Audit Report',
+      headers,
+      rows,
+      `Total Volume: NPR ${formatNPR(grandTotalAmount)} | Total Received: NPR ${formatNPR(grandTotalReceived)} | Remaining Due: NPR ${formatNPR(grandTotalRemaining)} | Recovery: ${recoveryPct}%`,
+      'Partial_Payment_Ledger.pdf',
+      summaryCards
+    );
   };
 
   const exportChequesToExcel = (chequeList: Cheque[], sheetName: string, fileName: string) => {
@@ -2057,6 +2742,177 @@ export default function App() {
       showToast(`Exported ${chequeList.length} records to Excel (.xlsx) successfully!`, 'success');
     } catch {
       showToast('Failed to export Excel file', 'error');
+    }
+  };
+
+  const downloadChequeLeafPdf = (cheque: Cheque, bank?: Bank, isAccountPayee: boolean = true) => {
+    try {
+      const party = parties.find((p) => p.id === cheque.party_id);
+      const partyName = party?.name || 'Cash / Self';
+      const bankName = bank?.name || 'Standard Chartered Bank Nepal Ltd.';
+      const bankCode = bank?.code || 'SCB-01';
+      const acNo = cheque.account_number || '01-234567-89';
+      const compName = currentCompany?.name || activeCompanyName || 'ChequeDesk Enterprise';
+
+      // Standard Cheque Leaf Dimensions: 576pt x 252pt (~8" x 3.5")
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: [576, 252] });
+
+      // Background security tint & border
+      doc.setFillColor(254, 252, 232);
+      doc.roundedRect(12, 12, 552, 228, 6, 6, 'F');
+      doc.setDrawColor(217, 119, 6);
+      doc.setLineWidth(1);
+      doc.roundedRect(12, 12, 552, 228, 6, 6, 'D');
+
+      // Decorative Guilloche security pattern lines
+      doc.setDrawColor(245, 158, 11);
+      doc.setLineWidth(0.5);
+      doc.line(20, 20, 556, 20);
+      doc.line(20, 232, 556, 232);
+
+      // A/C Payee Only Cross lines if selected
+      if (isAccountPayee) {
+        doc.setDrawColor(79, 70, 229);
+        doc.setLineWidth(1.2);
+        doc.line(24, 60, 90, 24);
+        doc.line(34, 66, 100, 30);
+        doc.setFontSize(6.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(79, 70, 229);
+        doc.text('A/C PAYEE ONLY', 38, 48, { angle: -32 });
+      }
+
+      // Bank Info (Top left)
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text(bankName.toUpperCase(), 110, 36);
+
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Kathmandu Main Branch • Code: ${bankCode} • CTS-2010 Compliant`, 110, 48);
+
+      // Date boxes (Top right)
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(71, 85, 105);
+      doc.text('DATE (BS / AD)', 440, 34);
+
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(203, 213, 225);
+      doc.roundedRect(440, 38, 114, 18, 2, 2, 'FD');
+      doc.setFontSize(8);
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${cheque.due_date_bs} BS`, 445, 50);
+      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text(`(${cheque.due_date_ad} AD)`, 505, 50);
+
+      // PAY TO Line
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(51, 65, 85);
+      doc.text('PAY TO', 30, 80);
+
+      doc.setFontSize(10.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text(partyName, 80, 80);
+      doc.setDrawColor(148, 163, 184);
+      doc.setLineWidth(0.6);
+      doc.line(80, 84, 460, 84);
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text('OR BEARER', 470, 80);
+
+      // RUPEES / AMOUNT IN WORDS
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(51, 65, 85);
+      doc.text('RUPEES', 30, 108);
+
+      const words = numberToWords(cheque.amount) + ' ONLY';
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 41, 59);
+      
+      const splitWords = doc.splitTextToSize(words, 370);
+      doc.text(splitWords, 80, 108);
+      doc.setDrawColor(148, 163, 184);
+      doc.line(80, 112, 455, 112);
+      if (splitWords.length > 1) {
+        doc.line(30, 126, 455, 126);
+      }
+
+      // Amount Box (Right side)
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(79, 70, 229);
+      doc.setLineWidth(1.2);
+      doc.roundedRect(462, 98, 92, 28, 3, 3, 'FD');
+
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(79, 70, 229);
+      doc.text('NPR', 466, 115);
+
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text(`**${cheque.amount.toLocaleString()}**`, 488, 116);
+
+      // Account Number box & Company
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(71, 85, 105);
+      doc.text(`A/C NO: ${acNo}`, 30, 155);
+
+      // Signatory section (Right bottom)
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(71, 85, 105);
+      doc.text(`FOR ${compName.toUpperCase()}`, 390, 150);
+
+      doc.setDrawColor(148, 163, 184);
+      doc.line(390, 185, 550, 185);
+
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text('AUTHORISED SIGNATORIES', 420, 196);
+
+      // MICR Band at bottom
+      doc.setFillColor(241, 245, 249);
+      doc.roundedRect(20, 206, 536, 20, 2, 2, 'F');
+
+      doc.setFontSize(9);
+      doc.setFont('courier', 'bold');
+      doc.setTextColor(30, 41, 59);
+      doc.text(`⑈${cheque.cheque_number}⑈  446012002⑆  001234⑈  10`, 160, 220);
+
+      const filename = `Cheque_Leaf_${cheque.cheque_number}.pdf`;
+      const blob = doc.output('blob');
+      const blobUrl = URL.createObjectURL(blob);
+      const downloadLink = document.createElement('a');
+      downloadLink.href = blobUrl;
+      downloadLink.download = filename;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      setTimeout(() => {
+        try {
+          document.body.removeChild(downloadLink);
+          URL.revokeObjectURL(blobUrl);
+        } catch {}
+      }, 300);
+
+      showToast(`Downloaded ${filename} directly!`, 'success');
+    } catch (err: any) {
+      console.error('Cheque Leaf PDF error:', err);
+      showToast(`Failed to generate Cheque Leaf PDF: ${err?.message || 'Error'}`, 'error');
     }
   };
 
@@ -2420,8 +3276,8 @@ export default function App() {
       partyTotalInstallments += logs.length;
 
       const paymentsText = logs.length > 0
-        ? logs.map((l) => `${l.payment_date_bs} BS: NPR ${l.amount.toLocaleString()} (${l.payment_mode})`).join('<br/>')
-        : '<span style="color:#94a3b8; font-style: italic;">No payments yet</span>';
+        ? logs.map((l) => `${l.payment_date_bs} BS: NPR ${l.amount.toLocaleString()} (${l.payment_mode})`).join('\n')
+        : 'No installments recorded';
 
       return [
         c.cheque_number,
@@ -2437,43 +3293,38 @@ export default function App() {
     });
 
     const isCreditor = party.party_type === 'Sundry Creditors';
-    const classification = isCreditor ? 'Sundry Creditors (Account Payable / Outward)' : 'Sundry Debtors (Account Receivable / Inward)';
-
-    const summaryHeader = `
-      <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; margin-bottom: 14px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 8px;">
-          <div>
-            <div style="font-size: 15px; font-weight: 800; color: #1e1b4b;">${party.name}</div>
-            <div style="font-size: 10px; color: #4338ca; font-weight: 700; text-transform: uppercase;">Classification: ${classification}</div>
-          </div>
-          <div style="text-align: right; font-size: 10px; color: #475569;">
-            <div><strong>Phone:</strong> ${party.phone || 'N/A'}</div>
-            <div><strong>PAN/VAT:</strong> ${party.pan_vat || 'N/A'}</div>
-            <div><strong>Address:</strong> ${party.address || 'N/A'}</div>
-          </div>
-        </div>
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 6px;">
-          <div><div style="font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 700;">Total Cheque Volume</div><div style="font-size: 14px; font-weight: 800; color: #0f172a;">${formatNPR(partyTotalAmt)}</div></div>
-          <div><div style="font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 700;">Total ${isCreditor ? 'Paid Out' : 'Received In'}</div><div style="font-size: 14px; font-weight: 800; color: #059669;">${formatNPR(partyTotalPaid)}</div></div>
-          <div><div style="font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 700;">Outstanding Remaining Due</div><div style="font-size: 14px; font-weight: 800; color: #d97706;">${formatNPR(partyTotalPending)}</div></div>
-          <div><div style="font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 700;">Installment Entries</div><div style="font-size: 14px; font-weight: 800; color: #4338ca;">${partyTotalInstallments} Payment Logs</div></div>
-        </div>
-      </div>
-    `;
+    const classification = isCreditor ? 'Sundry Creditors (Account Payable)' : 'Sundry Debtors (Account Receivable)';
 
     rows.push([
-      '<strong>PARTY TOTALS</strong>',
+      'PARTY TOTALS',
       '-',
       '-',
       '-',
       '-',
-      `<strong>${formatNPR(partyTotalAmt)}</strong>`,
-      `<strong style="color:#059669">${formatNPR(partyTotalPaid)} (${partyTotalInstallments} installments)</strong>`,
-      `<strong style="color:#d97706">${formatNPR(partyTotalPending)}</strong>`,
-      `<strong>${partyTotalPending <= 0.001 ? 'CLEARED' : 'PENDING'}</strong>`,
+      formatNPR(partyTotalAmt),
+      `${formatNPR(partyTotalPaid)} (${partyTotalInstallments} entries)`,
+      formatNPR(partyTotalPending),
+      partyTotalPending <= 0.001 ? 'CLEARED' : 'PENDING',
     ]);
 
-    exportToPdf(`Party Account Ledger Statement - ${party.name}`, headers, rows, summaryHeader);
+    const summaryCards = [
+      { label: 'TOTAL CHEQUE VOLUME', value: formatNPR(partyTotalAmt), color: [15, 23, 42] as [number, number, number] },
+      { label: isCreditor ? 'TOTAL PAID OUT' : 'TOTAL RECEIVED IN', value: formatNPR(partyTotalPaid), color: [5, 150, 105] as [number, number, number] },
+      { label: 'OUTSTANDING DUE', value: formatNPR(partyTotalPending), color: [217, 119, 6] as [number, number, number] },
+      { label: 'INSTALLMENT ENTRIES', value: `${partyTotalInstallments} Logs`, color: [67, 56, 202] as [number, number, number] },
+    ];
+
+    const cleanPartyName = party.name.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const customFilename = `Party_Ledger_${cleanPartyName}.pdf`;
+
+    exportToPdf(
+      `Party Account Ledger Statement - ${party.name} (${classification})`,
+      headers,
+      rows,
+      `Party: ${party.name} | Phone: ${party.phone || 'N/A'} | PAN: ${party.pan_vat || 'N/A'} | Total: NPR ${formatNPR(partyTotalAmt)} | Paid: NPR ${formatNPR(partyTotalPaid)} | Due: NPR ${formatNPR(partyTotalPending)}`,
+      customFilename,
+      summaryCards
+    );
   };
 
   const handleSaveLocalBackupPath = (customPath?: string) => {
@@ -3192,25 +4043,45 @@ export default function App() {
   };
 
   const exportReportsToPdf = () => {
-    const totalVolume = cheques.reduce((s, c) => s + c.amount, 0);
-    const pendingVolume = cheques.filter((c) => c.status !== 'Cleared').reduce((s, c) => s + (c.remaining_amount ?? c.amount), 0);
-    const clearedVolume = cheques.filter((c) => c.status === 'Cleared').reduce((s, c) => s + c.amount, 0);
+    const targetCheques = cheques.filter((c) =>
+      matchesCustomOrPresetDateRange(c.due_date_bs, reportsFromDateBs, reportsToDateBs, reportsDatePreset)
+    );
+    const totalVolume = targetCheques.reduce((s, c) => s + c.amount, 0);
+    const pendingVolume = targetCheques.filter((c) => c.status !== 'Cleared').reduce((s, c) => s + (c.remaining_amount ?? c.amount), 0);
+    const clearedVolume = targetCheques.filter((c) => c.status === 'Cleared').reduce((s, c) => s + c.amount, 0);
 
     const headers = ['Bank / Account', 'Total Cheques', 'Total Volume (NPR)', 'Pending Balance (NPR)', 'Cleared (NPR)'];
     const rows = banks.map((b) => {
-      const bCheques = cheques.filter((c) => c.bank_id === b.id);
+      const bCheques = targetCheques.filter((c) => c.bank_id === b.id);
       const bTotal = bCheques.reduce((s, c) => s + c.amount, 0);
       const bPending = bCheques.filter((c) => c.status !== 'Cleared').reduce((s, c) => s + (c.remaining_amount ?? c.amount), 0);
       const bCleared = bCheques.filter((c) => c.status === 'Cleared').reduce((s, c) => s + c.amount, 0);
       return [b.name, bCheques.length, formatNPR(bTotal), formatNPR(bPending), formatNPR(bCleared)];
     });
 
-    const summaryHtml = `
-      <span><strong>Total Volume:</strong> NPR ${formatNPR(totalVolume)}</span> |
-      <span><strong>Pending:</strong> NPR ${formatNPR(pendingVolume)}</span> |
-      <span><strong>Cleared:</strong> NPR ${formatNPR(clearedVolume)}</span>
-    `;
-    exportToPdf('Financial Analytics & Bank Exposure Report', headers, rows, summaryHtml);
+    rows.push([
+      'TOTALS',
+      targetCheques.length,
+      formatNPR(totalVolume),
+      formatNPR(pendingVolume),
+      formatNPR(clearedVolume),
+    ]);
+
+    const summaryCards = [
+      { label: 'TOTAL VOLUME', value: formatNPR(totalVolume), color: [15, 23, 42] as [number, number, number] },
+      { label: 'CLEARED & SETTLED', value: formatNPR(clearedVolume), color: [5, 150, 105] as [number, number, number] },
+      { label: 'PENDING EXPOSURE', value: formatNPR(pendingVolume), color: [217, 119, 6] as [number, number, number] },
+      { label: 'DATE RANGE FILTER', value: reportsDatePreset !== 'all' ? reportsDatePreset.toUpperCase() : (reportsFromDateBs ? `${reportsFromDateBs} to ${reportsToDateBs || '...'}` : 'ALL DATES'), color: [79, 70, 229] as [number, number, number] },
+    ];
+
+    exportToPdf(
+      'Financial Analytics & Bank Exposure Report',
+      headers,
+      rows,
+      `Total Volume: NPR ${formatNPR(totalVolume)} | Pending: NPR ${formatNPR(pendingVolume)} | Cleared: NPR ${formatNPR(clearedVolume)}`,
+      'Financial_Reports_Analytics.pdf',
+      summaryCards
+    );
   };
 
   // ==========================================
@@ -3524,6 +4395,56 @@ export default function App() {
     return true;
   };
 
+  const calculateBsPresetRange = (preset: string): { from: string; to: string } => {
+    const todayBs = getCurrentBsDate();
+    const parts = todayBs.split('-');
+    const curYear = parseInt(parts[0], 10) || 2081;
+    const curMonth = parseInt(parts[1], 10) || 1;
+
+    if (preset === 'today') {
+      return { from: todayBs, to: todayBs };
+    }
+    if (preset === 'this_month') {
+      const days = BS_CALENDAR_DATA[curYear]?.[curMonth - 1] || 30;
+      return {
+        from: `${curYear}-${String(curMonth).padStart(2, '0')}-01`,
+        to: `${curYear}-${String(curMonth).padStart(2, '0')}-${String(days).padStart(2, '0')}`,
+      };
+    }
+    if (preset === 'last_month') {
+      const prevMonth = curMonth === 1 ? 12 : curMonth - 1;
+      const prevYear = curMonth === 1 ? curYear - 1 : curYear;
+      const days = BS_CALENDAR_DATA[prevYear]?.[prevMonth - 1] || 30;
+      return {
+        from: `${prevYear}-${String(prevMonth).padStart(2, '0')}-01`,
+        to: `${prevYear}-${String(prevMonth).padStart(2, '0')}-${String(days).padStart(2, '0')}`,
+      };
+    }
+    if (preset === 'this_year') {
+      return {
+        from: `${curYear}-01-01`,
+        to: `${curYear}-12-30`,
+      };
+    }
+    return { from: '', to: '' };
+  };
+
+  const matchesCustomOrPresetDateRange = (
+    dateBs: string,
+    fromDateBs: string,
+    toDateBs: string,
+    preset: string
+  ): boolean => {
+    if (!dateBs) return false;
+    if (fromDateBs && dateBs < fromDateBs) return false;
+    if (toDateBs && dateBs > toDateBs) return false;
+    if (fromDateBs || toDateBs) return true;
+    if (preset && preset !== 'all') {
+      return matchesBsDateRange(dateBs, preset);
+    }
+    return true;
+  };
+
   // Selection Handlers
   const toggleSelectCheque = (id: string) => {
     setSelectedChequeIds((prev) =>
@@ -3767,127 +4688,112 @@ export default function App() {
 
   // Print Statement Generator
   const printChequeStatement = (c: Cheque) => {
-    const party = parties.find((p) => p.id === c.party_id);
-    const bank = banks.find((b) => b.id === c.bank_id);
-    const logs = paymentLogs.filter((p) => p.cheque_id === c.id);
-    const remaining = c.remaining_amount ?? (c.status === 'Cleared' ? 0 : c.amount);
-    const totalPaid = c.amount - remaining;
+    try {
+      const party = parties.find((p) => p.id === c.party_id);
+      const bank = banks.find((b) => b.id === c.bank_id);
+      const logs = paymentLogs.filter((p) => p.cheque_id === c.id);
+      const remaining = c.remaining_amount ?? (c.status === 'Cleared' ? 0 : c.amount);
+      const totalPaid = c.amount - remaining;
+      const compName = currentCompany?.name || activeCompanyName || 'ChequeDesk';
 
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      showToast('Popup blocker prevented printing. Please allow popups.', 'error');
-      return;
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+
+      // Header Banner
+      doc.setFillColor(79, 70, 229);
+      doc.rect(40, 30, 515, 3, 'F');
+
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 27, 75);
+      doc.text(compName, 40, 52);
+
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(79, 70, 229);
+      doc.text(`Cheque Ledger & Statement: #${c.cheque_number}`, 40, 70);
+
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Party: ${party?.name || 'N/A'} • Bank: ${bank?.name || 'N/A'}`, 40, 84);
+
+      // Status & Dates on right
+      doc.setFontSize(8.5);
+      doc.text(`Status: ${c.status}`, 555, 52, { align: 'right' });
+      doc.text(`Issued: ${c.issue_date_bs} BS (${c.issue_date_ad})`, 555, 66, { align: 'right' });
+      doc.text(`Due: ${c.due_date_bs} BS (${c.due_date_ad})`, 555, 80, { align: 'right' });
+
+      // Summary Box (Cards)
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(40, 96, 515, 48, 6, 6, 'FD');
+
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.setFont('helvetica', 'bold');
+      doc.text('CHEQUE AMOUNT', 60, 112);
+      doc.text('SETTLED / PAID', 230, 112);
+      doc.text('PENDING BALANCE', 400, 112);
+
+      doc.setFontSize(12);
+      doc.setTextColor(15, 23, 42);
+      doc.text(`NPR ${c.amount.toLocaleString()}`, 60, 132);
+      doc.setTextColor(22, 163, 74);
+      doc.text(`NPR ${totalPaid.toLocaleString()}`, 230, 132);
+      doc.setTextColor(remaining > 0 ? 217 : 22, remaining > 0 ? 119 : 163, remaining > 0 ? 6 : 74);
+      doc.text(`NPR ${remaining.toLocaleString()}`, 400, 132);
+
+      // Payment logs table
+      const tableHeaders = ['#', 'Date (BS)', 'Date (AD)', 'Mode', 'Type', 'Amount (NPR)', 'Recorded By', 'Notes'];
+      const tableRows = logs.length === 0
+        ? [['-', '-', '-', '-', '-', 'No installment payments recorded', '-', '-']]
+        : logs.map((log, idx) => [
+            idx + 1,
+            log.payment_date_bs,
+            log.payment_date_ad,
+            log.payment_mode,
+            log.payment_type || 'Installment',
+            `Rs ${log.amount.toLocaleString()}`,
+            log.recorded_by || 'Staff',
+            log.notes || '—',
+          ]);
+
+      const autoTableFn = (autoTable as any).default || autoTable;
+      autoTableFn(doc, {
+        head: [tableHeaders],
+        body: tableRows,
+        startY: 156,
+        margin: { left: 40, right: 40 },
+        theme: 'striped',
+        headStyles: {
+          fillColor: [79, 70, 229],
+          textColor: [255, 255, 255],
+          fontSize: 8,
+          fontStyle: 'bold',
+        },
+        styles: {
+          fontSize: 8,
+          cellPadding: 4,
+          textColor: [30, 41, 59],
+        },
+      });
+
+      const finalY = (doc as any).lastAutoTable?.finalY || 300;
+      doc.setDrawColor(226, 232, 240);
+      doc.line(40, finalY + 40, 555, finalY + 40);
+
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Generated by ChequeDesk Pro • ${getCurrentBsDate()} BS (${getCurrentAdDate()})`, 40, finalY + 54);
+      doc.text('Authorized Signatory: ________________________', 555, finalY + 54, { align: 'right' });
+
+      const cleanFilename = `Statement_Cheque_${c.cheque_number}.pdf`;
+      doc.save(cleanFilename);
+      showToast(`Downloaded ${cleanFilename} directly without print dialog!`, 'success');
+    } catch (err: any) {
+      console.error('Cheque statement PDF export error:', err);
+      showToast(`Export error: ${err?.message || 'Failed'}`, 'error');
     }
-
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Cheque Statement #${c.cheque_number}</title>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #1e293b; }
-          .header { display: flex; justify-content: space-between; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
-          .title { font-size: 20px; font-weight: bold; color: #0f172a; }
-          .company { font-size: 14px; font-weight: bold; color: #4338ca; }
-          .badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: bold; }
-          .badge-pending { background: #fef3c7; color: #92400e; }
-          .badge-partial { background: #e0f2fe; color: #0369a1; }
-          .badge-cleared { background: #dcfce7; color: #15803d; }
-          .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
-          .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
-          .card-title { font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: bold; }
-          .card-value { font-size: 18px; font-weight: bold; margin-top: 4px; font-family: monospace; }
-          table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; }
-          th { background: #f1f5f9; text-align: left; padding: 8px; border-bottom: 1px solid #cbd5e1; font-weight: bold; }
-          td { padding: 8px; border-bottom: 1px solid #f1f5f9; }
-          .text-right { text-align: right; }
-          .footer { margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 12px; font-size: 11px; color: #94a3b8; display: flex; justify-content: space-between; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div>
-            <div class="company">${currentCompany?.name || 'ChequeDesk Company'}</div>
-            <div class="title">Cheque Ledger & Statement: #${c.cheque_number}</div>
-          </div>
-          <div style="text-align: right;">
-            <div><strong>Status:</strong> <span class="badge ${c.status === 'Cleared' ? 'badge-cleared' : c.status === 'Partially Paid' ? 'badge-partial' : 'badge-pending'}">${c.status}</span></div>
-            <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Issued: ${c.issue_date_bs} BS (${c.issue_date_ad})</div>
-            <div style="font-size: 12px; color: #64748b;">Due: ${c.due_date_bs} BS (${c.due_date_ad})</div>
-          </div>
-        </div>
-
-        <div style="margin-bottom: 16px; font-size: 13px; line-height: 1.6;">
-          <div><strong>Party / Beneficiary:</strong> ${party?.name || 'N/A'} ${party?.party_type ? `[${party.party_type}]` : ''}</div>
-          <div><strong>Drawee Bank:</strong> ${bank?.name || 'N/A'} ${c.account_number ? `| A/C: ${c.account_number}` : ''}</div>
-          ${c.bill_number ? `<div><strong>Bill / Invoice Reference:</strong> ${c.bill_number}</div>` : ''}
-          ${c.notes ? `<div><strong>Notes:</strong> ${c.notes}</div>` : ''}
-        </div>
-
-        <div class="grid">
-          <div class="card">
-            <div class="card-title">Original Cheque Amount</div>
-            <div class="card-value" style="color: #0f172a;">Rs ${c.amount.toLocaleString()}</div>
-          </div>
-          <div class="card">
-            <div class="card-title">Total Settled / Paid</div>
-            <div class="card-value" style="color: #16a34a;">Rs ${totalPaid.toLocaleString()}</div>
-          </div>
-          <div class="card">
-            <div class="card-title">Current Pending Balance</div>
-            <div class="card-value" style="color: ${remaining > 0 ? '#d97706' : '#16a34a'};">Rs ${remaining.toLocaleString()}</div>
-          </div>
-        </div>
-
-        <h3 style="font-size: 14px; margin-bottom: 6px;">Installment / Payment Ledger</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Date (BS)</th>
-              <th>Date (AD)</th>
-              <th>Payment Mode</th>
-              <th>Type</th>
-              <th class="text-right">Amount (NPR)</th>
-              <th>Recorded By</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${
-              logs.length === 0
-                ? '<tr><td colspan="8" style="text-align: center; color: #94a3b8; padding: 16px;">No payments recorded yet.</td></tr>'
-                : logs
-                    .map(
-                      (log, idx) => `
-                <tr>
-                  <td>${idx + 1}</td>
-                  <td>${log.payment_date_bs}</td>
-                  <td>${log.payment_date_ad}</td>
-                  <td><strong>${log.payment_mode}</strong></td>
-                  <td>${log.payment_type || 'Installment'}</td>
-                  <td class="text-right" style="font-weight: bold; font-family: monospace;">Rs ${log.amount.toLocaleString()}</td>
-                  <td>${log.recorded_by || 'Staff'}</td>
-                  <td>${log.notes || '—'}</td>
-                </tr>
-              `
-                    )
-                    .join('')
-            }
-          </tbody>
-        </table>
-
-        <div class="footer">
-          <div>Generated by ChequeDesk Pro • ${getCurrentBsDate()} BS (${getCurrentAdDate()})</div>
-          <div>Authorized Signatory: ________________________</div>
-        </div>
-        <script>window.print();</script>
-      </body>
-      </html>
-    `;
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
   };
 
   const exportStatementToExcel = (c: Cheque) => {
@@ -4280,8 +5186,16 @@ export default function App() {
 
                               <button
                                 onClick={() => setCompanyToDelete(comp)}
-                                className="p-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-lg transition cursor-pointer"
-                                title="Delete Company"
+                                className={`p-1 rounded-lg transition cursor-pointer border ${
+                                  (companyTransactionCounts[comp.id] || 0) > 0
+                                    ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30'
+                                    : 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border-rose-500/30'
+                                }`}
+                                title={
+                                  (companyTransactionCounts[comp.id] || 0) > 0
+                                    ? `Deletion Protected: Contains ${companyTransactionCounts[comp.id]} transactions (Click to Deactivate)`
+                                    : 'Delete Company'
+                                }
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -4426,39 +5340,94 @@ export default function App() {
           </div>
         </main>
 
-        {/* Delete Company Confirmation Modal */}
-        {companyToDelete && (
-          <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-              <div className="flex items-center gap-3 text-rose-400">
-                <div className="p-3 bg-rose-500/20 rounded-xl">
-                  <AlertTriangle className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-white">Delete Client Company</h3>
-                  <p className="text-xs text-slate-400">This action cannot be undone.</p>
-                </div>
-              </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Are you sure you want to permanently delete company <strong>&quot;{companyToDelete.name}&quot;</strong> (Code: <code className="text-indigo-400 font-mono font-bold">{companyToDelete.company_code}</code>)? All ledger data and configurations will be removed.
-              </p>
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  onClick={() => setCompanyToDelete(null)}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-bold transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => handleDeleteCompany(companyToDelete)}
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-md"
-                >
-                  Confirm Delete
-                </button>
+        {/* Delete Company Confirmation Modal with Transaction Deletion Protection */}
+        {companyToDelete && (() => {
+          const delTxCount =
+            companyTransactionCounts[companyToDelete.id] !== undefined
+              ? companyTransactionCounts[companyToDelete.id]
+              : companyToDelete.id === activeCompanyId
+              ? cheques.length + paymentLogs.length
+              : 0;
+          const hasTransactions = delTxCount > 0;
+
+          return (
+            <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
+              <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+                {hasTransactions ? (
+                  <>
+                    <div className="flex items-center gap-3 text-amber-400">
+                      <div className="p-3 bg-amber-500/20 border border-amber-500/30 rounded-xl">
+                        <Shield className="w-6 h-6 text-amber-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-white">Deletion Protected</h3>
+                        <p className="text-xs text-amber-300/80">Audit &amp; Compliance Rule Active</p>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-2 text-xs text-amber-200">
+                      <p className="leading-relaxed">
+                        Company <strong>&quot;{companyToDelete.name}&quot;</strong> has{' '}
+                        <span className="font-bold underline">{delTxCount} recorded transaction(s)</span> (cheques / payments).
+                      </p>
+                      <p className="text-slate-300">
+                        Under statutory accounting and financial audit integrity standards, deleting a company with transaction history is strictly blocked. You can <strong>Deactivate</strong> this workspace instead to suspend access.
+                      </p>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button
+                        onClick={() => setCompanyToDelete(null)}
+                        className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => handleToggleDeactivateCompany(companyToDelete)}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer shadow-md ${
+                          companyToDelete.is_active
+                            ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                        }`}
+                      >
+                        {companyToDelete.is_active ? 'Deactivate Company' : 'Reactivate Company'}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-3 text-rose-400">
+                      <div className="p-3 bg-rose-500/20 rounded-xl">
+                        <AlertTriangle className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-white">Delete Client Company</h3>
+                        <p className="text-xs text-slate-400">This action cannot be undone.</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      Are you sure you want to permanently delete company <strong>&quot;{companyToDelete.name}&quot;</strong> (Code: <code className="text-indigo-400 font-mono font-bold">{companyToDelete.company_code}</code>)? This company has 0 transactions. All workspace configurations will be permanently removed.
+                    </p>
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button
+                        onClick={() => setCompanyToDelete(null)}
+                        className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCompany(companyToDelete)}
+                        className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-md"
+                      >
+                        Confirm Delete
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* MODAL 1: EDIT COMPANY & MANAGE FEATURES MODAL */}
         {editingCompany && (
@@ -5472,6 +6441,44 @@ export default function App() {
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col overflow-y-auto">
+          {/* Software Subscription Expiry Warning Banner (<= 60 days) */}
+          {subscriptionExpiryInfo && subscriptionExpiryInfo.isExpiringSoon && (
+            <div
+              id="subscription-expiry-warning-banner"
+              className={`px-4 sm:px-6 py-2.5 flex items-center justify-between gap-3 text-xs font-medium border-b sticky top-0 z-40 ${
+                subscriptionExpiryInfo.isExpired
+                  ? 'bg-rose-50 text-rose-800 border-rose-200'
+                  : 'bg-amber-50 text-amber-900 border-amber-200'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <AlertTriangle
+                  className={`w-4 h-4 shrink-0 ${
+                    subscriptionExpiryInfo.isExpired ? 'text-rose-600' : 'text-amber-600'
+                  }`}
+                />
+                <span className="truncate">
+                  <strong>Notice:</strong> Software subscription {subscriptionExpiryInfo.isExpired ? 'expired' : 'expires'} on{' '}
+                  <span className="font-bold underline">{subscriptionExpiryInfo.displayDate}</span>{' '}
+                  ({subscriptionExpiryInfo.isExpired
+                    ? `Overdue by ${Math.abs(subscriptionExpiryInfo.diffDays)} days`
+                    : `${subscriptionExpiryInfo.diffDays} days remaining`}). Please renew.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCurrentView('company_users')}
+                className={`px-3 py-1 text-[11px] font-bold rounded-lg transition shadow-2xs whitespace-nowrap cursor-pointer shrink-0 ${
+                  subscriptionExpiryInfo.isExpired
+                    ? 'bg-rose-600 text-white hover:bg-rose-700'
+                    : 'bg-amber-600 text-white hover:bg-amber-700'
+                }`}
+              >
+                Renew License
+              </button>
+            </div>
+          )}
+
           {/* Top Header */}
           <header className="bg-white border-b border-slate-200 sticky top-0 z-30 px-4 sm:px-6 py-3 flex items-center justify-between shadow-2xs">
             <div className="flex items-center gap-3">
@@ -6303,8 +7310,8 @@ export default function App() {
             {currentView === 'pending' && (() => {
               const term = pendingSearchTerm.toLowerCase().trim();
               const filteredPending = pendingCheques.filter((c) => {
-                // BS Date Range Filter
-                if (!matchesBsDateRange(c.due_date_bs, pendingDateRange)) return false;
+                // BS Date Range Filter (Custom BS Date Range + Presets)
+                if (!matchesCustomOrPresetDateRange(c.due_date_bs, pendingFromDateBs, pendingToDateBs, pendingDateRange)) return false;
 
                 // Search Filter: Cheque no, bill no, bank, party, amount
                 if (!term) return true;
@@ -6324,7 +7331,7 @@ export default function App() {
 
               // Cleared in range computation
               const clearedInRange = cheques.filter(
-                (c) => c.status === 'Cleared' && matchesBsDateRange(c.due_date_bs, pendingDateRange)
+                (c) => c.status === 'Cleared' && matchesCustomOrPresetDateRange(c.due_date_bs, pendingFromDateBs, pendingToDateBs, pendingDateRange)
               );
               const clearedInRangeTotal = clearedInRange.reduce((sum, c) => sum + c.amount, 0);
               const remainingPendingTotal = filteredPending.reduce(
@@ -6337,7 +7344,7 @@ export default function App() {
 
               return (
                 <div className="space-y-4">
-                  {/* Top Bar: Search, Date Range Filter, Export */}
+                  {/* Top Bar: Search, Quick Presets, Export */}
                   <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
                       {/* Search Bar */}
@@ -6359,23 +7366,6 @@ export default function App() {
                           </button>
                         )}
                       </div>
-
-                      {/* Date Range (BS) Dropdown */}
-                      <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                        <select
-                          value={pendingDateRange}
-                          onChange={(e) => setPendingDateRange(e.target.value)}
-                          className="px-2.5 py-2 border border-slate-200 rounded-xl text-xs bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
-                        >
-                          <option value="all">All Dates (BS)</option>
-                          <option value="today">Due Today</option>
-                          <option value="overdue">Overdue (Past BS)</option>
-                          <option value="this_month">This Month (BS)</option>
-                          <option value="last_month">Last Month (BS)</option>
-                          <option value="this_year">This Year (BS)</option>
-                        </select>
-                      </div>
                     </div>
 
                     {/* Export Actions */}
@@ -6391,6 +7381,41 @@ export default function App() {
                       </div>
                     )}
                   </div>
+
+                  {/* Universal Date Range Filter & Real-Time Calculation Strip */}
+                  <DateRangeFilterStrip
+                    id="pending-date-range-filter"
+                    title="Due Date Range (BS)"
+                    fromDateBs={pendingFromDateBs}
+                    toDateBs={pendingToDateBs}
+                    onFromDateChange={(val) => {
+                      setPendingFromDateBs(val);
+                      setPendingDateRange('all');
+                    }}
+                    onToDateChange={(val) => {
+                      setPendingToDateBs(val);
+                      setPendingDateRange('all');
+                    }}
+                    onPresetSelect={(preset) => {
+                      setPendingDateRange(preset);
+                      const range = calculateBsPresetRange(preset);
+                      setPendingFromDateBs(range.from);
+                      setPendingToDateBs(range.to);
+                    }}
+                    activePreset={pendingDateRange}
+                    onClear={() => {
+                      setPendingDateRange('all');
+                      setPendingFromDateBs('');
+                      setPendingToDateBs('');
+                    }}
+                    filteredCount={filteredPending.length}
+                    totalCount={pendingCheques.length}
+                    totalAmount={remainingPendingTotal}
+                    extraStats={[
+                      { label: 'Cleared in Range', value: formatNPR(clearedInRangeTotal), color: 'text-emerald-600' },
+                    ]}
+                    accentColor="amber"
+                  />
 
                   {/* Summary Banner */}
                   <div className="bg-gradient-to-r from-amber-500/10 via-slate-50 to-emerald-500/10 border border-slate-200 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
@@ -6639,6 +7664,9 @@ export default function App() {
 
                 if (!matchesFilter) return false;
 
+                // BS Date Range Filter (Custom BS Date Range + Presets)
+                if (!matchesCustomOrPresetDateRange(c.due_date_bs, partialFromDateBs, partialToDateBs, partialDatePreset)) return false;
+
                 if (searchTerm.trim()) {
                   const q = searchTerm.toLowerCase();
                   const party = parties.find((p) => p.id === c.party_id);
@@ -6734,30 +7762,90 @@ export default function App() {
                         <span>Payment Modes Master</span>
                       </button>
 
-                      {/* Party-Wise PDF & Universal Export Dropdown */}
-                      <button
-                        onClick={() => {
-                          if (parties.length > 0 && !selectedPartyForPdf) {
-                            setSelectedPartyForPdf(parties[0].id);
-                          }
-                          setIsPartyWisePdfModalOpen(true);
-                        }}
-                        title="Generate Party-Wise Partial Payment Statement PDF"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-xl transition cursor-pointer shadow-2xs"
-                      >
-                        <FileText className="w-3.5 h-3.5 text-purple-600" />
-                        <span>Party-Wise PDF</span>
-                      </button>
+                      {/* Party-Wise PDF Direct Download & Selector */}
+                      <div className="inline-flex rounded-xl shadow-2xs border border-purple-200 overflow-hidden bg-purple-50">
+                        <button
+                          onClick={() => {
+                            const targetPartyId = selectedPartyForPdf || parties[0]?.id;
+                            if (targetPartyId) {
+                              exportPartyWiseLedgerPdf(targetPartyId);
+                            } else {
+                              showToast('No party registered to export ledger', 'error');
+                            }
+                          }}
+                          title="Instant Direct Download Party-Wise Ledger PDF"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-purple-700 hover:bg-purple-100 transition cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5 text-purple-600" />
+                          <span>Party-Wise PDF</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (parties.length > 0 && !selectedPartyForPdf) {
+                              setSelectedPartyForPdf(parties[0].id);
+                            }
+                            setIsPartyWisePdfModalOpen(true);
+                          }}
+                          title="Choose Party for Statement"
+                          className="px-2 py-1.5 text-purple-600 hover:bg-purple-100 border-l border-purple-200 transition cursor-pointer"
+                        >
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
 
                       <UniversalExportDropdown
                         onExportExcel={() => exportPartialPaymentLedgerToExcel(filteredLedgerCheques)}
                         onExportPdf={() => exportPartialPaymentLedgerToPdf(filteredLedgerCheques)}
                         onExportCsv={() => exportPartialPaymentLedgerToCsv(filteredLedgerCheques)}
+                        onExportPartyPdf={() => {
+                          const targetPartyId = selectedPartyForPdf || parties[0]?.id;
+                          if (targetPartyId) {
+                            exportPartyWiseLedgerPdf(targetPartyId);
+                          } else {
+                            showToast('No party registered to export ledger', 'error');
+                          }
+                        }}
                         title="Export Partial Payment Ledger"
                         buttonText="Export Ledger"
                       />
                     </div>
                   </div>
+
+                  {/* Universal Date Range Filter & Real-Time Calculation Strip */}
+                  <DateRangeFilterStrip
+                    id="partial-payments-date-range-filter"
+                    title="Installment Date Range (BS)"
+                    fromDateBs={partialFromDateBs}
+                    toDateBs={partialToDateBs}
+                    onFromDateChange={(val) => {
+                      setPartialFromDateBs(val);
+                      setPartialDatePreset('all');
+                    }}
+                    onToDateChange={(val) => {
+                      setPartialToDateBs(val);
+                      setPartialDatePreset('all');
+                    }}
+                    onPresetSelect={(preset) => {
+                      setPartialDatePreset(preset);
+                      const range = calculateBsPresetRange(preset);
+                      setPartialFromDateBs(range.from);
+                      setPartialToDateBs(range.to);
+                    }}
+                    activePreset={partialDatePreset}
+                    onClear={() => {
+                      setPartialDatePreset('all');
+                      setPartialFromDateBs('');
+                      setPartialToDateBs('');
+                    }}
+                    filteredCount={filteredLedgerCheques.length}
+                    totalCount={cheques.length}
+                    totalAmount={totalChequeValue}
+                    extraStats={[
+                      { label: 'Total Received', value: formatNPR(totalReceived), color: 'text-emerald-600' },
+                      { label: 'Remaining Due', value: formatNPR(totalRemainingDue), color: 'text-amber-600' },
+                    ]}
+                    accentColor="indigo"
+                  />
 
                   {/* LEDGER SUMMARY HEADER (5 Metric Cards) */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -7034,8 +8122,8 @@ export default function App() {
             {currentView === 'cleared' && (() => {
               const term = clearedSearchTerm.toLowerCase().trim();
               const filteredCleared = clearedCheques.filter((c) => {
-                // BS Date Range Filter
-                if (!matchesBsDateRange(c.due_date_bs, clearedDateRange)) return false;
+                // BS Date Range Filter (Custom BS Date Range + Presets)
+                if (!matchesCustomOrPresetDateRange(c.due_date_bs, clearedFromDateBs, clearedToDateBs, clearedDateRange)) return false;
 
                 // Search Filter: Cheque no, bill no, bank, party, amount
                 if (!term) return true;
@@ -7058,7 +8146,7 @@ export default function App() {
 
               return (
                 <div className="space-y-4">
-                  {/* Top Bar: Search, Date Range Filter, Export */}
+                  {/* Top Bar: Search, Presets, Export */}
                   <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
                       {/* Search Bar */}
@@ -7080,22 +8168,6 @@ export default function App() {
                           </button>
                         )}
                       </div>
-
-                      {/* Date Range (BS) Dropdown */}
-                      <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                        <select
-                          value={clearedDateRange}
-                          onChange={(e) => setClearedDateRange(e.target.value)}
-                          className="px-2.5 py-2 border border-slate-200 rounded-xl text-xs bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
-                        >
-                          <option value="all">All Dates (BS)</option>
-                          <option value="today">Cleared Today</option>
-                          <option value="this_month">This Month (BS)</option>
-                          <option value="last_month">Last Month (BS)</option>
-                          <option value="this_year">This Year (BS)</option>
-                        </select>
-                      </div>
                     </div>
 
                     {/* Export Actions */}
@@ -7111,6 +8183,41 @@ export default function App() {
                       </div>
                     )}
                   </div>
+
+                  {/* Universal Date Range Filter & Real-Time Calculation Strip */}
+                  <DateRangeFilterStrip
+                    id="cleared-date-range-filter"
+                    title="Cleared Date Range (BS)"
+                    fromDateBs={clearedFromDateBs}
+                    toDateBs={clearedToDateBs}
+                    onFromDateChange={(val) => {
+                      setClearedFromDateBs(val);
+                      setClearedDateRange('all');
+                    }}
+                    onToDateChange={(val) => {
+                      setClearedToDateBs(val);
+                      setClearedDateRange('all');
+                    }}
+                    onPresetSelect={(preset) => {
+                      setClearedDateRange(preset);
+                      const range = calculateBsPresetRange(preset);
+                      setClearedFromDateBs(range.from);
+                      setClearedToDateBs(range.to);
+                    }}
+                    activePreset={clearedDateRange}
+                    onClear={() => {
+                      setClearedDateRange('all');
+                      setClearedFromDateBs('');
+                      setClearedToDateBs('');
+                    }}
+                    filteredCount={filteredCleared.length}
+                    totalCount={clearedCheques.length}
+                    totalAmount={visibleClearedTotal}
+                    extraStats={[
+                      { label: 'All-Time Cleared', value: formatNPR(allClearedTotal), color: 'text-emerald-700' },
+                    ]}
+                    accentColor="emerald"
+                  />
 
                   {/* Total Cleared Value Summary Header Card */}
                   <div className="bg-gradient-to-r from-emerald-500/10 via-emerald-50/40 to-slate-50 border border-emerald-200/80 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
@@ -7285,12 +8392,17 @@ export default function App() {
                       </label>
 
                       <button
-                        onClick={() => window.print()}
+                        onClick={() => {
+                          if (activeCheque) {
+                            downloadChequeLeafPdf(activeCheque, activeBank, isAccountPayeeOnly);
+                          }
+                        }}
                         disabled={!activeCheque}
+                        title="Direct instant download cheque leaf PDF (no print dialog)"
                         className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer transition"
                       >
-                        <Printer className="w-4 h-4" />
-                        <span>Print Leaf</span>
+                        <Download className="w-4 h-4" />
+                        <span>Download Leaf PDF</span>
                       </button>
                     </div>
                   </div>
@@ -8411,10 +9523,15 @@ export default function App() {
 
             {/* VIEW: REPORTS & ANALYTICS */}
             {currentView === 'reports' && (() => {
-              const totalVolume = cheques.reduce((s, c) => s + c.amount, 0);
-              const pendingVolume = cheques.filter((c) => c.status !== 'Cleared').reduce((s, c) => s + (c.remaining_amount ?? c.amount), 0);
-              const clearedVolume = cheques.filter((c) => c.status === 'Cleared').reduce((s, c) => s + c.amount, 0);
-              const partialVolume = partialCheques.reduce((s, c) => s + (c.amount - (c.remaining_amount ?? c.amount)), 0);
+              const filteredCheques = cheques.filter((c) =>
+                matchesCustomOrPresetDateRange(c.due_date_bs, reportsFromDateBs, reportsToDateBs, reportsDatePreset)
+              );
+              const totalVolume = filteredCheques.reduce((s, c) => s + c.amount, 0);
+              const pendingVolume = filteredCheques.filter((c) => c.status !== 'Cleared').reduce((s, c) => s + (c.remaining_amount ?? c.amount), 0);
+              const clearedVolume = filteredCheques.filter((c) => c.status === 'Cleared').reduce((s, c) => s + c.amount, 0);
+              const partialVolume = partialCheques
+                .filter((c) => matchesCustomOrPresetDateRange(c.due_date_bs, reportsFromDateBs, reportsToDateBs, reportsDatePreset))
+                .reduce((s, c) => s + (c.amount - (c.remaining_amount ?? c.amount)), 0);
               const clearancePercent = totalVolume > 0 ? Math.round((clearedVolume / totalVolume) * 100) : 0;
 
               return (
@@ -8436,7 +9553,7 @@ export default function App() {
                         <UniversalExportDropdown
                           onExportExcel={exportReportsToExcel}
                           onExportPdf={exportReportsToPdf}
-                          onExportCsv={() => exportChequesToCsv(cheques, 'Financial_Reports_Register')}
+                          onExportCsv={() => exportChequesToCsv(filteredCheques, 'Financial_Reports_Register')}
                           title="Export Financial Reports"
                           buttonText="Export Reports"
                         />
@@ -8444,30 +9561,66 @@ export default function App() {
                     )}
                   </div>
 
+                  {/* Universal Date Range Filter & Real-Time Calculation Strip */}
+                  <DateRangeFilterStrip
+                    id="reports-date-range-filter"
+                    title="Reports & Analytics Date Range (BS)"
+                    fromDateBs={reportsFromDateBs}
+                    toDateBs={reportsToDateBs}
+                    onFromDateChange={(val) => {
+                      setReportsFromDateBs(val);
+                      setReportsDatePreset('all');
+                    }}
+                    onToDateChange={(val) => {
+                      setReportsToDateBs(val);
+                      setReportsDatePreset('all');
+                    }}
+                    onPresetSelect={(preset) => {
+                      setReportsDatePreset(preset);
+                      const range = calculateBsPresetRange(preset);
+                      setReportsFromDateBs(range.from);
+                      setReportsToDateBs(range.to);
+                    }}
+                    activePreset={reportsDatePreset}
+                    onClear={() => {
+                      setReportsDatePreset('all');
+                      setReportsFromDateBs('');
+                      setReportsToDateBs('');
+                    }}
+                    filteredCount={filteredCheques.length}
+                    totalCount={cheques.length}
+                    totalAmount={totalVolume}
+                    extraStats={[
+                      { label: 'Cleared', value: formatNPR(clearedVolume), color: 'text-emerald-700' },
+                      { label: 'Pending', value: formatNPR(pendingVolume), color: 'text-amber-700' },
+                    ]}
+                    accentColor="indigo"
+                  />
+
                   {/* Summary Metric Cards */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
                       <div className="text-[11px] font-bold text-slate-400 uppercase">Total Cheque Volume</div>
                       <div className="text-xl font-bold font-mono text-slate-900 mt-1">{formatNPR(totalVolume)}</div>
-                      <div className="text-xs text-slate-500 mt-1">{cheques.length} total issued cheques</div>
+                      <div className="text-xs text-slate-500 mt-1">{filteredCheques.length} cheques in selected period</div>
                     </div>
 
                     <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
                       <div className="text-[11px] font-bold text-amber-500 uppercase">Pending Exposure</div>
                       <div className="text-xl font-bold font-mono text-amber-600 mt-1">{formatNPR(pendingVolume)}</div>
-                      <div className="text-xs text-slate-500 mt-1">{pendingCheques.length} pending cheques</div>
+                      <div className="text-xs text-slate-500 mt-1">{filteredCheques.filter((c) => c.status !== 'Cleared').length} pending cheques</div>
                     </div>
 
                     <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
                       <div className="text-[11px] font-bold text-emerald-500 uppercase">Cleared &amp; Settled</div>
                       <div className="text-xl font-bold font-mono text-emerald-600 mt-1">{formatNPR(clearedVolume)}</div>
-                      <div className="text-xs text-slate-500 mt-1">{clearedCheques.length} cleared ({clearancePercent}%)</div>
+                      <div className="text-xs text-slate-500 mt-1">{filteredCheques.filter((c) => c.status === 'Cleared').length} cleared ({clearancePercent}%)</div>
                     </div>
 
                     <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
                       <div className="text-[11px] font-bold text-sky-500 uppercase">Partial Installments</div>
                       <div className="text-xl font-bold font-mono text-sky-600 mt-1">{formatNPR(partialVolume)}</div>
-                      <div className="text-xs text-slate-500 mt-1">{partialCheques.length} active partial plans</div>
+                      <div className="text-xs text-slate-500 mt-1">{partialCheques.filter((c) => matchesCustomOrPresetDateRange(c.due_date_bs, reportsFromDateBs, reportsToDateBs, reportsDatePreset)).length} active partial plans</div>
                     </div>
                   </div>
 
@@ -8510,7 +9663,7 @@ export default function App() {
                           <Landmark className="w-4 h-4 text-indigo-600" />
                           <span>Bank-Wise Exposure Breakdown</span>
                         </h3>
-                        <p className="text-xs text-slate-500">Volume and outstanding balance by banking partner</p>
+                        <p className="text-xs text-slate-500">Volume and outstanding balance by banking partner in period</p>
                       </div>
                       <div className="overflow-x-auto">
                         <table className="w-full text-left text-xs">
@@ -8524,7 +9677,7 @@ export default function App() {
                           </thead>
                           <tbody className="divide-y divide-slate-100">
                             {banks.map((b) => {
-                              const bCheques = cheques.filter((c) => c.bank_id === b.id);
+                              const bCheques = filteredCheques.filter((c) => c.bank_id === b.id);
                               const bTotal = bCheques.reduce((s, c) => s + c.amount, 0);
                               const bPending = bCheques.filter((c) => c.status !== 'Cleared').reduce((s, c) => s + (c.remaining_amount ?? c.amount), 0);
                               return (
@@ -8551,7 +9704,7 @@ export default function App() {
                           <Users className="w-4 h-4 text-indigo-600" />
                           <span>Top Payees &amp; Vendors Ledger</span>
                         </h3>
-                        <p className="text-xs text-slate-500">Beneficiaries with highest cheque distribution</p>
+                        <p className="text-xs text-slate-500">Beneficiaries with highest cheque distribution in period</p>
                       </div>
                       <div className="overflow-x-auto">
                         <table className="w-full text-left text-xs">
@@ -8565,7 +9718,7 @@ export default function App() {
                           </thead>
                           <tbody className="divide-y divide-slate-100">
                             {parties.slice(0, 8).map((p) => {
-                              const pCheques = cheques.filter((c) => c.party_id === p.id);
+                              const pCheques = filteredCheques.filter((c) => c.party_id === p.id);
                               const pTotal = pCheques.reduce((s, c) => s + c.amount, 0);
                               const pPending = pCheques.filter((c) => c.status !== 'Cleared').reduce((s, c) => s + (c.remaining_amount ?? c.amount), 0);
                               return (
@@ -8617,9 +9770,49 @@ export default function App() {
                     </div>
 
                     <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2.5 text-xs">
-                      <div className="flex justify-between">
+                      <div className="flex justify-between items-center gap-2">
                         <span className="text-slate-500">Company Display Name:</span>
-                        <span className="font-bold text-slate-800">{activeCompanyName}</span>
+                        {isEditingTenantCompanyName ? (
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              value={tenantCompanyNameInput}
+                              onChange={(e) => setTenantCompanyNameInput(e.target.value)}
+                              className="px-2 py-1 text-xs border border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-slate-800 bg-white"
+                              placeholder="Enter company name"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleSaveTenantCompanyName}
+                              className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition cursor-pointer"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setIsEditingTenantCompanyName(false)}
+                              className="px-2 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-bold transition cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-800">{activeCompanyName}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTenantCompanyNameInput(activeCompanyName);
+                                setIsEditingTenantCompanyName(true);
+                              }}
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-slate-200/80 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 rounded text-[11px] font-semibold transition cursor-pointer"
+                              title="Edit Company Name"
+                            >
+                              <Edit3 className="w-3 h-3" />
+                              <span>Edit</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-500">Tenant Code / Identifier:</span>
@@ -9171,67 +10364,23 @@ export default function App() {
                 )}
               </div>
 
-              {/* Row 4: Issue Date (BS & AD synchronized) */}
-              <div className="p-3 bg-slate-50/70 border border-slate-200 rounded-xl space-y-2">
-                <div className="flex items-center gap-1 text-[11px] font-bold text-indigo-700 uppercase tracking-wide">
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>Issue Date (Synchronized BS &amp; AD)</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-slate-600 font-medium mb-1">Nepali Date (BS)</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="YYYY-MM-DD (e.g. 2081-06-15)"
-                      value={chequeForm.issue_date_bs}
-                      onChange={(e) => handleIssueDateBsSync(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-slate-900"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-600 font-medium mb-1">English Date (AD)</label>
-                    <input
-                      type="date"
-                      required
-                      value={chequeForm.issue_date_ad}
-                      onChange={(e) => handleIssueDateAdSync(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-slate-900"
-                    />
-                  </div>
-                </div>
-              </div>
+              {/* Row 4: Issue Date (BS & AD synchronized Dual Date Picker) */}
+              <DualDatePicker
+                label="Issue Date"
+                bsDate={chequeForm.issue_date_bs}
+                adDate={chequeForm.issue_date_ad}
+                onChange={(bs, ad) => setChequeForm((p) => ({ ...p, issue_date_bs: bs, issue_date_ad: ad }))}
+                required
+              />
 
-              {/* Row 5: Due Date (BS & AD synchronized) */}
-              <div className="p-3 bg-slate-50/70 border border-slate-200 rounded-xl space-y-2">
-                <div className="flex items-center gap-1 text-[11px] font-bold text-indigo-700 uppercase tracking-wide">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>Due Date (Synchronized BS &amp; AD)</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-slate-600 font-medium mb-1">Due Date (BS)</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="YYYY-MM-DD (e.g. 2081-07-01)"
-                      value={chequeForm.due_date_bs}
-                      onChange={(e) => handleDueDateBsSync(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-slate-900"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-600 font-medium mb-1">Due Date (AD)</label>
-                    <input
-                      type="date"
-                      required
-                      value={chequeForm.due_date_ad}
-                      onChange={(e) => handleDueDateAdSync(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-slate-900"
-                    />
-                  </div>
-                </div>
-              </div>
+              {/* Row 5: Due Date (BS & AD synchronized Dual Date Picker) */}
+              <DualDatePicker
+                label="Due Date"
+                bsDate={chequeForm.due_date_bs}
+                adDate={chequeForm.due_date_ad}
+                onChange={(bs, ad) => setChequeForm((p) => ({ ...p, due_date_bs: bs, due_date_ad: ad }))}
+                required
+              />
 
               {/* Row 6: Status & Bill No */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -9332,8 +10481,8 @@ export default function App() {
                     cheque_id: activePaymentCheque.id,
                     amount: payAmount,
                     payment_mode,
-                    payment_date_bs: getCurrentBsDate(),
-                    payment_date_ad: getCurrentAdDate(),
+                    payment_date_bs: paymentModalDateBs,
+                    payment_date_ad: paymentModalDateAd,
                     recorded_by: currentUser?.name || 'Accountant',
                   });
                   showToast(`Recorded payment of ${formatNPR(payAmount)}`, 'success');
@@ -9354,6 +10503,19 @@ export default function App() {
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
+
+              {/* Payment Date with Dual BS/AD Date Picker */}
+              <DualDatePicker
+                label="Payment Date"
+                bsDate={paymentModalDateBs}
+                adDate={paymentModalDateAd}
+                onChange={(bs, ad) => {
+                  setPaymentModalDateBs(bs);
+                  setPaymentModalDateAd(ad);
+                }}
+                required
+              />
+
               <div>
                 <label className="block text-slate-700 font-semibold mb-1">Payment Mode</label>
                 <select
@@ -10626,7 +11788,7 @@ export default function App() {
                       }}
                       className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold cursor-pointer shadow-md flex items-center gap-1.5 transition text-xs"
                     >
-                      <Printer className="w-4 h-4" />
+                      <Download className="w-4 h-4" />
                       <span>Download PDF Statement</span>
                     </button>
                   </div>
