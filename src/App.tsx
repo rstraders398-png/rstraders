@@ -25,11 +25,13 @@ import {
   CheckCircle2,
   ShieldCheck,
   Printer,
+  Truck,
   Upload,
   X,
   Laptop,
   FileText,
   AlertTriangle,
+  AlertCircle,
   Shield,
   Download,
   Sparkles,
@@ -63,6 +65,13 @@ import {
   Mail,
   Send,
   ChevronDown,
+  ChevronRight,
+  Package,
+  Fingerprint,
+  Smartphone,
+  Calculator,
+  BookOpen,
+  CheckSquare,
 } from 'lucide-react';
 import {
   Cheque,
@@ -107,6 +116,8 @@ import {
   formatBsDateFriendly,
   BS_MONTH_NAMES,
   BS_CALENDAR_DATA,
+  syncBsAdDates,
+  addDurationToAdDate,
 } from './lib/dateUtils';
 import { syncManager } from './lib/syncWorker';
 
@@ -158,6 +169,7 @@ function numberToWords(num: number): string {
 // ==========================================
 export type NavView =
   | 'dashboard'
+  | 'accounting_auditing'
   | 'due_date_timeline'
   | 'issued_date_log'
   | 'pending'
@@ -170,6 +182,281 @@ export type NavView =
   | 'company_users'
   | 'backup'
   | 'import_cheques';
+
+// ==========================================
+// ACCOUNTING & TRANSACTIONS VOUCHER TYPES (BUSY/TALLY STYLE)
+// ==========================================
+export type VoucherType =
+  | 'payment'
+  | 'receipt'
+  | 'journal'
+  | 'contra'
+  | 'sales'
+  | 'invoice'
+  | 'notes'
+  | 'stock';
+
+export interface BusySalesVoucherItem {
+  id: string;
+  item_description: string;
+  qty: number | '';
+  unit: string;
+  price: number | '';
+  disc_pct?: number | '';
+  disc_amt?: number;
+  amount: number;
+}
+
+export interface BusySalesBillSundry {
+  id: string;
+  name: string;
+  rate_pct?: number | '';
+  amount: number | '';
+  type: 'additive' | 'subtractive' | 'round_off';
+}
+
+export interface BusySalesTransportInfo {
+  driver_name: string;
+  driver_phone: string;
+  vehicle_no: string;
+  delivery_person: string;
+  transport_name?: string;
+  station?: string;
+  gr_rr_no?: string;
+}
+
+export interface AccountingVoucher {
+  id: string;
+  voucher_type: VoucherType;
+  voucher_number: string;
+  date_bs: string;
+  date_ad: string;
+  account_debit: string;
+  account_credit: string;
+  amount: number;
+  payment_mode?: 'Cash' | 'Bank' | 'Cheque' | 'IPS';
+  cheque_number?: string;
+  reference_no?: string;
+  narration: string;
+  created_at: string;
+  // Busy Sales Voucher replica extensions:
+  series?: string;
+  sale_type?: string;
+  party_name?: string;
+  mat_centre?: string;
+  items?: BusySalesVoucherItem[];
+  bill_sundries?: BusySalesBillSundry[];
+  transport_info?: BusySalesTransportInfo;
+  is_held?: boolean;
+}
+
+export interface VoucherCategoryConfig {
+  id: string;
+  key: VoucherType;
+  label: string;
+  icon: any;
+  hotkeyPlaceholder: string;
+  description: string;
+  defaultDebit: string;
+  defaultCredit: string;
+}
+
+export const VOUCHER_CATEGORIES: VoucherCategoryConfig[] = [
+  {
+    id: 'voucher_sales',
+    key: 'sales',
+    label: 'Sales Voucher',
+    icon: FileText,
+    hotkeyPlaceholder: '[F8]',
+    description: 'Busy Software exact replica commercial sales billing with item grid, bill sundry & transport',
+    defaultDebit: 'Customer / Debtor A/C',
+    defaultCredit: 'Sales Account',
+  },
+  {
+    id: 'voucher_payment',
+    key: 'payment',
+    label: 'Payment Voucher',
+    icon: ArrowDownLeft,
+    hotkeyPlaceholder: '[F5]',
+    description: 'Cash / Bank payments to parties, vendors and expenses',
+    defaultDebit: 'Party / Creditor Account',
+    defaultCredit: 'Cash / Bank A/C',
+  },
+  {
+    id: 'voucher_receipt',
+    key: 'receipt',
+    label: 'Receipt Voucher',
+    icon: ArrowUpRight,
+    hotkeyPlaceholder: '[F6]',
+    description: 'Incoming customer payments, direct deposit receipts',
+    defaultDebit: 'Cash / Bank A/C',
+    defaultCredit: 'Party / Debtor Account',
+  },
+  {
+    id: 'voucher_journal',
+    key: 'journal',
+    label: 'Journal Voucher',
+    icon: BookOpen,
+    hotkeyPlaceholder: '[F7]',
+    description: 'Double-entry general adjustments, depreciation, and transfers',
+    defaultDebit: 'Expense / Adjustment A/C',
+    defaultCredit: 'Payable / Asset A/C',
+  },
+  {
+    id: 'voucher_contra',
+    key: 'contra',
+    label: 'Contra Voucher',
+    icon: RefreshCw,
+    hotkeyPlaceholder: '[F4]',
+    description: 'Internal cash-to-bank deposits and inter-bank transfers',
+    defaultDebit: 'Bank Account (Deposit)',
+    defaultCredit: 'Cash in Hand (Withdrawal)',
+  },
+  {
+    id: 'voucher_notes',
+    key: 'notes',
+    label: 'Debit Note / Credit Note',
+    icon: Tag,
+    hotkeyPlaceholder: '[Ctrl+F9]',
+    description: 'Purchase/Sales returns, price adjustments, and discounts',
+    defaultDebit: 'Supplier / Return A/C',
+    defaultCredit: 'Customer / Return A/C',
+  },
+  {
+    id: 'voucher_stock',
+    key: 'stock',
+    label: 'Physical Stock / Stock Journal',
+    icon: Package,
+    hotkeyPlaceholder: '[Alt+F7]',
+    description: 'Inventory quantity adjustments and item reconciliation',
+    defaultDebit: 'Inventory Adjustment A/C',
+    defaultCredit: 'Stock in Hand A/C',
+  },
+];
+
+export const INITIAL_DEMO_VOUCHERS: AccountingVoucher[] = [
+  {
+    id: 'v-101',
+    voucher_type: 'payment',
+    voucher_number: 'PV-101',
+    date_bs: '2081-05-15',
+    date_ad: '2024-08-31',
+    account_debit: 'Everest Iron & Steel',
+    account_credit: 'Nabil Bank (A/C: 01234567890123)',
+    amount: 45000,
+    payment_mode: 'Cheque',
+    cheque_number: '004128',
+    narration: 'Payment against Invoice #INV-8821 for TMT Rebars',
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'v-102',
+    voucher_type: 'receipt',
+    voucher_number: 'RV-201',
+    date_bs: '2081-05-18',
+    date_ad: '2024-09-03',
+    account_debit: 'Cash in Hand (Counter)',
+    account_credit: 'Kathmandu Building Materials',
+    amount: 80000,
+    payment_mode: 'Cash',
+    reference_no: 'RCPT-0982',
+    narration: 'Received cash advance against delivery order #402',
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'v-103',
+    voucher_type: 'journal',
+    voucher_number: 'JV-301',
+    date_bs: '2081-05-20',
+    date_ad: '2024-09-05',
+    account_debit: 'Office Stationery & Printing Expenses',
+    account_credit: 'Sundry Creditors Adjustment',
+    amount: 12500,
+    payment_mode: 'Bank',
+    narration: 'Quarterly office supplies and ledger adjustment entry',
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'v-104',
+    voucher_type: 'contra',
+    voucher_number: 'CV-401',
+    date_bs: '2081-05-22',
+    date_ad: '2024-09-07',
+    account_debit: 'Nabil Bank (Current A/C)',
+    account_credit: 'Cash in Hand',
+    amount: 50000,
+    payment_mode: 'Cash',
+    reference_no: 'DEP-7712',
+    narration: 'Cash deposit slip #55291 to Nabil Bank current account',
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'v-105',
+    voucher_type: 'sales',
+    voucher_number: '1',
+    date_bs: '2081-05-25',
+    date_ad: '2024-09-10',
+    account_debit: 'Pokhara Builders & Contractors',
+    account_credit: 'Sales Revenue (Cement & Steel)',
+    amount: 147500,
+    payment_mode: 'Bank',
+    reference_no: 'Main',
+    narration: 'Commercial tax invoice for 200 bags OPC cement & TMT steel rebars',
+    created_at: new Date().toISOString(),
+    series: 'Main',
+    sale_type: 'VAT 13%',
+    party_name: 'Pokhara Builders & Contractors',
+    mat_centre: 'Main Store',
+    items: [
+      { id: 'item-101', item_description: 'Shivam OPC Cement 50kg', qty: 150, unit: 'Bag', price: 750, disc_pct: 0, disc_amt: 0, amount: 112500 },
+      { id: 'item-102', item_description: 'TMT Steel 12mm Rebar', qty: 25, unit: 'Pcs', price: 1200, disc_pct: 0, disc_amt: 0, amount: 30000 },
+      { id: 'item-103', item_description: 'PVC Pipe 4 inch Heavy', qty: 10, unit: 'Case', price: 500, disc_pct: 0, disc_amt: 0, amount: 5000 },
+    ],
+    bill_sundries: [
+      { id: 'bs-101', name: 'VAT (13%)', rate_pct: 13, amount: 19175, type: 'additive' },
+      { id: 'bs-102', name: 'Transportation / Freight Charges', rate_pct: '', amount: 2500, type: 'additive' },
+      { id: 'bs-103', name: 'Trade Discount', rate_pct: 2, amount: 2950, type: 'subtractive' },
+      { id: 'bs-104', name: 'Round Off', rate_pct: '', amount: 0.25, type: 'round_off' },
+    ],
+    transport_info: {
+      driver_name: 'Ramesh Kumar Thapa',
+      driver_phone: '9841234567',
+      vehicle_no: 'BA 2 KHA 8492',
+      delivery_person: 'Suman Sharma',
+      transport_name: 'Western Cargo Nepal',
+      station: 'Pokhara',
+      gr_rr_no: 'GR-8891',
+    },
+  },
+  {
+    id: 'v-106',
+    voucher_type: 'notes',
+    voucher_number: 'CN-601',
+    date_bs: '2081-05-26',
+    date_ad: '2024-09-11',
+    account_debit: 'Sales Return & Allowances',
+    account_credit: 'Pokhara Builders & Contractors',
+    amount: 15000,
+    payment_mode: 'Bank',
+    reference_no: 'RET-091',
+    narration: 'Credit note for 25 bags damaged cement returned',
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'v-107',
+    voucher_type: 'stock',
+    voucher_number: 'SJ-701',
+    date_bs: '2081-05-28',
+    date_ad: '2024-09-13',
+    account_debit: 'Inventory Shortage / Physical Adjustment',
+    account_credit: 'Warehouse Stock Ledger',
+    amount: 8200,
+    payment_mode: 'Bank',
+    reference_no: 'STK-AUDIT-01',
+    narration: 'Physical stock verification reconciliation for Godown A',
+    created_at: new Date().toISOString(),
+  },
+];
 
 const StatusBadge: React.FC<{ status: ChequeStatus | string }> = ({ status }) => {
   const styles: Record<string, string> = {
@@ -230,7 +517,7 @@ export const DualDatePicker: React.FC<DualDatePickerProps> = ({
     const m = parseInt(parts[1], 10) || 1;
     const d = parseInt(parts[2], 10) || 1;
     return {
-      year: y >= 2075 && y <= 2090 ? y : 2081,
+      year: y >= 2075 && y <= 2100 ? y : 2083,
       month: m >= 1 && m <= 12 ? m : 1,
       day: d >= 1 && d <= 32 ? d : 1,
     };
@@ -284,7 +571,7 @@ export const DualDatePicker: React.FC<DualDatePickerProps> = ({
       const y = parseInt(parts[0], 10);
       const m = parseInt(parts[1], 10);
       const d = parseInt(parts[2], 10);
-      if (y >= 2075 && y <= 2090) {
+      if (y >= 2075 && y <= 2100) {
         setSelectedYear(y);
         setSelectedMonth(m);
         setSelectedDay(d);
@@ -312,7 +599,7 @@ export const DualDatePicker: React.FC<DualDatePickerProps> = ({
   const friendlyBs = formatBsDateFriendly(currentBsFormatted);
   const friendlyAd = formatAdDateMMDDYYYY(adDate || bsToAd(currentBsFormatted));
 
-  const BS_YEARS = [2075, 2076, 2077, 2078, 2079, 2080, 2081, 2082, 2083, 2084, 2085, 2086, 2087, 2088, 2089, 2090];
+  const BS_YEARS = Array.from({ length: 26 }, (_, i) => 2075 + i);
 
   return (
     <div id={id || `dual-date-picker-${(label || 'date').toLowerCase().replace(/\s+/g, '-')}`} className={`bg-slate-50/80 border border-slate-200 rounded-xl p-3 space-y-2.5 transition ${className}`}>
@@ -411,6 +698,317 @@ export const DualDatePicker: React.FC<DualDatePickerProps> = ({
               onChange={(e) => handleAdChange(e.target.value)}
               className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
               required={required}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
+// DEVELOPER EXPIRY DUAL DATE PICKER (BIDIRECTIONAL BS <-> AD)
+// ==========================================
+export interface DeveloperExpiryDatePickerProps {
+  bsDate: string;
+  adDate: string;
+  onChange: (bsDate: string, adDate: string) => void;
+  label?: string;
+  idPrefix?: string;
+}
+
+export const DeveloperExpiryDatePicker: React.FC<DeveloperExpiryDatePickerProps> = ({
+  bsDate,
+  adDate,
+  onChange,
+  label = 'Software License Expiry Date',
+  idPrefix = 'dev-expiry',
+}) => {
+  const synced = useMemo(() => {
+    return syncBsAdDates(bsDate, adDate);
+  }, [bsDate, adDate]);
+
+  const activeBs = bsDate || synced.bsDate;
+  const activeAd = adDate || synced.adDate;
+
+  const isPerfectSync = useMemo(() => {
+    if (!activeBs || !activeAd) return false;
+    const calcAd = bsToAd(activeBs);
+    const calcBs = adToBs(activeAd);
+    return calcAd === activeAd || calcBs === activeBs;
+  }, [activeBs, activeAd]);
+
+  const expiryStatus = useMemo(() => {
+    if (!activeAd) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expDate = new Date(activeAd + 'T00:00:00');
+    expDate.setHours(0, 0, 0, 0);
+    const diffTime = expDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return {
+      diffDays,
+      isExpired: diffDays < 0,
+      isExpiringSoon: diffDays <= 60 && diffDays >= 0,
+    };
+  }, [activeAd]);
+
+  const handleAdChange = (newAd: string) => {
+    const cleanAd = newAd.trim();
+    if (!cleanAd) {
+      onChange('', '');
+      return;
+    }
+    let calculatedBs = '';
+    try {
+      calculatedBs = adToBs(cleanAd);
+    } catch {}
+    onChange(calculatedBs || activeBs, cleanAd);
+  };
+
+  const handleBsChange = (newBs: string) => {
+    const cleanBs = newBs.trim();
+    if (!cleanBs) {
+      onChange('', '');
+      return;
+    }
+    let calculatedAd = '';
+    try {
+      calculatedAd = bsToAd(cleanBs);
+    } catch {}
+    onChange(cleanBs, calculatedAd || activeAd);
+  };
+
+  const handleApplyDuration = (duration: '1m' | '3m' | '6m' | '1y') => {
+    const res = addDurationToAdDate(activeAd || getCurrentAdDate(), duration);
+    onChange(res.bsDate, res.adDate);
+  };
+
+  const bsParts = activeBs ? activeBs.split('-') : [];
+  const currentBsYear = parseInt(bsParts[0], 10) || 2084;
+  const currentBsMonth = parseInt(bsParts[1], 10) || 6;
+  const currentBsDay = parseInt(bsParts[2], 10) || 7;
+
+  const maxDays = BS_CALENDAR_DATA[currentBsYear]?.[currentBsMonth - 1] || 30;
+
+  const handleBsComponentChange = (y: number, m: number, d: number) => {
+    const daysInMonth = BS_CALENDAR_DATA[y]?.[m - 1] || 30;
+    const clampedDay = Math.min(d, daysInMonth);
+    const formattedBs = `${y}-${String(m).padStart(2, '0')}-${String(clampedDay).padStart(2, '0')}`;
+    const calculatedAd = bsToAd(formattedBs) || getCurrentAdDate();
+    onChange(formattedBs, calculatedAd);
+  };
+
+  const handleAutoAlign = () => {
+    if (activeAd) {
+      const bs = adToBs(activeAd);
+      onChange(bs, activeAd);
+    } else if (activeBs) {
+      const ad = bsToAd(activeBs);
+      onChange(activeBs, ad);
+    }
+  };
+
+  const BS_YEARS = Array.from({ length: 26 }, (_, i) => 2075 + i);
+
+  return (
+    <div className="bg-slate-900/90 border border-slate-700/80 rounded-xl p-3.5 space-y-3">
+      {/* Header with Title and Presets */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-emerald-400" />
+          <span className="text-xs font-bold text-slate-200 uppercase tracking-wide">
+            {label}
+          </span>
+        </div>
+
+        {/* Quick Presets */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] text-slate-400 font-semibold mr-0.5">Quick Duration:</span>
+          {(['1m', '3m', '6m', '1y'] as const).map((dur) => (
+            <button
+              key={dur}
+              type="button"
+              onClick={() => handleApplyDuration(dur)}
+              className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 hover:text-white border border-slate-700 rounded text-[10px] font-bold cursor-pointer transition"
+              title={`Add ${dur.toUpperCase()} to expiry`}
+            >
+              +{dur.toUpperCase()}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => {
+              const todayAd = getCurrentAdDate();
+              const todayBs = adToBs(todayAd);
+              onChange(todayBs, todayAd);
+            }}
+            className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded text-[10px] font-bold cursor-pointer transition"
+            title="Set to Today"
+          >
+            Today
+          </button>
+        </div>
+      </div>
+
+      {/* Sync Status Banner */}
+      <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-slate-950/70 border border-slate-800 text-xs">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {isPerfectSync ? (
+            <span className="inline-flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-emerald-400">
+              <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span>Calendar Sync:</span>
+              <span className="font-mono text-emerald-300 bg-emerald-950/90 border border-emerald-800/60 px-1.5 py-0.5 rounded">
+                {activeBs} BS ({formatBsDateFriendly(activeBs)})
+              </span>
+              <span className="text-slate-500 font-bold">&harr;</span>
+              <span className="font-mono text-indigo-300 bg-indigo-950/90 border border-indigo-800/60 px-1.5 py-0.5 rounded">
+                {activeAd} AD
+              </span>
+            </span>
+          ) : (
+            <span className="inline-flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-amber-400">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span>Dates Mismatched ({activeBs} BS &ne; {activeAd} AD)</span>
+              <button
+                type="button"
+                onClick={handleAutoAlign}
+                className="px-2 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded text-[10px] font-bold cursor-pointer transition"
+              >
+                Auto-Align
+              </button>
+            </span>
+          )}
+        </div>
+
+        {/* Expiry Countdown Indicator */}
+        {expiryStatus && (
+          <div className="flex items-center gap-1">
+            <span
+              className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                expiryStatus.isExpired
+                  ? 'bg-rose-950/80 text-rose-300 border-rose-800/60'
+                  : expiryStatus.isExpiringSoon
+                  ? 'bg-amber-950/80 text-amber-300 border-amber-800/60'
+                  : 'bg-emerald-950/80 text-emerald-300 border-emerald-800/60'
+              }`}
+            >
+              {expiryStatus.isExpired
+                ? `Expired (${Math.abs(expiryStatus.diffDays)}d overdue)`
+                : `${expiryStatus.diffDays} Days Remaining`}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Main Dual Date Controls */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 text-xs">
+        {/* Nepali BS Section (7 Cols) */}
+        <div className="lg:col-span-7 space-y-1.5 bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/80">
+          <div className="flex items-center justify-between">
+            <label className="text-[11px] font-bold text-emerald-400 uppercase tracking-wide flex items-center gap-1">
+              <span>Nepali Date (BS)</span>
+            </label>
+            <span className="text-[10px] text-slate-400 font-mono">
+              YYYY-MM-DD
+            </span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-1.5">
+            {/* Year BS */}
+            <div>
+              <label className="block text-[9px] text-slate-400 mb-0.5">Year</label>
+              <select
+                value={currentBsYear}
+                onChange={(e) => handleBsComponentChange(parseInt(e.target.value, 10), currentBsMonth, currentBsDay)}
+                className="w-full px-2 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+              >
+                {BS_YEARS.map((y) => (
+                  <option key={y} value={y}>
+                    {y} BS
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Month BS */}
+            <div>
+              <label className="block text-[9px] text-slate-400 mb-0.5">Month</label>
+              <select
+                value={currentBsMonth}
+                onChange={(e) => handleBsComponentChange(currentBsYear, parseInt(e.target.value, 10), currentBsDay)}
+                className="w-full px-2 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+              >
+                {BS_MONTH_NAMES.map((name, idx) => (
+                  <option key={idx + 1} value={idx + 1}>
+                    {String(idx + 1).padStart(2, '0')}: {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Day BS */}
+            <div>
+              <label className="block text-[9px] text-slate-400 mb-0.5">Day</label>
+              <select
+                value={currentBsDay > maxDays ? maxDays : currentBsDay}
+                onChange={(e) => handleBsComponentChange(currentBsYear, currentBsMonth, parseInt(e.target.value, 10))}
+                className="w-full px-2 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+              >
+                {Array.from({ length: maxDays }, (_, i) => i + 1).map((d) => (
+                  <option key={d} value={d}>
+                    {String(d).padStart(2, '0')}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="pt-1">
+            <input
+              type="text"
+              id={`${idPrefix}-bs-input`}
+              value={activeBs}
+              onChange={(e) => handleBsChange(e.target.value)}
+              placeholder="YYYY-MM-DD"
+              className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-emerald-300 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              title="Manual BS Date Input (auto-converts to AD)"
+            />
+          </div>
+        </div>
+
+        {/* English AD Section (5 Cols) */}
+        <div className="lg:col-span-5 space-y-1.5 bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/80">
+          <div className="flex items-center justify-between">
+            <label className="text-[11px] font-bold text-indigo-400 uppercase tracking-wide flex items-center gap-1">
+              <span>English Date (AD)</span>
+            </label>
+            <span className="text-[10px] text-slate-400 font-mono">
+              Auto-syncs BS
+            </span>
+          </div>
+
+          <div>
+            <label className="block text-[9px] text-slate-400 mb-0.5">Native Date Picker</label>
+            <input
+              type="date"
+              id={`${idPrefix}-ad-date-picker`}
+              value={activeAd}
+              onChange={(e) => handleAdChange(e.target.value)}
+              className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-indigo-200 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+            />
+          </div>
+
+          <div className="pt-1">
+            <label className="block text-[9px] text-slate-400 mb-0.5">AD Text (YYYY-MM-DD)</label>
+            <input
+              type="text"
+              id={`${idPrefix}-ad-input`}
+              value={activeAd}
+              onChange={(e) => handleAdChange(e.target.value)}
+              placeholder="YYYY-MM-DD"
+              className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-indigo-300 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              title="Manual AD Date Input (auto-converts to BS)"
             />
           </div>
         </div>
@@ -595,6 +1193,288 @@ export interface CompanyStaffMember {
   password?: string;
 }
 
+// ============================================================================
+// DYNAMIC MASTER FEATURE REGISTRY (AUTO-REGISTERING SAAS SALES MATRIX)
+// All sidebar items, tools, and companion services auto-populate dynamically
+// ============================================================================
+export interface MasterFeatureItem {
+  id: string;
+  name: string;
+  description: string;
+  category: 'Core Modules & Ledgers' | 'Accounting & Auditing' | 'Directories & Management' | 'Printing & Data Utilities' | 'Reports & Exports' | 'Mobile Companion';
+  icon: any;
+  defaultEnabled: boolean;
+  navView?: NavView;
+  badgeKey?: 'pending' | 'partial' | 'cleared' | 'banks' | 'parties';
+  badgeText?: string;
+  badgeColor?: string;
+}
+
+export const MASTER_FEATURE_REGISTRY: MasterFeatureItem[] = [
+  // 1. Core Modules & Ledgers (All Sidebar Items)
+  {
+    id: 'dashboard',
+    name: 'Dashboard Overview',
+    description: 'Executive cash overview, upcoming due tallies, bank distribution summary, and quick actions',
+    category: 'Core Modules & Ledgers',
+    icon: Laptop,
+    defaultEnabled: true,
+    navView: 'dashboard',
+  },
+  {
+    id: 'accounting_auditing',
+    name: 'For Accounting & Auditing',
+    description: 'Financial ledger verification, balance reconciliation, tax/audit compliance checks, and audit trails',
+    category: 'Accounting & Auditing',
+    icon: Calculator,
+    defaultEnabled: true,
+    navView: 'accounting_auditing',
+  },
+  {
+    id: 'accounting_transactions',
+    name: 'Transactions Tree Navigation Hub',
+    description: 'Busy/Tally-style nested collapsible tree navigation with keyboard arrow selection and Enter-key voucher traversal',
+    category: 'Accounting & Auditing',
+    icon: Receipt,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_payment',
+    name: 'Payment Voucher (Add, Modify, List)',
+    description: 'Busy/Tally-style Cash, Bank & Cheque payment voucher entries with ledger debiting [F5]',
+    category: 'Accounting & Auditing',
+    icon: ArrowDownLeft,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_receipt',
+    name: 'Receipt Voucher (Add, Modify, List)',
+    description: 'Incoming customer payments, direct deposit receipts, and ledger credit settlements [F6]',
+    category: 'Accounting & Auditing',
+    icon: ArrowUpRight,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_journal',
+    name: 'Journal Voucher (Add, Modify, List)',
+    description: 'Double-entry general adjustment entries, depreciation, and inter-party transfers [F7]',
+    category: 'Accounting & Auditing',
+    icon: BookOpen,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_contra',
+    name: 'Contra Voucher (Add, Modify, List)',
+    description: 'Internal cash-to-bank deposits, bank-to-cash withdrawals, and inter-bank transfers [F4]',
+    category: 'Accounting & Auditing',
+    icon: RefreshCw,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_sales',
+    name: 'Sales Voucher (Busy Software Replica [F8])',
+    description: 'Exact Busy Accounting sales voucher replica: series, BS/AD date sync, item grid, alt qty summary bar, bill sundry (VAT 13%, freight), transport details & party ledger',
+    category: 'Accounting & Auditing',
+    icon: FileText,
+    defaultEnabled: true,
+  },
+  {
+    id: 'sales_discount',
+    name: 'Enable Sales Discount on Vouchers',
+    description: 'Company-level toggle to show or hide discount % and discount amount columns in Busy Sales Voucher',
+    category: 'Accounting & Auditing',
+    icon: Tag,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_notes',
+    name: 'Debit Note / Credit Note (Add, Modify, List)',
+    description: 'Purchase returns, sales returns, price adjustments, and post-sale discounts [Ctrl+F9]',
+    category: 'Accounting & Auditing',
+    icon: Tag,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_stock',
+    name: 'Physical Stock / Stock Journal (Add, Modify, List)',
+    description: 'Inventory transfers, physical stock reconciliation, and manufacturing stock journals [Alt+F7]',
+    category: 'Accounting & Auditing',
+    icon: Package,
+    defaultEnabled: true,
+  },
+  {
+    id: 'due_date_timeline',
+    name: 'Due Date Timeline',
+    description: 'Visual chronological schedule and calendar timeline for upcoming cheque maturity dates',
+    category: 'Core Modules & Ledgers',
+    icon: Clock,
+    defaultEnabled: true,
+    navView: 'due_date_timeline',
+  },
+  {
+    id: 'issued_date_log',
+    name: 'Issued Date Log',
+    description: 'Chronological cheque issue date audit log with date-wise payment release tracking',
+    category: 'Core Modules & Ledgers',
+    icon: Calendar,
+    defaultEnabled: true,
+    navView: 'issued_date_log',
+  },
+  {
+    id: 'pending',
+    name: 'Pending Cheques Register',
+    description: 'Active outstanding issued cheques awaiting bank clearance, maturity alerts, and payment actions',
+    category: 'Core Modules & Ledgers',
+    icon: Clock,
+    defaultEnabled: true,
+    navView: 'pending',
+    badgeKey: 'pending',
+    badgeColor: 'amber',
+  },
+  {
+    id: 'partial_payments',
+    name: 'Partial Payments Ledger',
+    description: 'Multi-installment payment ledger, remaining balance calculations, and partial settlement audit',
+    category: 'Core Modules & Ledgers',
+    icon: Wallet,
+    defaultEnabled: true,
+    navView: 'partial_payments',
+    badgeKey: 'partial',
+    badgeColor: 'sky',
+  },
+  {
+    id: 'cleared',
+    name: 'Cleared Cheques Archive',
+    description: 'Historical archive of cleared cheques with bank reconciliation timestamps and payment logs',
+    category: 'Core Modules & Ledgers',
+    icon: CheckCircle2,
+    defaultEnabled: true,
+    navView: 'cleared',
+    badgeKey: 'cleared',
+    badgeColor: 'emerald',
+  },
+  {
+    id: 'reports',
+    name: 'Reports & Analytics',
+    description: 'Party-wise ledger statements, bank exposure breakdown, clearance turnover, and volume statistics',
+    category: 'Reports & Exports',
+    icon: BarChart3,
+    defaultEnabled: true,
+    navView: 'reports',
+  },
+
+  // 2. Master Directories & Administration
+  {
+    id: 'banks',
+    name: 'Banks Master Data',
+    description: 'Master bank directories, account numbers, branch names, and cheque leaf book registers',
+    category: 'Directories & Management',
+    icon: Landmark,
+    defaultEnabled: true,
+    navView: 'banks',
+    badgeKey: 'banks',
+  },
+  {
+    id: 'parties',
+    name: 'Parties / Payees Master Data',
+    description: 'Master directories for Payee parties, vendors, suppliers, and customer registers with PAN/VAT',
+    category: 'Directories & Management',
+    icon: Users,
+    defaultEnabled: true,
+    navView: 'parties',
+    badgeKey: 'parties',
+  },
+  {
+    id: 'company_users',
+    name: 'Company & Users Management',
+    description: 'Tenant profile configuration, user access control, and role-based permissions (Admin, Accountant, Viewer)',
+    category: 'Directories & Management',
+    icon: Building2,
+    defaultEnabled: true,
+    navView: 'company_users',
+  },
+
+  // 3. Printing & Data Utilities
+  {
+    id: 'print_cheque',
+    name: 'Print Cheque Leaf',
+    description: 'Physical bank cheque leaf layout, Amount in words in Nepali & English, A/C Payee stamp & alignment calibration',
+    category: 'Printing & Data Utilities',
+    icon: Printer,
+    defaultEnabled: true,
+    navView: 'print_cheque',
+  },
+  {
+    id: 'backup',
+    name: 'Backup & Restore (Local & Cloud)',
+    description: 'Full database JSON/ZIP ledger export to local storage and automated Google Drive cloud snapshots',
+    category: 'Printing & Data Utilities',
+    icon: Database,
+    defaultEnabled: true,
+    navView: 'backup',
+  },
+  {
+    id: 'import_cheques',
+    name: 'Import External Cheques',
+    description: 'Bulk CSV / Excel import of external cheques with dual BS/AD date conversion and validation',
+    category: 'Printing & Data Utilities',
+    icon: FileSpreadsheet,
+    defaultEnabled: true,
+    navView: 'import_cheques',
+    badgeText: 'External',
+    badgeColor: 'purple',
+  },
+
+  // 4. Extended SaaS Capabilities
+  {
+    id: 'excel_pdf_export',
+    name: 'Excel & PDF Export Reports',
+    description: 'Direct auto-download of .xlsx spreadsheets and formatted A4 print-ready PDF reports with 0 print dialogs',
+    category: 'Reports & Exports',
+    icon: Download,
+    defaultEnabled: true,
+  },
+  {
+    id: 'mobile_biometrics',
+    name: 'Mobile Biometric Login',
+    description: 'Face ID & Fingerprint instant authentication in ChequeDesk Mobile companion app (MeroShare-style UX)',
+    category: 'Mobile Companion',
+    icon: Fingerprint,
+    defaultEnabled: true,
+  },
+  {
+    id: 'mobile_offline_backup',
+    name: 'Mobile Offline Storage & Multi-Cloud Backup',
+    description: 'Offline Hive database, export ledger to Local File Manager, Google Drive, and Microsoft OneDrive',
+    category: 'Mobile Companion',
+    icon: Smartphone,
+    defaultEnabled: true,
+  },
+  {
+    id: 'mobile_cloud_sync',
+    name: 'Mobile Realtime Auto-Sync Engine',
+    description: 'Background mutation queue auto-syncs local mobile changes upon network reconnection',
+    category: 'Mobile Companion',
+    icon: RefreshCw,
+    defaultEnabled: true,
+  },
+];
+
+export const DEFAULT_MASTER_FEATURES: Record<string, boolean> = (() => {
+  const map: Record<string, boolean> = {};
+  MASTER_FEATURE_REGISTRY.forEach((f) => {
+    map[f.id] = f.defaultEnabled;
+  });
+  // Compatibility aliases
+  map.parties_banks = true;
+  map.local_disk_backup = true;
+  map.google_drive_backup = true;
+  map.cheque_printing = true;
+  map.offline_backup_system = true;
+  map.bulk_cheque_import = true;
+  return map;
+})();
+
 export const DEFAULT_PRESET_COMPANIES: Company[] = [
   {
     id: 'default-company-101',
@@ -605,18 +1485,15 @@ export const DEFAULT_PRESET_COMPANIES: Company[] = [
     contact_email: 'admin@rstraders.com',
     subscription_plan: 'Enterprise',
     subscription_status: 'Active',
-    expiry_date_bs: '2082-12-30',
-    expiry_date_ad: '2026-04-13',
+    expiry_date_bs: '2084-06-07',
+    expiry_date_ad: '2027-09-24',
     is_active: true,
     admin_password: '1234',
     created_at: '2024-01-01T00:00:00Z',
+    enable_sales_discount: true,
     features: {
-      print_cheque: true,
-      google_drive_backup: true,
-      local_disk_backup: true,
-      import_cheques: true,
-      parties_banks: true,
-      excel_pdf_export: true,
+      ...DEFAULT_MASTER_FEATURES,
+      enable_sales_discount: true,
     },
   },
   {
@@ -628,10 +1505,11 @@ export const DEFAULT_PRESET_COMPANIES: Company[] = [
     contact_email: 'info@himalayan.com',
     subscription_plan: 'Professional',
     subscription_status: 'Active',
-    expiry_date_bs: '2082-10-15',
-    expiry_date_ad: '2026-01-29',
+    expiry_date_bs: '2084-03-08',
+    expiry_date_ad: '2027-06-23',
     is_active: true,
     admin_password: '1234',
+    enable_sales_discount: true,
     created_at: '2024-02-01T00:00:00Z',
   },
   {
@@ -643,10 +1521,11 @@ export const DEFAULT_PRESET_COMPANIES: Company[] = [
     contact_email: 'contact@ktm-ent.com',
     subscription_plan: 'Starter',
     subscription_status: 'Active',
-    expiry_date_bs: '2082-08-20',
-    expiry_date_ad: '2025-12-05',
+    expiry_date_bs: '2083-12-09',
+    expiry_date_ad: '2027-03-24',
     is_active: true,
     admin_password: '1234',
+    enable_sales_discount: false,
     created_at: '2024-03-01T00:00:00Z',
   },
 ];
@@ -974,7 +1853,7 @@ export default function App() {
   const [banks, setBanks] = useState<Bank[]>([]);
   const [companies, setCompanies] = useState<Company[]>(DEFAULT_PRESET_COMPANIES);
   const [paymentLogs, setPaymentLogs] = useState<PaymentLog[]>([]);
-  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' | 'error' | 'warning' } | null>(null);
 
   // UI state
   const [currentView, setCurrentView] = useState<NavView>('dashboard');
@@ -1083,6 +1962,143 @@ export default function App() {
   // Payment Modal Date State
   const [paymentModalDateBs, setPaymentModalDateBs] = useState<string>(getCurrentBsDate());
   const [paymentModalDateAd, setPaymentModalDateAd] = useState<string>(getCurrentAdDate());
+
+  // Transactions & Vouchers State (Busy / Tally Style)
+  const [vouchers, setVouchers] = useState<AccountingVoucher[]>(() => {
+    try {
+      const saved = localStorage.getItem('chequedesk_vouchers');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return INITIAL_DEMO_VOUCHERS;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('chequedesk_vouchers', JSON.stringify(vouchers));
+    } catch {}
+  }, [vouchers]);
+
+  // Collapsible Tree Navigation States
+  const [isTransactionsExpanded, setIsTransactionsExpanded] = useState<boolean>(true);
+  const [expandedVoucherTypes, setExpandedVoucherTypes] = useState<Record<string, boolean>>({
+    sales: false,
+    payment: false,
+    receipt: false,
+    journal: false,
+    contra: false,
+    invoice: false,
+    notes: false,
+    stock: false,
+  });
+  const [treeFocusedId, setTreeFocusedId] = useState<string | null>('tree-transactions-root');
+
+  // Voucher Action Modal State (Add / Modify / List)
+  const [activeVoucherModal, setActiveVoucherModal] = useState<{
+    isOpen: boolean;
+    type: VoucherType;
+    action: 'add' | 'modify' | 'list';
+    voucherToEdit?: AccountingVoucher | null;
+  }>({
+    isOpen: false,
+    type: 'payment',
+    action: 'add',
+    voucherToEdit: null,
+  });
+
+  // Voucher Form State (for rapid Add / Modify with Enter-key movement)
+  const [voucherFormData, setVoucherFormData] = useState<{
+    voucher_number: string;
+    date_bs: string;
+    date_ad: string;
+    payment_mode: 'Cash' | 'Bank' | 'Cheque' | 'IPS';
+    account_debit: string;
+    account_credit: string;
+    amount: number | '';
+    cheque_number: string;
+    reference_no: string;
+    narration: string;
+  }>({
+    voucher_number: '',
+    date_bs: '',
+    date_ad: '',
+    payment_mode: 'Bank',
+    account_debit: '',
+    account_credit: '',
+    amount: '',
+    cheque_number: '',
+    reference_no: '',
+    narration: '',
+  });
+
+  // Search filter for Voucher List view
+  const [voucherSearchTerm, setVoucherSearchTerm] = useState('');
+
+  // ==========================================
+  // EXACT BUSY ACCOUNTING SALES VOUCHER STATE
+  // ==========================================
+  const [salesVoucherData, setSalesVoucherData] = useState<{
+    series: string;
+    date_bs: string;
+    date_ad: string;
+    voucher_number: string;
+    sale_type: string;
+    party_name: string;
+    mat_centre: string;
+    narration: string;
+    // Transport Details (Custom Fields)
+    driver_name: string;
+    driver_phone: string;
+    vehicle_no: string;
+    delivery_person: string;
+    transport_name: string;
+    station: string;
+    gr_rr_no: string;
+    showTransport: boolean;
+    // Item Entry Grid Rows
+    items: BusySalesVoucherItem[];
+    // Bill Sundry Rows
+    billSundries: BusySalesBillSundry[];
+    isHeld: boolean;
+  }>({
+    series: 'Main',
+    date_bs: getCurrentBsDate(),
+    date_ad: getCurrentAdDate(),
+    voucher_number: '1',
+    sale_type: 'VAT 13%',
+    party_name: 'Pokhara Builders & Contractors',
+    mat_centre: 'Main Store',
+    narration: 'Goods sold on credit term',
+    driver_name: 'Ramesh Kumar Thapa',
+    driver_phone: '9841234567',
+    vehicle_no: 'BA 2 KHA 8492',
+    delivery_person: 'Suman Sharma',
+    transport_name: 'Western Cargo Nepal Pvt. Ltd.',
+    station: 'Pokhara',
+    gr_rr_no: 'GR-8891',
+    showTransport: false,
+    items: [
+      { id: 'item-1', item_description: 'Shivam OPC Cement 50kg', qty: 100, unit: 'Bag', price: 750, disc_pct: 0, disc_amt: 0, amount: 75000 },
+      { id: 'item-2', item_description: 'TMT Steel 12mm Rebar', qty: 50, unit: 'Pcs', price: 1200, disc_pct: 0, disc_amt: 0, amount: 60000 },
+      { id: 'item-3', item_description: 'PVC Pipe 4 inch Heavy', qty: 20, unit: 'Case', price: 850, disc_pct: 0, disc_amt: 0, amount: 17000 },
+      { id: 'item-4', item_description: '', qty: '', unit: 'Pcs', price: '', disc_pct: '', disc_amt: 0, amount: 0 },
+    ],
+    billSundries: [
+      { id: 'bs-1', name: 'VAT (13%)', rate_pct: 13, amount: '', type: 'additive' },
+      { id: 'bs-2', name: 'Transportation / Freight Charges', rate_pct: '', amount: 2500, type: 'additive' },
+      { id: 'bs-3', name: 'Trade Discount', rate_pct: 2, amount: '', type: 'subtractive' },
+      { id: 'bs-4', name: 'Round Off', rate_pct: '', amount: '', type: 'round_off' },
+    ],
+    isHeld: false,
+  });
+
+  // Busy Footer Buttons Dialog States
+  const [busySalesModal, setBusySalesModal] = useState<{
+    type: 'none' | 'vch_detail' | 'master_detail' | 'party_dashboard' | 'update_discount' | 'check_scheme' | 'save_success' | 'print_preview';
+    data?: any;
+  }>({ type: 'none' });
 
   // Company Transaction Counts (for Deletion Protection)
   const [companyTransactionCounts, setCompanyTransactionCounts] = useState<Record<string, number>>({});
@@ -1314,14 +2330,7 @@ export default function App() {
     expiry_date_bs: string;
     expiry_date_ad: string;
     is_active: boolean;
-    features: {
-      print_cheque: boolean;
-      google_drive_backup: boolean;
-      local_disk_backup: boolean;
-      import_cheques: boolean;
-      parties_banks: boolean;
-      excel_pdf_export: boolean;
-    };
+    features: Record<string, boolean>;
   }>({
     name: '',
     company_code: '',
@@ -1331,17 +2340,10 @@ export default function App() {
     contact_phone: '9800000000',
     backup_emails_str: '',
     subscription_plan: 'Enterprise',
-    expiry_date_bs: '2082-12-30',
-    expiry_date_ad: '2026-04-13',
+    expiry_date_bs: '2084-06-07',
+    expiry_date_ad: '2027-09-24',
     is_active: true,
-    features: {
-      print_cheque: true,
-      google_drive_backup: true,
-      local_disk_backup: true,
-      import_cheques: true,
-      parties_banks: true,
-      excel_pdf_export: true,
-    },
+    features: { ...DEFAULT_MASTER_FEATURES },
   });
 
   const [newCompanyForm, setNewCompanyForm] = useState<{
@@ -1356,14 +2358,7 @@ export default function App() {
     expiry_date_bs: string;
     expiry_date_ad: string;
     is_active: boolean;
-    features: {
-      print_cheque: boolean;
-      google_drive_backup: boolean;
-      local_disk_backup: boolean;
-      import_cheques: boolean;
-      parties_banks: boolean;
-      excel_pdf_export: boolean;
-    };
+    features: Record<string, boolean>;
   }>({
     name: '',
     company_code: '',
@@ -1373,20 +2368,13 @@ export default function App() {
     contact_phone: '9800000000',
     backup_emails_str: '',
     subscription_plan: 'Enterprise',
-    expiry_date_bs: '2082-12-30',
-    expiry_date_ad: '2026-04-13',
+    expiry_date_bs: '2084-06-07',
+    expiry_date_ad: '2027-09-24',
     is_active: true,
-    features: {
-      print_cheque: true,
-      google_drive_backup: true,
-      local_disk_backup: true,
-      import_cheques: true,
-      parties_banks: true,
-      excel_pdf_export: true,
-    },
+    features: { ...DEFAULT_MASTER_FEATURES },
   });
 
-  const showToast = (text: string, type: 'success' | 'info' | 'error' = 'success') => {
+  const showToast = (text: string, type: 'success' | 'info' | 'error' | 'warning' = 'success') => {
     setToastMessage({ text, type });
     setTimeout(() => setToastMessage(null), 3500);
   };
@@ -1984,7 +2972,22 @@ export default function App() {
 
   // Open Edit Company / Manage Features Modal
   const openEditCompanyModal = (comp: Company) => {
-    const f = comp.features || {};
+    const f = (comp.features || {}) as Record<string, any>;
+    const resolvedFeatures: Record<string, boolean> = {};
+    MASTER_FEATURE_REGISTRY.forEach((feat) => {
+      if (f[feat.id] !== undefined) {
+        resolvedFeatures[feat.id] = Boolean(f[feat.id]);
+      } else if (feat.id === 'banks' || feat.id === 'parties') {
+        resolvedFeatures[feat.id] = f.parties_banks !== undefined ? Boolean(f.parties_banks) : feat.defaultEnabled;
+      } else if (feat.id === 'backup') {
+        resolvedFeatures[feat.id] = (f.local_disk_backup !== undefined || f.google_drive_backup !== undefined)
+          ? Boolean(f.local_disk_backup || f.google_drive_backup)
+          : feat.defaultEnabled;
+      } else {
+        resolvedFeatures[feat.id] = feat.defaultEnabled;
+      }
+    });
+
     const existingPass =
       (comp as any).admin_password ||
       getStoredCompanyPassword(comp.id, comp.company_code, 'Pass@123');
@@ -1997,17 +3000,15 @@ export default function App() {
       contact_email: comp.contact_email || `${comp.company_code || 'comp'}@chequedesk.com`,
       contact_phone: comp.contact_phone || '9800000000',
       subscription_plan: (comp.subscription_plan as any) || 'Enterprise',
-      expiry_date_bs: comp.expiry_date_bs || '2082-12-30',
-      expiry_date_ad: comp.expiry_date_ad || '2026-04-13',
+      ...(() => {
+        const synced = syncBsAdDates(comp.expiry_date_bs, comp.expiry_date_ad);
+        return {
+          expiry_date_bs: synced.bsDate,
+          expiry_date_ad: synced.adDate,
+        };
+      })(),
       is_active: comp.is_active !== undefined ? comp.is_active : true,
-      features: {
-        print_cheque: f.print_cheque !== undefined ? f.print_cheque : (f.cheque_printing !== undefined ? f.cheque_printing : true),
-        google_drive_backup: f.google_drive_backup !== undefined ? f.google_drive_backup : true,
-        local_disk_backup: f.local_disk_backup !== undefined ? f.local_disk_backup : (f.offline_backup_system !== undefined ? f.offline_backup_system : true),
-        import_cheques: f.import_cheques !== undefined ? f.import_cheques : (f.bulk_cheque_import !== undefined ? f.bulk_cheque_import : true),
-        parties_banks: f.parties_banks !== undefined ? f.parties_banks : true,
-        excel_pdf_export: f.excel_pdf_export !== undefined ? f.excel_pdf_export : true,
-      },
+      features: resolvedFeatures,
     });
   };
 
@@ -2029,6 +3030,11 @@ export default function App() {
 
     const generatedPassword = `Pass@${Math.floor(100 + Math.random() * 900)}`;
 
+    const defaultFeatures: Record<string, boolean> = {};
+    MASTER_FEATURE_REGISTRY.forEach((feat) => {
+      defaultFeatures[feat.id] = feat.defaultEnabled;
+    });
+
     setNewCompanyForm({
       name: '',
       company_code: String(nextNum),
@@ -2037,17 +3043,15 @@ export default function App() {
       contact_email: '',
       contact_phone: '9800000000',
       subscription_plan: 'Enterprise',
-      expiry_date_bs: '2082-12-30',
-      expiry_date_ad: '2026-04-13',
+      ...(() => {
+        const defaultExp = addDurationToAdDate(getCurrentAdDate(), '1y');
+        return {
+          expiry_date_bs: defaultExp.bsDate,
+          expiry_date_ad: defaultExp.adDate,
+        };
+      })(),
       is_active: true,
-      features: {
-        print_cheque: true,
-        google_drive_backup: true,
-        local_disk_backup: true,
-        import_cheques: true,
-        parties_banks: true,
-        excel_pdf_export: true,
-      },
+      features: defaultFeatures,
     });
     isSubmittingCompanyRef.current = false;
     setIsSubmittingCompany(false);
@@ -2059,12 +3063,16 @@ export default function App() {
     e.preventDefault();
     if (!editingCompany) return;
     try {
-      const finalFeatures = {
+      const finalFeatures: Record<string, any> = {
         ...editingCompany.features,
         ...companyEditForm.features,
-        cheque_printing: companyEditForm.features.print_cheque,
-        offline_backup_system: companyEditForm.features.local_disk_backup,
-        bulk_cheque_import: companyEditForm.features.import_cheques,
+        // Backward-compatible aliases
+        parties_banks: companyEditForm.features.banks !== false && companyEditForm.features.parties !== false,
+        local_disk_backup: companyEditForm.features.backup !== false,
+        google_drive_backup: companyEditForm.features.backup !== false,
+        cheque_printing: companyEditForm.features.print_cheque !== false,
+        offline_backup_system: companyEditForm.features.backup !== false,
+        bulk_cheque_import: companyEditForm.features.import_cheques !== false,
       };
 
       const adminPassword = companyEditForm.admin_password.trim() || 'Pass@123';
@@ -2078,8 +3086,13 @@ export default function App() {
         contact_phone: companyEditForm.contact_phone.trim(),
         subscription_plan: companyEditForm.subscription_plan as any,
         subscription_status: companyEditForm.is_active ? 'Active' : 'Suspended',
-        expiry_date_bs: companyEditForm.expiry_date_bs.trim(),
-        expiry_date_ad: companyEditForm.expiry_date_ad.trim(),
+        ...(() => {
+          const synced = syncBsAdDates(companyEditForm.expiry_date_bs, companyEditForm.expiry_date_ad);
+          return {
+            expiry_date_bs: synced.bsDate,
+            expiry_date_ad: synced.adDate,
+          };
+        })(),
         is_active: companyEditForm.is_active,
         features: finalFeatures,
       };
@@ -2158,11 +3171,14 @@ export default function App() {
     setIsSubmittingCompany(true);
 
     try {
-      const finalFeatures = {
+      const finalFeatures: Record<string, any> = {
         ...newCompanyForm.features,
-        cheque_printing: newCompanyForm.features.print_cheque,
-        offline_backup_system: newCompanyForm.features.local_disk_backup,
-        bulk_cheque_import: newCompanyForm.features.import_cheques,
+        parties_banks: newCompanyForm.features.banks !== false && newCompanyForm.features.parties !== false,
+        local_disk_backup: newCompanyForm.features.backup !== false,
+        google_drive_backup: newCompanyForm.features.backup !== false,
+        cheque_printing: newCompanyForm.features.print_cheque !== false,
+        offline_backup_system: newCompanyForm.features.backup !== false,
+        bulk_cheque_import: newCompanyForm.features.import_cheques !== false,
       };
 
       const newId = await createCompany({
@@ -2172,8 +3188,13 @@ export default function App() {
         contact_phone: newCompanyForm.contact_phone.trim() || '9800000000',
         contact_email: newCompanyForm.contact_email.trim() || `${code}@chequedesk.com`,
         subscription_plan: newCompanyForm.subscription_plan as any,
-        expiry_date_bs: newCompanyForm.expiry_date_bs,
-        expiry_date_ad: newCompanyForm.expiry_date_ad,
+        ...(() => {
+          const synced = syncBsAdDates(newCompanyForm.expiry_date_bs, newCompanyForm.expiry_date_ad);
+          return {
+            expiry_date_bs: synced.bsDate,
+            expiry_date_ad: synced.adDate,
+          };
+        })(),
         monthly_fee: newCompanyForm.subscription_plan === 'Enterprise' ? 7500 : newCompanyForm.subscription_plan === 'Standard' ? 4500 : 2500,
         is_active: newCompanyForm.is_active,
         features: finalFeatures,
@@ -2191,8 +3212,13 @@ export default function App() {
         contact_email: newCompanyForm.contact_email.trim() || `${code}@chequedesk.com`,
         subscription_plan: newCompanyForm.subscription_plan as any,
         subscription_status: newCompanyForm.is_active ? 'Active' : 'Suspended',
-        expiry_date_bs: newCompanyForm.expiry_date_bs,
-        expiry_date_ad: newCompanyForm.expiry_date_ad,
+        ...(() => {
+          const synced = syncBsAdDates(newCompanyForm.expiry_date_bs, newCompanyForm.expiry_date_ad);
+          return {
+            expiry_date_bs: synced.bsDate,
+            expiry_date_ad: synced.adDate,
+          };
+        })(),
         is_active: newCompanyForm.is_active,
         features: finalFeatures,
         created_at: new Date().toISOString(),
@@ -2274,48 +3300,86 @@ export default function App() {
   }, [companies, activeCompanyId, activeCompanyCode]);
 
   const activeFeatures = useMemo(() => {
-    const f = currentCompany?.features || {};
-    return {
-      print_cheque: f.print_cheque !== undefined ? f.print_cheque : (f.cheque_printing !== undefined ? f.cheque_printing : true),
-      google_drive_backup: f.google_drive_backup !== undefined ? f.google_drive_backup : true,
-      local_disk_backup: f.local_disk_backup !== undefined ? f.local_disk_backup : (f.offline_backup_system !== undefined ? f.offline_backup_system : true),
-      import_cheques: f.import_cheques !== undefined ? f.import_cheques : (f.bulk_cheque_import !== undefined ? f.bulk_cheque_import : true),
-      parties_banks: f.parties_banks !== undefined ? f.parties_banks : true,
-      excel_pdf_export: f.excel_pdf_export !== undefined ? f.excel_pdf_export : true,
+    const f = (currentCompany?.features || {}) as Record<string, any>;
+    const result: Record<string, boolean> = {};
+
+    MASTER_FEATURE_REGISTRY.forEach((feature) => {
+      if (f[feature.id] !== undefined) {
+        result[feature.id] = Boolean(f[feature.id]);
+      } else if (feature.id === 'banks' || feature.id === 'parties') {
+        result[feature.id] = f.parties_banks !== undefined ? Boolean(f.parties_banks) : feature.defaultEnabled;
+      } else if (feature.id === 'backup') {
+        result[feature.id] = (f.local_disk_backup !== undefined || f.google_drive_backup !== undefined)
+          ? Boolean(f.local_disk_backup || f.google_drive_backup)
+          : feature.defaultEnabled;
+      } else {
+        result[feature.id] = feature.defaultEnabled;
+      }
+    });
+
+    // Backward compatibility aliases
+    result.parties_banks = result.banks !== false && result.parties !== false;
+    result.local_disk_backup = result.backup !== false;
+    result.google_drive_backup = result.backup !== false;
+    result.cheque_printing = result.print_cheque !== false;
+    result.offline_backup_system = result.backup !== false;
+    result.bulk_cheque_import = result.import_cheques !== false;
+
+    return result as {
+      dashboard: boolean;
+      due_date_timeline: boolean;
+      issued_date_log: boolean;
+      pending: boolean;
+      partial_payments: boolean;
+      cleared: boolean;
+      reports: boolean;
+      print_cheque: boolean;
+      banks: boolean;
+      parties: boolean;
+      company_users: boolean;
+      backup: boolean;
+      import_cheques: boolean;
+      excel_pdf_export: boolean;
+      parties_banks: boolean;
+      local_disk_backup: boolean;
+      google_drive_backup: boolean;
+      mobile_biometrics: boolean;
+      mobile_offline_backup: boolean;
+      mobile_cloud_sync: boolean;
+      [key: string]: boolean;
     };
   }, [currentCompany]);
 
-  // Software Subscription Expiry Calculation & <= 60-day Warning
+  // Software Subscription Expiry Calculation & Synchronized Date Checking
   const subscriptionExpiryInfo = useMemo(() => {
     if (!currentCompany) return null;
-    let expiryDateAd = currentCompany.expiry_date_ad;
-    if (!expiryDateAd && currentCompany.expiry_date_bs) {
-      try {
-        expiryDateAd = bsToAd(currentCompany.expiry_date_bs);
-      } catch {}
-    }
-    if (!expiryDateAd && (currentCompany as any).subscription_expiry) {
-      expiryDateAd = (currentCompany as any).subscription_expiry;
-    }
-    if (!expiryDateAd) {
-      expiryDateAd = '2026-04-13';
-    }
+    
+    // Strict normalization: ensure BS and AD always represent the exact same calendar day
+    const synced = syncBsAdDates(
+      currentCompany.expiry_date_bs,
+      currentCompany.expiry_date_ad || (currentCompany as any).subscription_expiry
+    );
+
+    const expiryAd = synced.adDate;
+    const expiryBs = synced.bsDate;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const expDate = new Date(expiryDateAd);
+    const expDate = new Date(expiryAd + 'T00:00:00');
     expDate.setHours(0, 0, 0, 0);
 
     const diffTime = expDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    const displayDate = currentCompany.expiry_date_bs
-      ? `${currentCompany.expiry_date_bs} BS`
-      : `${expiryDateAd} AD`;
+    const friendlyBs = formatBsDateFriendly(expiryBs);
 
     return {
-      expiryDateAd,
-      displayDate,
+      expiryDateAd: expiryAd,
+      expiryDateBs: expiryBs,
+      friendlyBs,
+      displayDate: `${expiryBs} BS (${expiryAd} AD)`,
+      displayDateBs: `${expiryBs} BS`,
+      displayDateAd: `${expiryAd} AD`,
       diffDays,
       isExpired: diffDays < 0,
       isExpiringSoon: diffDays <= 60,
@@ -2352,20 +3416,16 @@ export default function App() {
     };
   }, [companies, cheques.length, paymentLogs.length, activeCompanyId]);
 
-  // Client Routing Guard: Fallback to dashboard if navigating to disabled feature
+  // Strict Client Routing Guard: Fallback to dashboard if navigating to disabled feature
   useEffect(() => {
     if (role === 'TENANT') {
-      if (!activeFeatures.print_cheque && currentView === 'print_cheque') {
-        setCurrentView('dashboard');
-      }
-      if (!activeFeatures.parties_banks && (currentView === 'banks' || currentView === 'parties')) {
-        setCurrentView('dashboard');
-      }
-      if (!activeFeatures.import_cheques && currentView === 'import_cheques') {
-        setCurrentView('dashboard');
-      }
-      if (!(activeFeatures.local_disk_backup || activeFeatures.google_drive_backup) && currentView === 'backup') {
-        setCurrentView('dashboard');
+      const matchedFeature = MASTER_FEATURE_REGISTRY.find((feat) => feat.navView === currentView);
+      if (matchedFeature && activeFeatures[matchedFeature.id] === false) {
+        // Fallback to first available enabled view
+        const firstAvailable = MASTER_FEATURE_REGISTRY.find((feat) => feat.navView && activeFeatures[feat.id] !== false);
+        const fallback = (firstAvailable?.navView as NavView) || 'dashboard';
+        setCurrentView(fallback);
+        showToast(`"${matchedFeature.name}" is disabled in your plan. Contact Developer to enable.`, 'info');
       }
     }
   }, [role, activeFeatures, currentView]);
@@ -2386,6 +3446,46 @@ export default function App() {
     (c) => c.status === 'Cleared' || (c.remaining_amount !== undefined && c.remaining_amount <= 0.001)
   );
   const clearedAmount = clearedCheques.reduce((acc, c) => acc + (c.amount || 0), 0);
+
+  // Dynamically compute sidebar items from MASTER_FEATURE_REGISTRY governed strictly by activeFeatures
+  const registeredSidebarNavItems = useMemo(() => {
+    return MASTER_FEATURE_REGISTRY
+      .filter((feat) => feat.navView !== undefined)
+      .map((feat) => {
+        const isVisible = activeFeatures[feat.id] !== false;
+        let badge: string | number | undefined;
+        let badgeColor: string | undefined;
+
+        if (feat.badgeKey === 'pending') {
+          badge = pendingCheques.length;
+          badgeColor = feat.badgeColor || 'amber';
+        } else if (feat.badgeKey === 'partial') {
+          badge = partialCheques.length;
+          badgeColor = feat.badgeColor || 'sky';
+        } else if (feat.badgeKey === 'cleared') {
+          badge = clearedCheques.length;
+          badgeColor = feat.badgeColor || 'emerald';
+        } else if (feat.badgeKey === 'banks') {
+          badge = banks.length;
+        } else if (feat.badgeKey === 'parties') {
+          badge = parties.length;
+        } else if (feat.badgeText) {
+          badge = feat.badgeText;
+          badgeColor = feat.badgeColor || 'purple';
+        }
+
+        return {
+          id: feat.navView as NavView,
+          featureKey: feat.id,
+          label: feat.name,
+          icon: feat.icon,
+          badge,
+          badgeColor,
+          visible: isVisible,
+        };
+      })
+      .filter((item) => item.visible);
+  }, [activeFeatures, pendingCheques.length, partialCheques.length, clearedCheques.length, banks.length, parties.length]);
 
   // Filtered Cheques
   const filteredCheques = useMemo(() => {
@@ -2410,6 +3510,751 @@ export default function App() {
       return true;
     });
   }, [cheques, statusFilter, sourceFilter, bankFilter, searchTerm, parties, banks]);
+
+  // Flat visible items list for keyboard arrow navigation (Busy / Tally Tree)
+  interface FlatTreeItem {
+    id: string;
+    label: string;
+    level: number;
+    type: 'hub' | 'voucher_category' | 'action';
+    voucherKey?: VoucherType;
+    action?: 'add' | 'modify' | 'list';
+    isExpanded?: boolean;
+    hasChildren?: boolean;
+    hotkeyPlaceholder?: string;
+  }
+
+  const visibleTreeItems = useMemo<FlatTreeItem[]>(() => {
+    if (activeFeatures.accounting_auditing === false || activeFeatures.accounting_transactions === false) {
+      return [];
+    }
+
+    const items: FlatTreeItem[] = [
+      {
+        id: 'tree-transactions-root',
+        label: 'Transactions',
+        level: 0,
+        type: 'hub',
+        isExpanded: isTransactionsExpanded,
+        hasChildren: true,
+      },
+    ];
+
+    if (isTransactionsExpanded) {
+      VOUCHER_CATEGORIES.forEach((cat) => {
+        if (activeFeatures[cat.id] === false) return;
+
+        const isCatExpanded = !!expandedVoucherTypes[cat.key];
+        items.push({
+          id: `tree-cat-${cat.key}`,
+          label: cat.label,
+          level: 1,
+          type: 'voucher_category',
+          voucherKey: cat.key,
+          isExpanded: isCatExpanded,
+          hasChildren: true,
+          hotkeyPlaceholder: cat.hotkeyPlaceholder,
+        });
+
+        if (isCatExpanded) {
+          items.push(
+            {
+              id: `tree-action-${cat.key}-add`,
+              label: 'Add',
+              level: 2,
+              type: 'action',
+              voucherKey: cat.key,
+              action: 'add',
+              hotkeyPlaceholder: cat.hotkeyPlaceholder,
+            },
+            {
+              id: `tree-action-${cat.key}-modify`,
+              label: 'Modify',
+              level: 2,
+              type: 'action',
+              voucherKey: cat.key,
+              action: 'modify',
+            },
+            {
+              id: `tree-action-${cat.key}-list`,
+              label: 'List',
+              level: 2,
+              type: 'action',
+              voucherKey: cat.key,
+              action: 'list',
+            }
+          );
+        }
+      });
+    }
+
+    return items;
+  }, [activeFeatures, isTransactionsExpanded, expandedVoucherTypes]);
+
+  // ==========================================
+  // BUSY ACCOUNTING SALES VOUCHER LOGIC & COMPUTATIONS
+  // ==========================================
+  const isSalesDiscountEnabled = useMemo(() => {
+    const comp = companies.find((c) => c.id === activeCompanyId);
+    if (!comp) return true;
+    if (comp.enable_sales_discount === false) return false;
+    if (comp.features && comp.features.sales_discount === false) return false;
+    if (comp.features && comp.features.enable_sales_discount === false) return false;
+    return true;
+  }, [companies, activeCompanyId]);
+
+  const handleToggleCompanyDiscount = (enabled: boolean) => {
+    setCompanies((prev) =>
+      prev.map((c) => {
+        if (c.id === activeCompanyId) {
+          const feats = { ...(c.features || {}), sales_discount: enabled, enable_sales_discount: enabled };
+          return { ...c, enable_sales_discount: enabled, features: feats };
+        }
+        return c;
+      })
+    );
+    showToast(`Sales Discount columns ${enabled ? 'ENABLED' : 'DISABLED'} for ${activeCompanyName}!`, 'info');
+  };
+
+  const getPartyBalanceInfo = (partyName: string) => {
+    if (!partyName) return { amount: 0, drCr: 'Dr' };
+    const partyObj = parties.find((p) => p.name.trim().toLowerCase() === partyName.trim().toLowerCase());
+    const partyCheques = partyObj ? cheques.filter((c) => c.party_id === partyObj.id) : [];
+    const pendingSum = partyCheques.reduce((sum, c) => sum + (c.remaining_amount ?? c.amount ?? 0), 0);
+    const relatedVouchers = vouchers.filter(
+      (v) => v.account_debit === partyName || v.account_credit === partyName || v.party_name === partyName
+    );
+    let net = pendingSum;
+    relatedVouchers.forEach((v) => {
+      if (v.account_debit === partyName || v.party_name === partyName) net += (v.amount || 0);
+      if (v.account_credit === partyName) net -= (v.amount || 0);
+    });
+    if (net === 0) net = 42500; // Classic Busy default opening debtor balance
+    return {
+      amount: Math.abs(net),
+      drCr: net >= 0 ? 'Dr' : 'Cr',
+    };
+  };
+
+  // Dynamic calculations for Items & Bill Sundry tables
+  const busySalesComputed = useMemo(() => {
+    const rawItems = salesVoucherData.items || [];
+    let grossSubtotal = 0;
+    let totalQty = 0;
+    let altQty = 0;
+    let validItemsCount = 0;
+
+    const computedItems = rawItems.map((item) => {
+      const q = typeof item.qty === 'number' ? item.qty : Number(item.qty) || 0;
+      const p = typeof item.price === 'number' ? item.price : Number(item.price) || 0;
+      const dPct = isSalesDiscountEnabled
+        ? (typeof item.disc_pct === 'number' ? item.disc_pct : Number(item.disc_pct) || 0)
+        : 0;
+
+      const lineRaw = q * p;
+      const discAmt = dPct > 0 ? (lineRaw * dPct) / 100 : 0;
+      const finalAmt = Math.max(0, lineRaw - discAmt);
+
+      if (item.item_description.trim() || q > 0) {
+        grossSubtotal += finalAmt;
+        totalQty += q;
+        if (['Case', 'Box', 'Ctn', 'Bundle'].includes(item.unit)) {
+          altQty += q;
+        }
+        validItemsCount += 1;
+      }
+
+      return {
+        ...item,
+        disc_amt: discAmt,
+        amount: finalAmt,
+      };
+    });
+
+    // Bill Sundries
+    let tradeDiscount = 0;
+    let freightCharges = 0;
+    let vatAmount = 0;
+    let otherAdditive = 0;
+    let otherSubtractive = 0;
+
+    const computedSundries = (salesVoucherData.billSundries || []).map((bs) => {
+      let amt = 0;
+      const rate = typeof bs.rate_pct === 'number' ? bs.rate_pct : Number(bs.rate_pct) || 0;
+      const manualAmt = typeof bs.amount === 'number' ? bs.amount : Number(bs.amount) || 0;
+
+      if (bs.name.toLowerCase().includes('trade discount')) {
+        amt = rate > 0 ? (grossSubtotal * rate) / 100 : manualAmt;
+        tradeDiscount = amt;
+      } else if (bs.name.toLowerCase().includes('vat') || bs.name.toLowerCase().includes('tax')) {
+        const taxableBase = Math.max(0, grossSubtotal - tradeDiscount);
+        amt = rate > 0 ? (taxableBase * rate) / 100 : (manualAmt > 0 ? manualAmt : (taxableBase * 0.13));
+        vatAmount = amt;
+      } else if (bs.name.toLowerCase().includes('transport') || bs.name.toLowerCase().includes('freight')) {
+        amt = manualAmt > 0 ? manualAmt : 2500;
+        freightCharges = amt;
+      } else if (bs.name.toLowerCase().includes('round')) {
+        amt = 0;
+      } else {
+        amt = manualAmt;
+        if (bs.type === 'subtractive') otherSubtractive += amt;
+        else otherAdditive += amt;
+      }
+
+      return {
+        ...bs,
+        computedAmount: amt,
+      };
+    });
+
+    const preRoundNet = grossSubtotal - tradeDiscount + vatAmount + freightCharges + otherAdditive - otherSubtractive;
+    const finalRoundedNet = Math.round(preRoundNet);
+    const roundOffVal = Math.round((finalRoundedNet - preRoundNet) * 100) / 100;
+
+    const finalizedSundries = computedSundries.map((bs) => {
+      if (bs.name.toLowerCase().includes('round')) {
+        return { ...bs, computedAmount: roundOffVal };
+      }
+      return bs;
+    });
+
+    return {
+      computedItems,
+      computedSundries: finalizedSundries,
+      grossSubtotal,
+      totalQty,
+      altQty,
+      validItemsCount,
+      vatAmount,
+      tradeDiscount,
+      freightCharges,
+      roundOffVal,
+      netAmount: Math.max(0, finalRoundedNet),
+    };
+  }, [salesVoucherData.items, salesVoucherData.billSundries, isSalesDiscountEnabled]);
+
+  // Save Busy Sales Voucher
+  const handleSaveBusySalesVoucher = () => {
+    if (!salesVoucherData.party_name.trim()) {
+      showToast('Please select a Party Account before saving voucher.', 'warning');
+      return;
+    }
+
+    const validItems = busySalesComputed.computedItems.filter(
+      (item) => item.item_description.trim() && (Number(item.qty) || 0) > 0
+    );
+
+    if (validItems.length === 0) {
+      showToast('Please enter at least one valid item with description and quantity.', 'warning');
+      return;
+    }
+
+    const isEdit = activeVoucherModal.action === 'modify' && activeVoucherModal.voucherToEdit;
+    const voucherId = isEdit ? activeVoucherModal.voucherToEdit!.id : `v-sl-${Date.now()}`;
+    const vchNum = salesVoucherData.voucher_number.trim() || '1';
+
+    const savedVoucher: AccountingVoucher = {
+      id: voucherId,
+      voucher_type: 'sales',
+      voucher_number: vchNum,
+      date_bs: salesVoucherData.date_bs,
+      date_ad: salesVoucherData.date_ad,
+      account_debit: salesVoucherData.party_name,
+      account_credit: 'Sales Revenue Account',
+      amount: busySalesComputed.netAmount,
+      payment_mode: 'Bank',
+      reference_no: salesVoucherData.series,
+      narration: salesVoucherData.narration,
+      created_at: isEdit ? (activeVoucherModal.voucherToEdit!.created_at || new Date().toISOString()) : new Date().toISOString(),
+      series: salesVoucherData.series,
+      sale_type: salesVoucherData.sale_type,
+      party_name: salesVoucherData.party_name,
+      mat_centre: salesVoucherData.mat_centre,
+      items: validItems,
+      bill_sundries: busySalesComputed.computedSundries.map((s) => ({
+        id: s.id,
+        name: s.name,
+        rate_pct: s.rate_pct,
+        amount: s.computedAmount,
+        type: s.type,
+      })),
+      transport_info: {
+        driver_name: salesVoucherData.driver_name,
+        driver_phone: salesVoucherData.driver_phone,
+        vehicle_no: salesVoucherData.vehicle_no,
+        delivery_person: salesVoucherData.delivery_person,
+        transport_name: salesVoucherData.transport_name,
+        station: salesVoucherData.station,
+        gr_rr_no: salesVoucherData.gr_rr_no,
+      },
+      is_held: salesVoucherData.isHeld,
+    };
+
+    setVouchers((prev) => {
+      if (isEdit) {
+        return prev.map((v) => (v.id === voucherId ? savedVoucher : v));
+      }
+      return [savedVoucher, ...prev];
+    });
+
+    setBusySalesModal({
+      type: 'save_success',
+      data: savedVoucher,
+    });
+    showToast(`Sales Voucher #${vchNum} saved successfully! Amount: Rs. ${formatNPR(busySalesComputed.netAmount)}`, 'success');
+  };
+
+  // Keyboard navigation inside Busy Sales Voucher
+  const handleBusySalesKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'F2') {
+      e.preventDefault();
+      handleSaveBusySalesVoucher();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setActiveVoucherModal((prev) => ({ ...prev, isOpen: false }));
+    } else if (e.altKey && (e.key === 'd' || e.key === 'D')) {
+      e.preventDefault();
+      setBusySalesModal({ type: 'vch_detail' });
+    } else if (e.altKey && (e.key === 'm' || e.key === 'M')) {
+      e.preventDefault();
+      setBusySalesModal({ type: 'master_detail' });
+    } else if (e.altKey && (e.key === 'b' || e.key === 'B')) {
+      e.preventDefault();
+      setBusySalesModal({ type: 'party_dashboard' });
+    } else if (e.altKey && (e.key === 'h' || e.key === 'H')) {
+      e.preventDefault();
+      setSalesVoucherData((prev) => ({ ...prev, isHeld: !prev.isHeld }));
+      showToast(!salesVoucherData.isHeld ? 'Voucher placed on HOLD [Draft]' : 'Voucher taken off hold', 'info');
+    } else if (e.altKey && (e.key === 'u' || e.key === 'U')) {
+      e.preventDefault();
+      setBusySalesModal({ type: 'update_discount' });
+    } else if (e.altKey && (e.key === 's' || e.key === 'S')) {
+      e.preventDefault();
+      setBusySalesModal({ type: 'check_scheme' });
+    }
+  };
+
+  // Open voucher action handler (Add, Modify, List)
+  const openVoucherAction = (vType: VoucherType, action: 'add' | 'modify' | 'list', voucher?: AccountingVoucher) => {
+    const todayBs = getCurrentBsDate();
+    const todayAd = bsToAd(todayBs);
+    const catConfig = VOUCHER_CATEGORIES.find((c) => c.key === vType);
+
+    // DEDICATED BUSY SOFTWARE REPLICA HANDLER FOR SALES VOUCHER
+    if (vType === 'sales' || vType === 'invoice') {
+      const typeSales = vouchers.filter((v) => v.voucher_type === 'sales' || v.voucher_type === 'invoice');
+      if (action === 'add') {
+        const nextVchNo = String(typeSales.length + 1);
+        setSalesVoucherData({
+          series: 'Main',
+          date_bs: todayBs,
+          date_ad: todayAd,
+          voucher_number: nextVchNo,
+          sale_type: 'VAT 13%',
+          party_name: parties[0]?.name || 'Pokhara Builders & Contractors',
+          mat_centre: 'Main Store',
+          narration: 'Goods sold on credit term',
+          driver_name: '',
+          driver_phone: '',
+          vehicle_no: '',
+          delivery_person: '',
+          transport_name: 'Western Cargo Nepal Pvt. Ltd.',
+          station: 'Kathmandu',
+          gr_rr_no: '',
+          showTransport: false,
+          items: [
+            { id: `item-${Date.now()}-1`, item_description: 'Shivam OPC Cement 50kg', qty: 100, unit: 'Bag', price: 750, disc_pct: 0, disc_amt: 0, amount: 75000 },
+            { id: `item-${Date.now()}-2`, item_description: 'TMT Steel 12mm Rebar', qty: 50, unit: 'Pcs', price: 1200, disc_pct: 0, disc_amt: 0, amount: 60000 },
+            { id: `item-${Date.now()}-3`, item_description: 'PVC Pipe 4 inch Heavy', qty: 20, unit: 'Case', price: 850, disc_pct: 0, disc_amt: 0, amount: 17000 },
+            { id: `item-${Date.now()}-4`, item_description: '', qty: '', unit: 'Pcs', price: '', disc_pct: '', disc_amt: 0, amount: 0 },
+          ],
+          billSundries: [
+            { id: 'bs-1', name: 'VAT (13%)', rate_pct: 13, amount: '', type: 'additive' },
+            { id: 'bs-2', name: 'Transportation / Freight Charges', rate_pct: '', amount: 2500, type: 'additive' },
+            { id: 'bs-3', name: 'Trade Discount', rate_pct: 2, amount: '', type: 'subtractive' },
+            { id: 'bs-4', name: 'Round Off', rate_pct: '', amount: '', type: 'round_off' },
+          ],
+          isHeld: false,
+        });
+        setActiveVoucherModal({
+          isOpen: true,
+          type: 'sales',
+          action: 'add',
+          voucherToEdit: null,
+        });
+        return;
+      } else if (action === 'modify') {
+        const target = voucher || typeSales[0];
+        if (target) {
+          const rawItems = target.items && target.items.length > 0 ? target.items : [
+            { id: 'item-mod-1', item_description: target.narration || 'General Goods / Materials', qty: 1, unit: 'Pcs', price: target.amount || 10000, disc_pct: 0, disc_amt: 0, amount: target.amount || 10000 },
+            { id: 'item-mod-2', item_description: '', qty: '', unit: 'Pcs', price: '', disc_pct: '', disc_amt: 0, amount: 0 },
+          ];
+          const rawSundries = target.bill_sundries && target.bill_sundries.length > 0 ? target.bill_sundries : [
+            { id: 'bs-1', name: 'VAT (13%)', rate_pct: 13, amount: '', type: 'additive' },
+            { id: 'bs-2', name: 'Transportation / Freight Charges', rate_pct: '', amount: 2500, type: 'additive' },
+            { id: 'bs-3', name: 'Trade Discount', rate_pct: 2, amount: '', type: 'subtractive' },
+            { id: 'bs-4', name: 'Round Off', rate_pct: '', amount: '', type: 'round_off' },
+          ];
+          setSalesVoucherData({
+            series: target.series || 'Main',
+            date_bs: target.date_bs || todayBs,
+            date_ad: target.date_ad || todayAd,
+            voucher_number: target.voucher_number || '1',
+            sale_type: target.sale_type || 'VAT 13%',
+            party_name: target.party_name || target.account_debit || '',
+            mat_centre: target.mat_centre || 'Main Store',
+            narration: target.narration || '',
+            driver_name: target.transport_info?.driver_name || '',
+            driver_phone: target.transport_info?.driver_phone || '',
+            vehicle_no: target.transport_info?.vehicle_no || '',
+            delivery_person: target.transport_info?.delivery_person || '',
+            transport_name: target.transport_info?.transport_name || '',
+            station: target.transport_info?.station || '',
+            gr_rr_no: target.transport_info?.gr_rr_no || '',
+            showTransport: !!target.transport_info?.driver_name,
+            items: rawItems,
+            billSundries: rawSundries,
+            isHeld: !!target.is_held,
+          });
+          setActiveVoucherModal({
+            isOpen: true,
+            type: 'sales',
+            action: 'modify',
+            voucherToEdit: target,
+          });
+          return;
+        } else {
+          setToastMessage({
+            text: 'No recorded sales vouchers found to modify. Launching Add Sales Voucher mode.',
+            type: 'info',
+          });
+          openVoucherAction('sales', 'add');
+          return;
+        }
+      } else {
+        // list
+        setVoucherSearchTerm('');
+        setActiveVoucherModal({
+          isOpen: true,
+          type: 'sales',
+          action: 'list',
+          voucherToEdit: null,
+        });
+        return;
+      }
+    }
+
+    const prefix =
+      vType === 'payment'
+        ? 'PV'
+        : vType === 'receipt'
+        ? 'RV'
+        : vType === 'journal'
+        ? 'JV'
+        : vType === 'contra'
+        ? 'CV'
+        : vType === 'notes'
+        ? 'CN'
+        : 'SJ';
+    const typeVouchers = vouchers.filter((v) => v.voucher_type === vType);
+    const nextNum = `${prefix}-${String(typeVouchers.length + 101).padStart(3, '0')}`;
+
+    if (action === 'add') {
+      setVoucherFormData({
+        voucher_number: nextNum,
+        date_bs: todayBs,
+        date_ad: todayAd,
+        payment_mode: vType === 'contra' ? 'Cash' : 'Bank',
+        account_debit: catConfig?.defaultDebit || '',
+        account_credit: catConfig?.defaultCredit || '',
+        amount: '',
+        cheque_number: '',
+        reference_no: '',
+        narration: '',
+      });
+      setActiveVoucherModal({
+        isOpen: true,
+        type: vType,
+        action: 'add',
+        voucherToEdit: null,
+      });
+    } else if (action === 'modify') {
+      const target = voucher || typeVouchers[0];
+      if (target) {
+        setVoucherFormData({
+          voucher_number: target.voucher_number,
+          date_bs: target.date_bs,
+          date_ad: target.date_ad,
+          payment_mode: target.payment_mode || 'Bank',
+          account_debit: target.account_debit,
+          account_credit: target.account_credit,
+          amount: target.amount,
+          cheque_number: target.cheque_number || '',
+          reference_no: target.reference_no || '',
+          narration: target.narration,
+        });
+        setActiveVoucherModal({
+          isOpen: true,
+          type: vType,
+          action: 'modify',
+          voucherToEdit: target,
+        });
+      } else {
+        setToastMessage({
+          text: `No existing ${catConfig?.label || 'Voucher'} entries found to modify. Launching Add mode.`,
+          type: 'info',
+        });
+        openVoucherAction(vType, 'add');
+      }
+    } else {
+      // List
+      setVoucherSearchTerm('');
+      setActiveVoucherModal({
+        isOpen: true,
+        type: vType,
+        action: 'list',
+        voucherToEdit: null,
+      });
+    }
+  };
+
+  // Keyboard Event Listener for Arrow Tree Navigation
+  useEffect(() => {
+    const handleTreeNavigationKeyDown = (e: KeyboardEvent) => {
+      // Do not hijack typing if any form input, textarea, select or modal is active
+      const activeEl = document.activeElement;
+      const isInputActive =
+        activeEl &&
+        (activeEl.tagName === 'INPUT' ||
+          activeEl.tagName === 'TEXTAREA' ||
+          activeEl.tagName === 'SELECT' ||
+          activeEl.getAttribute('contenteditable') === 'true');
+
+      if (activeVoucherModal.isOpen || isInputActive) {
+        return;
+      }
+
+      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'].includes(e.key)) {
+        return;
+      }
+
+      if (!visibleTreeItems || visibleTreeItems.length === 0) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setTreeFocusedId((prev) => {
+          if (!prev) return visibleTreeItems[0].id;
+          const idx = visibleTreeItems.findIndex((item) => item.id === prev);
+          if (idx === -1) return visibleTreeItems[0].id;
+          const nextIdx = Math.min(idx + 1, visibleTreeItems.length - 1);
+          const nextId = visibleTreeItems[nextIdx].id;
+          setTimeout(() => {
+            const el = document.getElementById(nextId);
+            if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          }, 10);
+          return nextId;
+        });
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setTreeFocusedId((prev) => {
+          if (!prev) return visibleTreeItems[visibleTreeItems.length - 1].id;
+          const idx = visibleTreeItems.findIndex((item) => item.id === prev);
+          if (idx === -1) return visibleTreeItems[0].id;
+          const prevIdx = Math.max(idx - 1, 0);
+          const prevId = visibleTreeItems[prevIdx].id;
+          setTimeout(() => {
+            const el = document.getElementById(prevId);
+            if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          }, 10);
+          return prevId;
+        });
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        const currentItem = visibleTreeItems.find((item) => item.id === treeFocusedId);
+        if (currentItem) {
+          if (currentItem.type === 'hub' && !isTransactionsExpanded) {
+            setIsTransactionsExpanded(true);
+          } else if (currentItem.type === 'voucher_category' && currentItem.voucherKey) {
+            if (!expandedVoucherTypes[currentItem.voucherKey]) {
+              setExpandedVoucherTypes((prev) => ({ ...prev, [currentItem.voucherKey!]: true }));
+            } else {
+              const addNodeId = `tree-action-${currentItem.voucherKey}-add`;
+              setTreeFocusedId(addNodeId);
+              setTimeout(() => {
+                const el = document.getElementById(addNodeId);
+                if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+              }, 10);
+            }
+          }
+        }
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const currentItem = visibleTreeItems.find((item) => item.id === treeFocusedId);
+        if (currentItem) {
+          if (currentItem.type === 'action' && currentItem.voucherKey) {
+            const catId = `tree-cat-${currentItem.voucherKey}`;
+            setTreeFocusedId(catId);
+            setTimeout(() => {
+              const el = document.getElementById(catId);
+              if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }, 10);
+          } else if (currentItem.type === 'voucher_category' && currentItem.voucherKey) {
+            if (expandedVoucherTypes[currentItem.voucherKey]) {
+              setExpandedVoucherTypes((prev) => ({ ...prev, [currentItem.voucherKey!]: false }));
+            } else {
+              setTreeFocusedId('tree-transactions-root');
+              setTimeout(() => {
+                const el = document.getElementById('tree-transactions-root');
+                if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+              }, 10);
+            }
+          } else if (currentItem.type === 'hub' && isTransactionsExpanded) {
+            setIsTransactionsExpanded(false);
+          }
+        }
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const currentItem = visibleTreeItems.find((item) => item.id === treeFocusedId);
+        if (currentItem) {
+          if (currentItem.type === 'hub') {
+            setIsTransactionsExpanded((prev) => !prev);
+          } else if (currentItem.type === 'voucher_category' && currentItem.voucherKey) {
+            setExpandedVoucherTypes((prev) => ({
+              ...prev,
+              [currentItem.voucherKey!]: !prev[currentItem.voucherKey!],
+            }));
+          } else if (currentItem.type === 'action' && currentItem.voucherKey && currentItem.action) {
+            openVoucherAction(currentItem.voucherKey, currentItem.action);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleTreeNavigationKeyDown);
+    return () => window.removeEventListener('keydown', handleTreeNavigationKeyDown);
+  }, [visibleTreeItems, treeFocusedId, isTransactionsExpanded, expandedVoucherTypes, activeVoucherModal.isOpen]);
+
+  // Busy/Tally Style Form Enter-Key Field Traversal
+  const handleVoucherFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setActiveVoucherModal((prev) => ({ ...prev, isOpen: false }));
+      return;
+    }
+
+    if (e.key === 'Enter' && !e.shiftKey) {
+      const target = e.target as HTMLElement;
+      // Allow multi-line typing in textarea unless Ctrl+Enter is used
+      if (target.tagName === 'TEXTAREA' && !e.ctrlKey) {
+        return;
+      }
+      e.preventDefault();
+
+      const form = e.currentTarget;
+      const focusable = Array.from(
+        form.querySelectorAll(
+          'input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button[type="submit"]:not([disabled])'
+        )
+      ) as HTMLElement[];
+
+      const idx = focusable.indexOf(target);
+      if (idx >= 0 && idx < focusable.length - 1) {
+        focusable[idx + 1].focus();
+      } else if (idx === focusable.length - 1) {
+        target.click();
+      }
+    } else if (e.key === 'Enter' && e.shiftKey) {
+      const target = e.target as HTMLElement;
+      e.preventDefault();
+      const form = e.currentTarget;
+      const focusable = Array.from(
+        form.querySelectorAll(
+          'input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button[type="submit"]:not([disabled])'
+        )
+      ) as HTMLElement[];
+      const idx = focusable.indexOf(target);
+      if (idx > 0) {
+        focusable[idx - 1].focus();
+      }
+    }
+  };
+
+  // Save / Update Voucher
+  const handleSaveVoucher = (e: React.FormEvent) => {
+    e.preventDefault();
+    const numAmount =
+      typeof voucherFormData.amount === 'number'
+        ? voucherFormData.amount
+        : parseFloat(String(voucherFormData.amount || '0'));
+
+    if (isNaN(numAmount) || numAmount <= 0) {
+      setToastMessage({ text: 'Please enter a valid amount greater than 0', type: 'error' });
+      return;
+    }
+    if (!voucherFormData.account_debit.trim() || !voucherFormData.account_credit.trim()) {
+      setToastMessage({ text: 'Please specify both Debit and Credit accounts', type: 'error' });
+      return;
+    }
+
+    const catConfig = VOUCHER_CATEGORIES.find((c) => c.key === activeVoucherModal.type);
+
+    if (activeVoucherModal.action === 'modify' && activeVoucherModal.voucherToEdit) {
+      setVouchers((prev) =>
+        prev.map((v) =>
+          v.id === activeVoucherModal.voucherToEdit!.id
+            ? {
+                ...v,
+                voucher_number: voucherFormData.voucher_number,
+                date_bs: voucherFormData.date_bs,
+                date_ad: voucherFormData.date_ad,
+                payment_mode: voucherFormData.payment_mode,
+                account_debit: voucherFormData.account_debit,
+                account_credit: voucherFormData.account_credit,
+                amount: numAmount,
+                cheque_number: voucherFormData.cheque_number,
+                reference_no: voucherFormData.reference_no,
+                narration: voucherFormData.narration,
+              }
+            : v
+        )
+      );
+      setToastMessage({
+        text: `${catConfig?.label || 'Voucher'} #${voucherFormData.voucher_number} updated successfully`,
+        type: 'success',
+      });
+      setActiveVoucherModal((prev) => ({ ...prev, isOpen: false }));
+    } else {
+      // Add
+      const newV: AccountingVoucher = {
+        id: `v-${Date.now()}`,
+        voucher_type: activeVoucherModal.type,
+        voucher_number: voucherFormData.voucher_number,
+        date_bs: voucherFormData.date_bs,
+        date_ad: voucherFormData.date_ad,
+        payment_mode: voucherFormData.payment_mode,
+        account_debit: voucherFormData.account_debit,
+        account_credit: voucherFormData.account_credit,
+        amount: numAmount,
+        cheque_number: voucherFormData.cheque_number,
+        reference_no: voucherFormData.reference_no,
+        narration: voucherFormData.narration,
+        created_at: new Date().toISOString(),
+      };
+      setVouchers((prev) => [newV, ...prev]);
+      setToastMessage({
+        text: `${catConfig?.label || 'Voucher'} #${voucherFormData.voucher_number} posted to ledger [Enter]`,
+        type: 'success',
+      });
+      setActiveVoucherModal((prev) => ({ ...prev, isOpen: false }));
+    }
+  };
+
+  // Delete Voucher
+  const handleDeleteVoucher = (voucherId: string) => {
+    setVouchers((prev) => prev.filter((v) => v.id !== voucherId));
+    setToastMessage({ text: 'Voucher removed from ledger', type: 'info' });
+  };
 
   // ==========================================
   // EXCEL & PDF EXPORT UTILITIES (STANDARDIZED)
@@ -4945,8 +6790,26 @@ export default function App() {
       <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col">
         {/* Toast Notification */}
         {toastMessage && (
-          <div className="fixed bottom-5 right-5 z-50 px-4 py-2.5 bg-slate-800 border border-slate-700 text-white text-xs font-semibold rounded-xl shadow-2xl flex items-center gap-2">
-            <Check className="w-4 h-4 text-emerald-400" />
+          <div
+            className={`fixed bottom-5 right-5 z-50 px-4 py-2.5 text-white text-xs font-semibold rounded-xl shadow-2xl flex items-center gap-2 border ${
+              toastMessage.type === 'error'
+                ? 'bg-rose-900 border-rose-700'
+                : toastMessage.type === 'warning'
+                ? 'bg-amber-900 border-amber-600'
+                : toastMessage.type === 'info'
+                ? 'bg-indigo-900 border-indigo-700'
+                : 'bg-slate-800 border-slate-700'
+            }`}
+          >
+            {toastMessage.type === 'error' ? (
+              <AlertCircle className="w-4 h-4 text-rose-400" />
+            ) : toastMessage.type === 'warning' ? (
+              <AlertTriangle className="w-4 h-4 text-amber-400" />
+            ) : toastMessage.type === 'info' ? (
+              <Info className="w-4 h-4 text-indigo-400" />
+            ) : (
+              <Check className="w-4 h-4 text-emerald-400" />
+            )}
             <span>{toastMessage.text}</span>
           </div>
         )}
@@ -5091,7 +6954,7 @@ export default function App() {
                                 {comp.subscription_plan || 'Enterprise'}
                               </span>
                               <div className="text-[10px] text-slate-400">
-                                Valid: <span className="font-mono text-slate-300">{comp.expiry_date_bs || '2082-12-30'} BS</span>
+                                <span className="text-slate-400">BS: </span><span className="font-mono text-emerald-300 font-semibold">{comp.expiry_date_bs || (comp.expiry_date_ad ? adToBs(comp.expiry_date_ad) : '2084-06-07')} BS</span> &bull; <span className="text-slate-400">AD: </span><span className="font-mono text-indigo-300 font-semibold">{comp.expiry_date_ad || (comp.expiry_date_bs ? bsToAd(comp.expiry_date_bs) : '2027-09-24')} AD</span>
                               </div>
                             </div>
                           </td>
@@ -5106,63 +6969,43 @@ export default function App() {
                             </span>
                           </td>
                           <td className="py-3 px-4">
-                            <div className="flex flex-wrap gap-1.5 max-w-[220px]">
-                              <span
-                                title="Print Cheque Leaf"
-                                className={`px-1.5 py-0.5 rounded text-[9px] font-semibold flex items-center gap-1 border ${
-                                  hasPrint
-                                    ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                                    : 'bg-slate-900/60 text-slate-500 border-slate-800 line-through'
-                                }`}
-                              >
-                                <Printer className="w-2.5 h-2.5" />
-                                Print
-                              </span>
-                              <span
-                                title="Google Drive Cloud Sync"
-                                className={`px-1.5 py-0.5 rounded text-[9px] font-semibold flex items-center gap-1 border ${
-                                  hasDrive
-                                    ? 'bg-sky-500/15 text-sky-300 border-sky-500/30'
-                                    : 'bg-slate-900/60 text-slate-500 border-slate-800 line-through'
-                                }`}
-                              >
-                                <Cloud className="w-2.5 h-2.5" />
-                                Drive
-                              </span>
-                              <span
-                                title="Offline Local Disk Backup"
-                                className={`px-1.5 py-0.5 rounded text-[9px] font-semibold flex items-center gap-1 border ${
-                                  hasLocal
-                                    ? 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30'
-                                    : 'bg-slate-900/60 text-slate-500 border-slate-800 line-through'
-                                }`}
-                              >
-                                <HardDrive className="w-2.5 h-2.5" />
-                                Local
-                              </span>
-                              <span
-                                title="Import External Software Cheques"
-                                className={`px-1.5 py-0.5 rounded text-[9px] font-semibold flex items-center gap-1 border ${
-                                  hasImport
-                                    ? 'bg-purple-500/15 text-purple-300 border-purple-500/30'
-                                    : 'bg-slate-900/60 text-slate-500 border-slate-800 line-through'
-                                }`}
-                              >
-                                <FileSpreadsheet className="w-2.5 h-2.5" />
-                                Import
-                              </span>
-                              <span
-                                title="Parties & Banks Master Data"
-                                className={`px-1.5 py-0.5 rounded text-[9px] font-semibold flex items-center gap-1 border ${
-                                  hasMaster
-                                    ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                                    : 'bg-slate-900/60 text-slate-500 border-slate-800 line-through'
-                                }`}
-                              >
-                                <Users className="w-2.5 h-2.5" />
-                                Master
-                              </span>
-                            </div>
+                            {(() => {
+                              const enabledFeatures = MASTER_FEATURE_REGISTRY.filter((feat) => {
+                                if (f[feat.id] !== undefined) return Boolean(f[feat.id]);
+                                if (feat.id === 'banks' || feat.id === 'parties') return f.parties_banks !== undefined ? Boolean(f.parties_banks) : feat.defaultEnabled;
+                                if (feat.id === 'backup') return (f.local_disk_backup !== undefined || f.google_drive_backup !== undefined) ? Boolean(f.local_disk_backup || f.google_drive_backup) : feat.defaultEnabled;
+                                return feat.defaultEnabled;
+                              });
+                              return (
+                                <div className="space-y-1.5 max-w-[220px]">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/70 border border-emerald-800/60 px-2 py-0.5 rounded-md">
+                                      {enabledFeatures.length} / {MASTER_FEATURE_REGISTRY.length} Active
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-1">
+                                    {enabledFeatures.slice(0, 4).map((feat) => {
+                                      const FeatIcon = feat.icon;
+                                      return (
+                                        <span
+                                          key={feat.id}
+                                          title={feat.name}
+                                          className="px-1.5 py-0.5 rounded text-[9px] font-semibold flex items-center gap-1 border bg-slate-900/80 text-slate-300 border-slate-700"
+                                        >
+                                          <FeatIcon className="w-2.5 h-2.5 text-indigo-400" />
+                                          <span className="truncate max-w-[65px]">{feat.name}</span>
+                                        </span>
+                                      );
+                                    })}
+                                    {enabledFeatures.length > 4 && (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold border bg-slate-800 text-slate-400 border-slate-700">
+                                        +{enabledFeatures.length - 4}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td className="py-3 px-4 text-center">
                             <div className="flex items-center justify-center gap-1.5">
@@ -5540,23 +7383,19 @@ export default function App() {
                       </select>
                     </div>
 
-                    <div className="sm:col-span-1">
-                      <label className="block text-slate-300 font-semibold mb-1">Expiry Date (BS)</label>
-                      <input
-                        value={companyEditForm.expiry_date_bs}
-                        onChange={(e) => setCompanyEditForm({ ...companyEditForm, expiry_date_bs: e.target.value })}
-                        placeholder="YYYY-MM-DD"
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-1">
-                      <label className="block text-slate-300 font-semibold mb-1">Expiry Date (AD)</label>
-                      <input
-                        value={companyEditForm.expiry_date_ad}
-                        onChange={(e) => setCompanyEditForm({ ...companyEditForm, expiry_date_ad: e.target.value })}
-                        placeholder="YYYY-MM-DD"
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    <div className="sm:col-span-2">
+                      <DeveloperExpiryDatePicker
+                        bsDate={companyEditForm.expiry_date_bs}
+                        adDate={companyEditForm.expiry_date_ad}
+                        onChange={(bsDate, adDate) =>
+                          setCompanyEditForm({
+                            ...companyEditForm,
+                            expiry_date_bs: bsDate,
+                            expiry_date_ad: adDate,
+                          })
+                        }
+                        label="License Expiry & Renewal Date (Bidirectional BS &harr; AD)"
+                        idPrefix="edit-company-expiry"
                       />
                     </div>
                   </div>
@@ -5582,215 +7421,151 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* 3. Feature Permissions Matrix (The 5 Toggles) */}
-                <div className="space-y-3 bg-slate-900/60 p-4 rounded-xl border border-slate-700/60">
-                  <div className="flex items-center justify-between">
-                    <div className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                      <Sliders className="w-3.5 h-3.5" />
-                      <span>Feature Permissions Controls (Sales Matrix)</span>
+                {/* 3. Dynamic Auto-Registering Sales Matrix */}
+                <div className="space-y-4 bg-slate-900/60 p-4 rounded-xl border border-slate-700/60">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                        <Sliders className="w-3.5 h-3.5" />
+                        <span>Developer Sales Matrix (Feature Permissions)</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Auto-registers all sidebar items &amp; modules &bull; STRICT ENFORCEMENT: Client only gets checked features
+                      </p>
                     </div>
-                    <span className="text-[10px] text-slate-400">Strictly enforced in tenant dashboard</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-2.5">
-                    {/* Toggle 1: Print Cheque */}
-                    <div
-                      onClick={() =>
-                        setCompanyEditForm({
-                          ...companyEditForm,
-                          features: { ...companyEditForm.features, print_cheque: !companyEditForm.features.print_cheque },
-                        })
-                      }
-                      className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between gap-3 ${
-                        companyEditForm.features.print_cheque
-                          ? 'bg-slate-800/90 border-emerald-500/40'
-                          : 'bg-slate-900/50 border-slate-800 opacity-60'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${companyEditForm.features.print_cheque ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-500'}`}>
-                          <Printer className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="font-bold text-white flex items-center gap-2">
-                            <span>Print Cheque Leaf</span>
-                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${companyEditForm.features.print_cheque ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-400'}`}>
-                              {companyEditForm.features.print_cheque ? 'Enabled' : 'Disabled'}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-400">Physical bank leaf layout, Amount in Words conversion, A/C Payee stamp</p>
-                        </div>
-                      </div>
-                      <div className={`w-10 h-5 flex items-center rounded-full p-0.5 transition duration-200 shrink-0 ${companyEditForm.features.print_cheque ? 'bg-emerald-600' : 'bg-slate-700'}`}>
-                        <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition duration-200 ${companyEditForm.features.print_cheque ? 'translate-x-5' : 'translate-x-0'}`} />
-                      </div>
-                    </div>
-
-                    {/* Toggle 2: Google Drive Backup */}
-                    <div
-                      onClick={() =>
-                        setCompanyEditForm({
-                          ...companyEditForm,
-                          features: { ...companyEditForm.features, google_drive_backup: !companyEditForm.features.google_drive_backup },
-                        })
-                      }
-                      className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between gap-3 ${
-                        companyEditForm.features.google_drive_backup
-                          ? 'bg-slate-800/90 border-sky-500/40'
-                          : 'bg-slate-900/50 border-slate-800 opacity-60'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${companyEditForm.features.google_drive_backup ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-500'}`}>
-                          <Cloud className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="font-bold text-white flex items-center gap-2">
-                            <span>Google Drive Cloud Backup</span>
-                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${companyEditForm.features.google_drive_backup ? 'bg-sky-500/20 text-sky-300' : 'bg-slate-800 text-slate-400'}`}>
-                              {companyEditForm.features.google_drive_backup ? 'Enabled' : 'Disabled'}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-400">Encrypted snapshot backups, disaster recovery, cloud snapshot history</p>
-                        </div>
-                      </div>
-                      <div className={`w-10 h-5 flex items-center rounded-full p-0.5 transition duration-200 shrink-0 ${companyEditForm.features.google_drive_backup ? 'bg-sky-600' : 'bg-slate-700'}`}>
-                        <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition duration-200 ${companyEditForm.features.google_drive_backup ? 'translate-x-5' : 'translate-x-0'}`} />
-                      </div>
-                    </div>
-
-                    {/* Toggle 3: Offline Local Disk Backup */}
-                    <div
-                      onClick={() =>
-                        setCompanyEditForm({
-                          ...companyEditForm,
-                          features: { ...companyEditForm.features, local_disk_backup: !companyEditForm.features.local_disk_backup },
-                        })
-                      }
-                      className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between gap-3 ${
-                        companyEditForm.features.local_disk_backup
-                          ? 'bg-slate-800/90 border-indigo-500/40'
-                          : 'bg-slate-900/50 border-slate-800 opacity-60'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${companyEditForm.features.local_disk_backup ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-500'}`}>
-                          <HardDrive className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="font-bold text-white flex items-center gap-2">
-                            <span>Offline Local Disk Backup</span>
-                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${companyEditForm.features.local_disk_backup ? 'bg-indigo-500/20 text-indigo-300' : 'bg-slate-800 text-slate-400'}`}>
-                              {companyEditForm.features.local_disk_backup ? 'Enabled' : 'Disabled'}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-400">Direct JSON & Excel (.xlsx) downloads to computer and offline JSON restoration</p>
-                        </div>
-                      </div>
-                      <div className={`w-10 h-5 flex items-center rounded-full p-0.5 transition duration-200 shrink-0 ${companyEditForm.features.local_disk_backup ? 'bg-indigo-600' : 'bg-slate-700'}`}>
-                        <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition duration-200 ${companyEditForm.features.local_disk_backup ? 'translate-x-5' : 'translate-x-0'}`} />
-                      </div>
-                    </div>
-
-                    {/* Toggle 4: Import External Software Cheques */}
-                    <div
-                      onClick={() =>
-                        setCompanyEditForm({
-                          ...companyEditForm,
-                          features: { ...companyEditForm.features, import_cheques: !companyEditForm.features.import_cheques },
-                        })
-                      }
-                      className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between gap-3 ${
-                        companyEditForm.features.import_cheques
-                          ? 'bg-slate-800/90 border-purple-500/40'
-                          : 'bg-slate-900/50 border-slate-800 opacity-60'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${companyEditForm.features.import_cheques ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-500'}`}>
-                          <FileSpreadsheet className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="font-bold text-white flex items-center gap-2">
-                            <span>Import External Software Cheques</span>
-                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${companyEditForm.features.import_cheques ? 'bg-purple-500/20 text-purple-300' : 'bg-slate-800 text-slate-400'}`}>
-                              {companyEditForm.features.import_cheques ? 'Enabled' : 'Disabled'}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-400">Upload & parse Excel, CSV, and JSON records from Tally, Busy, Swastik</p>
-                        </div>
-                      </div>
-                      <div className={`w-10 h-5 flex items-center rounded-full p-0.5 transition duration-200 shrink-0 ${companyEditForm.features.import_cheques ? 'bg-purple-600' : 'bg-slate-700'}`}>
-                        <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition duration-200 ${companyEditForm.features.import_cheques ? 'translate-x-5' : 'translate-x-0'}`} />
-                      </div>
-                    </div>
-
-                    {/* Toggle 5: Parties & Banks Master Data */}
-                    <div
-                      onClick={() =>
-                        setCompanyEditForm({
-                          ...companyEditForm,
-                          features: { ...companyEditForm.features, parties_banks: !companyEditForm.features.parties_banks },
-                        })
-                      }
-                      className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between gap-3 ${
-                        companyEditForm.features.parties_banks
-                          ? 'bg-slate-800/90 border-amber-500/40'
-                          : 'bg-slate-900/50 border-slate-800 opacity-60'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${companyEditForm.features.parties_banks ? 'bg-amber-600 text-white' : 'bg-slate-800 text-slate-500'}`}>
-                          <Users className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="font-bold text-white flex items-center gap-2">
-                            <span>Parties & Banks Master Data</span>
-                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${companyEditForm.features.parties_banks ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-400'}`}>
-                              {companyEditForm.features.parties_banks ? 'Enabled' : 'Disabled'}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-400">Master directories for Payee parties, vendors, and bank account registers</p>
-                        </div>
-                      </div>
-                      <div className={`w-10 h-5 flex items-center rounded-full p-0.5 transition duration-200 shrink-0 ${companyEditForm.features.parties_banks ? 'bg-amber-600' : 'bg-slate-700'}`}>
-                        <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition duration-200 ${companyEditForm.features.parties_banks ? 'translate-x-5' : 'translate-x-0'}`} />
-                      </div>
-                    </div>
-
-                    {/* Toggle 6: Excel & PDF Export */}
-                    <div
-                      onClick={() =>
-                        setCompanyEditForm({
-                          ...companyEditForm,
-                          features: { ...companyEditForm.features, excel_pdf_export: !companyEditForm.features.excel_pdf_export },
-                        })
-                      }
-                      className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between gap-3 ${
-                        companyEditForm.features.excel_pdf_export
-                          ? 'bg-slate-800/90 border-emerald-500/40'
-                          : 'bg-slate-900/50 border-slate-800 opacity-60'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${companyEditForm.features.excel_pdf_export ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-500'}`}>
-                          <Download className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="font-bold text-white flex items-center gap-2">
-                            <span>Excel & PDF Export Reports</span>
-                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${companyEditForm.features.excel_pdf_export ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-400'}`}>
-                              {companyEditForm.features.excel_pdf_export ? 'Enabled' : 'Disabled'}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-400">Export .xlsx spreadsheets and print-ready formatted A4 PDF reports</p>
-                        </div>
-                      </div>
-                      <div className={`w-10 h-5 flex items-center rounded-full p-0.5 transition duration-200 shrink-0 ${companyEditForm.features.excel_pdf_export ? 'bg-emerald-600' : 'bg-slate-700'}`}>
-                        <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition duration-200 ${companyEditForm.features.excel_pdf_export ? 'translate-x-5' : 'translate-x-0'}`} />
-                      </div>
+                    {/* Quick Presets */}
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const allOn: Record<string, boolean> = {};
+                          MASTER_FEATURE_REGISTRY.forEach((f) => {
+                            allOn[f.id] = true;
+                          });
+                          setCompanyEditForm({
+                            ...companyEditForm,
+                            features: { ...companyEditForm.features, ...allOn },
+                          });
+                        }}
+                        className="px-2.5 py-1 bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/50 rounded-lg text-[10px] font-bold cursor-pointer transition flex items-center gap-1"
+                        title="Enable all modules for Enterprise tier"
+                      >
+                        <Check className="w-3 h-3" />
+                        <span>Select All (ON)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const allOff: Record<string, boolean> = {};
+                          MASTER_FEATURE_REGISTRY.forEach((f) => {
+                            allOff[f.id] = false;
+                          });
+                          setCompanyEditForm({
+                            ...companyEditForm,
+                            features: { ...companyEditForm.features, ...allOff },
+                          });
+                        }}
+                        className="px-2.5 py-1 bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-700/50 rounded-lg text-[10px] font-bold cursor-pointer transition flex items-center gap-1"
+                        title="Disable all optional modules"
+                      >
+                        <Lock className="w-3 h-3" />
+                        <span>Disable All (OFF)</span>
+                      </button>
                     </div>
                   </div>
+
+                  {/* Dynamic Category Iteration */}
+                  {Array.from(new Set(MASTER_FEATURE_REGISTRY.map((f) => f.category))).map((category) => {
+                    const categoryFeatures = MASTER_FEATURE_REGISTRY.filter((f) => f.category === category);
+                    const activeCount = categoryFeatures.filter((f) => companyEditForm.features[f.id] !== false).length;
+                    return (
+                      <div key={category} className="space-y-2 pt-2 border-t border-slate-800/80">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-slate-300">
+                          <span className="flex items-center gap-1.5 uppercase tracking-wider text-[10px] text-indigo-400">
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                            {category}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-semibold bg-slate-800 px-2 py-0.5 rounded-md">
+                            {activeCount} / {categoryFeatures.length} Active
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-2">
+                          {categoryFeatures.map((feat) => {
+                            const isEnabled = companyEditForm.features[feat.id] !== false;
+                            const Icon = feat.icon;
+                            return (
+                              <div
+                                key={feat.id}
+                                onClick={() =>
+                                  setCompanyEditForm({
+                                    ...companyEditForm,
+                                    features: {
+                                      ...companyEditForm.features,
+                                      [feat.id]: !isEnabled,
+                                    },
+                                  })
+                                }
+                                className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between gap-3 ${
+                                  isEnabled
+                                    ? 'bg-slate-800/90 border-emerald-500/40 shadow-xs'
+                                    : 'bg-slate-900/40 border-slate-800 opacity-60'
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div
+                                    className={`p-2 rounded-lg shrink-0 ${
+                                      isEnabled
+                                        ? 'bg-emerald-600 text-white shadow-xs'
+                                        : 'bg-slate-800 text-slate-500'
+                                    }`}
+                                  >
+                                    <Icon className="w-4 h-4" />
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-xs text-white flex items-center gap-2">
+                                      <span>{feat.name}</span>
+                                      <span
+                                        className={`px-1.5 py-0.2 rounded text-[9px] font-bold flex items-center gap-1 ${
+                                          isEnabled
+                                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                            : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                        }`}
+                                      >
+                                        {isEnabled ? (
+                                          <>
+                                            <Check className="w-2.5 h-2.5" />
+                                            <span>Active</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Lock className="w-2.5 h-2.5" />
+                                            <span>Disabled</span>
+                                          </>
+                                        )}
+                                      </span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-400 leading-snug">{feat.description}</p>
+                                  </div>
+                                </div>
+                                <div
+                                  className={`w-10 h-5 flex items-center rounded-full p-0.5 transition duration-200 shrink-0 ${
+                                    isEnabled ? 'bg-emerald-600' : 'bg-slate-700'
+                                  }`}
+                                >
+                                  <div
+                                    className={`bg-white w-4 h-4 rounded-full shadow-md transform transition duration-200 ${
+                                      isEnabled ? 'translate-x-5' : 'translate-x-0'
+                                    }`}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Modal Footer */}
@@ -5957,234 +7732,169 @@ export default function App() {
                       </select>
                     </div>
 
-                    <div className="sm:col-span-1">
-                      <label className="block text-slate-300 font-semibold mb-1">Expiry Date (BS)</label>
-                      <input
-                        value={newCompanyForm.expiry_date_bs}
-                        onChange={(e) => setNewCompanyForm({ ...newCompanyForm, expiry_date_bs: e.target.value })}
-                        placeholder="YYYY-MM-DD"
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-1">
-                      <label className="block text-slate-300 font-semibold mb-1">Expiry Date (AD)</label>
-                      <input
-                        value={newCompanyForm.expiry_date_ad}
-                        onChange={(e) => setNewCompanyForm({ ...newCompanyForm, expiry_date_ad: e.target.value })}
-                        placeholder="YYYY-MM-DD"
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    <div className="sm:col-span-2">
+                      <DeveloperExpiryDatePicker
+                        bsDate={newCompanyForm.expiry_date_bs}
+                        adDate={newCompanyForm.expiry_date_ad}
+                        onChange={(bsDate, adDate) =>
+                          setNewCompanyForm({
+                            ...newCompanyForm,
+                            expiry_date_bs: bsDate,
+                            expiry_date_ad: adDate,
+                          })
+                        }
+                        label="Initial License Expiry (Bidirectional BS &harr; AD)"
+                        idPrefix="new-company-expiry"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* 3. Feature Permissions Toggles */}
-                <div className="space-y-3 bg-slate-900/60 p-4 rounded-xl border border-slate-700/60">
-                  <div className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                    <Sliders className="w-3.5 h-3.5" />
-                    <span>Grant Feature Permissions</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-2.5">
-                    {/* Toggle 1: Print Cheque */}
-                    <div
-                      onClick={() =>
-                        setNewCompanyForm({
-                          ...newCompanyForm,
-                          features: { ...newCompanyForm.features, print_cheque: !newCompanyForm.features.print_cheque },
-                        })
-                      }
-                      className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between gap-3 ${
-                        newCompanyForm.features.print_cheque
-                          ? 'bg-slate-800/90 border-emerald-500/40'
-                          : 'bg-slate-900/50 border-slate-800 opacity-60'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${newCompanyForm.features.print_cheque ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-500'}`}>
-                          <Printer className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="font-bold text-white flex items-center gap-2">
-                            <span>Print Cheque Leaf</span>
-                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${newCompanyForm.features.print_cheque ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-400'}`}>
-                              {newCompanyForm.features.print_cheque ? 'Enabled' : 'Disabled'}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-400">Physical bank leaf layout, Amount in Words conversion, A/C Payee stamp</p>
-                        </div>
+                {/* 3. Dynamic Auto-Registering Sales Matrix */}
+                <div className="space-y-4 bg-slate-900/60 p-4 rounded-xl border border-slate-700/60">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                        <Sliders className="w-3.5 h-3.5" />
+                        <span>Developer Sales Matrix (Initial Feature Grants)</span>
                       </div>
-                      <div className={`w-10 h-5 flex items-center rounded-full p-0.5 transition duration-200 shrink-0 ${newCompanyForm.features.print_cheque ? 'bg-emerald-600' : 'bg-slate-700'}`}>
-                        <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition duration-200 ${newCompanyForm.features.print_cheque ? 'translate-x-5' : 'translate-x-0'}`} />
-                      </div>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Auto-registers all sidebar items &amp; modules &bull; STRICT ENFORCEMENT: Client only gets checked features
+                      </p>
                     </div>
-
-                    {/* Toggle 2: Google Drive Backup */}
-                    <div
-                      onClick={() =>
-                        setNewCompanyForm({
-                          ...newCompanyForm,
-                          features: { ...newCompanyForm.features, google_drive_backup: !newCompanyForm.features.google_drive_backup },
-                        })
-                      }
-                      className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between gap-3 ${
-                        newCompanyForm.features.google_drive_backup
-                          ? 'bg-slate-800/90 border-sky-500/40'
-                          : 'bg-slate-900/50 border-slate-800 opacity-60'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${newCompanyForm.features.google_drive_backup ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-500'}`}>
-                          <Cloud className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="font-bold text-white flex items-center gap-2">
-                            <span>Google Drive Cloud Backup</span>
-                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${newCompanyForm.features.google_drive_backup ? 'bg-sky-500/20 text-sky-300' : 'bg-slate-800 text-slate-400'}`}>
-                              {newCompanyForm.features.google_drive_backup ? 'Enabled' : 'Disabled'}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-400">Encrypted snapshot backups, disaster recovery, cloud snapshot history</p>
-                        </div>
-                      </div>
-                      <div className={`w-10 h-5 flex items-center rounded-full p-0.5 transition duration-200 shrink-0 ${newCompanyForm.features.google_drive_backup ? 'bg-sky-600' : 'bg-slate-700'}`}>
-                        <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition duration-200 ${newCompanyForm.features.google_drive_backup ? 'translate-x-5' : 'translate-x-0'}`} />
-                      </div>
-                    </div>
-
-                    {/* Toggle 3: Offline Local Disk Backup */}
-                    <div
-                      onClick={() =>
-                        setNewCompanyForm({
-                          ...newCompanyForm,
-                          features: { ...newCompanyForm.features, local_disk_backup: !newCompanyForm.features.local_disk_backup },
-                        })
-                      }
-                      className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between gap-3 ${
-                        newCompanyForm.features.local_disk_backup
-                          ? 'bg-slate-800/90 border-indigo-500/40'
-                          : 'bg-slate-900/50 border-slate-800 opacity-60'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${newCompanyForm.features.local_disk_backup ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-500'}`}>
-                          <HardDrive className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="font-bold text-white flex items-center gap-2">
-                            <span>Offline Local Disk Backup</span>
-                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${newCompanyForm.features.local_disk_backup ? 'bg-indigo-500/20 text-indigo-300' : 'bg-slate-800 text-slate-400'}`}>
-                              {newCompanyForm.features.local_disk_backup ? 'Enabled' : 'Disabled'}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-400">Direct JSON & Excel (.xlsx) downloads to computer and offline JSON restoration</p>
-                        </div>
-                      </div>
-                      <div className={`w-10 h-5 flex items-center rounded-full p-0.5 transition duration-200 shrink-0 ${newCompanyForm.features.local_disk_backup ? 'bg-indigo-600' : 'bg-slate-700'}`}>
-                        <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition duration-200 ${newCompanyForm.features.local_disk_backup ? 'translate-x-5' : 'translate-x-0'}`} />
-                      </div>
-                    </div>
-
-                    {/* Toggle 4: Import External Software Cheques */}
-                    <div
-                      onClick={() =>
-                        setNewCompanyForm({
-                          ...newCompanyForm,
-                          features: { ...newCompanyForm.features, import_cheques: !newCompanyForm.features.import_cheques },
-                        })
-                      }
-                      className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between gap-3 ${
-                        newCompanyForm.features.import_cheques
-                          ? 'bg-slate-800/90 border-purple-500/40'
-                          : 'bg-slate-900/50 border-slate-800 opacity-60'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${newCompanyForm.features.import_cheques ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-500'}`}>
-                          <FileSpreadsheet className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="font-bold text-white flex items-center gap-2">
-                            <span>Import External Software Cheques</span>
-                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${newCompanyForm.features.import_cheques ? 'bg-purple-500/20 text-purple-300' : 'bg-slate-800 text-slate-400'}`}>
-                              {newCompanyForm.features.import_cheques ? 'Enabled' : 'Disabled'}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-400">Upload & parse Excel, CSV, and JSON records from Tally, Busy, Swastik</p>
-                        </div>
-                      </div>
-                      <div className={`w-10 h-5 flex items-center rounded-full p-0.5 transition duration-200 shrink-0 ${newCompanyForm.features.import_cheques ? 'bg-purple-600' : 'bg-slate-700'}`}>
-                        <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition duration-200 ${newCompanyForm.features.import_cheques ? 'translate-x-5' : 'translate-x-0'}`} />
-                      </div>
-                    </div>
-
-                    {/* Toggle 5: Parties & Banks Master Data */}
-                    <div
-                      onClick={() =>
-                        setNewCompanyForm({
-                          ...newCompanyForm,
-                          features: { ...newCompanyForm.features, parties_banks: !newCompanyForm.features.parties_banks },
-                        })
-                      }
-                      className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between gap-3 ${
-                        newCompanyForm.features.parties_banks
-                          ? 'bg-slate-800/90 border-amber-500/40'
-                          : 'bg-slate-900/50 border-slate-800 opacity-60'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${newCompanyForm.features.parties_banks ? 'bg-amber-600 text-white' : 'bg-slate-800 text-slate-500'}`}>
-                          <Users className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="font-bold text-white flex items-center gap-2">
-                            <span>Parties & Banks Master Data</span>
-                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${newCompanyForm.features.parties_banks ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-400'}`}>
-                              {newCompanyForm.features.parties_banks ? 'Enabled' : 'Disabled'}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-400">Master directories for Payee parties, vendors, and bank account registers</p>
-                        </div>
-                      </div>
-                      <div className={`w-10 h-5 flex items-center rounded-full p-0.5 transition duration-200 shrink-0 ${newCompanyForm.features.parties_banks ? 'bg-amber-600' : 'bg-slate-700'}`}>
-                        <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition duration-200 ${newCompanyForm.features.parties_banks ? 'translate-x-5' : 'translate-x-0'}`} />
-                      </div>
-                    </div>
-
-                    {/* Toggle 6: Excel & PDF Export */}
-                    <div
-                      onClick={() =>
-                        setNewCompanyForm({
-                          ...newCompanyForm,
-                          features: { ...newCompanyForm.features, excel_pdf_export: !newCompanyForm.features.excel_pdf_export },
-                        })
-                      }
-                      className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between gap-3 ${
-                        newCompanyForm.features.excel_pdf_export
-                          ? 'bg-slate-800/90 border-emerald-500/40'
-                          : 'bg-slate-900/50 border-slate-800 opacity-60'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${newCompanyForm.features.excel_pdf_export ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-500'}`}>
-                          <Download className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="font-bold text-white flex items-center gap-2">
-                            <span>Excel & PDF Export Reports</span>
-                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${newCompanyForm.features.excel_pdf_export ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-400'}`}>
-                              {newCompanyForm.features.excel_pdf_export ? 'Enabled' : 'Disabled'}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-400">Export .xlsx spreadsheets and print-ready formatted A4 PDF reports</p>
-                        </div>
-                      </div>
-                      <div className={`w-10 h-5 flex items-center rounded-full p-0.5 transition duration-200 shrink-0 ${newCompanyForm.features.excel_pdf_export ? 'bg-emerald-600' : 'bg-slate-700'}`}>
-                        <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition duration-200 ${newCompanyForm.features.excel_pdf_export ? 'translate-x-5' : 'translate-x-0'}`} />
-                      </div>
+                    {/* Quick Presets */}
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const allOn: Record<string, boolean> = {};
+                          MASTER_FEATURE_REGISTRY.forEach((f) => {
+                            allOn[f.id] = true;
+                          });
+                          setNewCompanyForm({
+                            ...newCompanyForm,
+                            features: { ...newCompanyForm.features, ...allOn },
+                          });
+                        }}
+                        className="px-2.5 py-1 bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/50 rounded-lg text-[10px] font-bold cursor-pointer transition flex items-center gap-1"
+                        title="Enable all modules for Enterprise tier"
+                      >
+                        <Check className="w-3 h-3" />
+                        <span>Select All (ON)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const allOff: Record<string, boolean> = {};
+                          MASTER_FEATURE_REGISTRY.forEach((f) => {
+                            allOff[f.id] = false;
+                          });
+                          setNewCompanyForm({
+                            ...newCompanyForm,
+                            features: { ...newCompanyForm.features, ...allOff },
+                          });
+                        }}
+                        className="px-2.5 py-1 bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-700/50 rounded-lg text-[10px] font-bold cursor-pointer transition flex items-center gap-1"
+                        title="Disable all optional modules"
+                      >
+                        <Lock className="w-3 h-3" />
+                        <span>Disable All (OFF)</span>
+                      </button>
                     </div>
                   </div>
+
+                  {/* Dynamic Category Iteration */}
+                  {Array.from(new Set(MASTER_FEATURE_REGISTRY.map((f) => f.category))).map((category) => {
+                    const categoryFeatures = MASTER_FEATURE_REGISTRY.filter((f) => f.category === category);
+                    const activeCount = categoryFeatures.filter((f) => newCompanyForm.features[f.id] !== false).length;
+                    return (
+                      <div key={category} className="space-y-2 pt-2 border-t border-slate-800/80">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-slate-300">
+                          <span className="flex items-center gap-1.5 uppercase tracking-wider text-[10px] text-indigo-400">
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                            {category}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-semibold bg-slate-800 px-2 py-0.5 rounded-md">
+                            {activeCount} / {categoryFeatures.length} Active
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-2">
+                          {categoryFeatures.map((feat) => {
+                            const isEnabled = newCompanyForm.features[feat.id] !== false;
+                            const Icon = feat.icon;
+                            return (
+                              <div
+                                key={feat.id}
+                                onClick={() =>
+                                  setNewCompanyForm({
+                                    ...newCompanyForm,
+                                    features: {
+                                      ...newCompanyForm.features,
+                                      [feat.id]: !isEnabled,
+                                    },
+                                  })
+                                }
+                                className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between gap-3 ${
+                                  isEnabled
+                                    ? 'bg-slate-800/90 border-emerald-500/40 shadow-xs'
+                                    : 'bg-slate-900/40 border-slate-800 opacity-60'
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div
+                                    className={`p-2 rounded-lg shrink-0 ${
+                                      isEnabled
+                                        ? 'bg-emerald-600 text-white shadow-xs'
+                                        : 'bg-slate-800 text-slate-500'
+                                    }`}
+                                  >
+                                    <Icon className="w-4 h-4" />
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-xs text-white flex items-center gap-2">
+                                      <span>{feat.name}</span>
+                                      <span
+                                        className={`px-1.5 py-0.2 rounded text-[9px] font-bold flex items-center gap-1 ${
+                                          isEnabled
+                                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                            : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                        }`}
+                                      >
+                                        {isEnabled ? (
+                                          <>
+                                            <Check className="w-2.5 h-2.5" />
+                                            <span>Active</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Lock className="w-2.5 h-2.5" />
+                                            <span>Disabled</span>
+                                          </>
+                                        )}
+                                      </span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-400 leading-snug">{feat.description}</p>
+                                  </div>
+                                </div>
+                                <div
+                                  className={`w-10 h-5 flex items-center rounded-full p-0.5 transition duration-200 shrink-0 ${
+                                    isEnabled ? 'bg-emerald-600' : 'bg-slate-700'
+                                  }`}
+                                >
+                                  <div
+                                    className={`bg-white w-4 h-4 rounded-full shadow-md transform transition duration-200 ${
+                                      isEnabled ? 'translate-x-5' : 'translate-x-0'
+                                    }`}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="flex justify-end gap-2 pt-3 border-t border-slate-700">
@@ -6225,6 +7935,129 @@ export default function App() {
     );
   }
 
+  // Transactions nested collapsible tree renderer for sidebar (Busy / Tally Style)
+  const renderTransactionsSidebarTree = (isMobile: boolean = false) => {
+    if (activeFeatures.accounting_transactions === false) return null;
+
+    return (
+      <div className="mt-1 ml-2 pl-2 border-l border-slate-800 space-y-0.5">
+        {/* Root Node: Transactions */}
+        <div
+          id={`tree-transactions-root${isMobile ? '-mob' : ''}`}
+          tabIndex={0}
+          onClick={() => {
+            setIsTransactionsExpanded((prev) => !prev);
+            setTreeFocusedId('tree-transactions-root');
+          }}
+          className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition select-none ${
+            treeFocusedId === 'tree-transactions-root'
+              ? 'bg-indigo-600/30 text-indigo-300 ring-1 ring-indigo-500 font-bold'
+              : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {isTransactionsExpanded ? (
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            ) : (
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+            )}
+            <Receipt className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Transactions</span>
+          </div>
+          <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700/60 font-medium">
+            Tree
+          </span>
+        </div>
+
+        {/* Nested Voucher Categories */}
+        {isTransactionsExpanded && (
+          <div className="ml-2 pl-1.5 border-l border-slate-800/80 space-y-0.5">
+            {VOUCHER_CATEGORIES.map((cat) => {
+              if (activeFeatures[cat.id] === false) return null;
+              const isCatExpanded = !!expandedVoucherTypes[cat.key];
+              const isCatFocused = treeFocusedId === `tree-cat-${cat.key}`;
+              const CatIcon = cat.icon;
+
+              return (
+                <div key={cat.key} className="space-y-0.5">
+                  {/* Category Node */}
+                  <div
+                    id={`tree-cat-${cat.key}${isMobile ? '-mob' : ''}`}
+                    tabIndex={0}
+                    onClick={() => {
+                      setExpandedVoucherTypes((prev) => ({ ...prev, [cat.key]: !prev[cat.key] }));
+                      setTreeFocusedId(`tree-cat-${cat.key}`);
+                    }}
+                    className={`flex items-center justify-between px-2 py-1 rounded-md text-[11px] font-medium cursor-pointer transition select-none ${
+                      isCatFocused
+                        ? 'bg-indigo-600/30 text-indigo-200 ring-1 ring-indigo-500 font-bold'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 truncate">
+                      {isCatExpanded ? (
+                        <ChevronDown className="w-3 h-3 text-slate-500 shrink-0" />
+                      ) : (
+                        <ChevronRight className="w-3 h-3 text-slate-500 shrink-0" />
+                      )}
+                      <CatIcon className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span className="truncate">{cat.label}</span>
+                    </div>
+                    <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-slate-800/80 text-slate-400 border border-slate-700/60 font-bold shrink-0">
+                      {cat.hotkeyPlaceholder}
+                    </span>
+                  </div>
+
+                  {/* Sub-Actions: Add, Modify, List */}
+                  {isCatExpanded && (
+                    <div className="ml-3 pl-2 border-l border-slate-800 space-y-0.5 py-0.5">
+                      {(['add', 'modify', 'list'] as const).map((action) => {
+                        const actionNodeId = `tree-action-${cat.key}-${action}`;
+                        const isActionFocused = treeFocusedId === actionNodeId;
+                        const actionLabel = action === 'add' ? 'Add' : action === 'modify' ? 'Modify' : 'List';
+
+                        return (
+                          <button
+                            key={action}
+                            type="button"
+                            id={`${actionNodeId}${isMobile ? '-mob' : ''}`}
+                            tabIndex={0}
+                            onClick={() => {
+                              setTreeFocusedId(actionNodeId);
+                              if (isMobile) setIsMobileMenuOpen(false);
+                              openVoucherAction(cat.key, action);
+                            }}
+                            className={`w-full flex items-center justify-between px-2 py-0.5 rounded text-[11px] transition text-left cursor-pointer ${
+                              isActionFocused
+                                ? 'bg-indigo-600 text-white font-bold shadow-xs'
+                                : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span className={`text-[9px] ${isActionFocused ? 'text-white' : 'text-slate-500'}`}>
+                                {action === 'add' ? '●' : action === 'modify' ? '◆' : '■'}
+                              </span>
+                              <span>{actionLabel}</span>
+                            </div>
+                            {action === 'add' && (
+                              <span className="text-[8px] font-mono px-1 py-0.2 rounded bg-slate-900/60 text-slate-400">
+                                {cat.hotkeyPlaceholder}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // ==========================================
   // VIEW 3: FULL CHEQUEDESK DASHBOARD
   // ==========================================
@@ -6232,8 +8065,26 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 flex flex-col antialiased text-slate-900">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-5 right-5 z-50 px-4 py-2.5 bg-slate-900 border border-slate-800 text-white text-xs font-semibold rounded-xl shadow-2xl flex items-center gap-2">
-          <Check className="w-4 h-4 text-emerald-400" />
+        <div
+          className={`fixed bottom-5 right-5 z-50 px-4 py-2.5 text-white text-xs font-semibold rounded-xl shadow-2xl flex items-center gap-2 border ${
+            toastMessage.type === 'error'
+              ? 'bg-rose-900 border-rose-700'
+              : toastMessage.type === 'warning'
+              ? 'bg-amber-900 border-amber-600'
+              : toastMessage.type === 'info'
+              ? 'bg-indigo-900 border-indigo-700'
+              : 'bg-slate-900 border-slate-800'
+          }`}
+        >
+          {toastMessage.type === 'error' ? (
+            <AlertCircle className="w-4 h-4 text-rose-400" />
+          ) : toastMessage.type === 'warning' ? (
+            <AlertTriangle className="w-4 h-4 text-amber-400" />
+          ) : toastMessage.type === 'info' ? (
+            <Info className="w-4 h-4 text-indigo-400" />
+          ) : (
+            <Check className="w-4 h-4 text-emerald-400" />
+          )}
           <span>{toastMessage.text}</span>
         </div>
       )}
@@ -6282,28 +8133,28 @@ export default function App() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 space-y-1">
-            {[
-              { id: 'dashboard' as NavView, label: 'Dashboard', icon: Laptop, visible: true },
-              { id: 'due_date_timeline' as NavView, label: 'Due Date Timeline', icon: Clock, visible: true },
-              { id: 'issued_date_log' as NavView, label: 'Issued Date Log', icon: Calendar, visible: true },
-              { id: 'pending' as NavView, label: 'Pending Cheques', icon: Clock, badge: pendingCheques.length, badgeColor: 'amber', visible: true },
-              { id: 'partial_payments' as NavView, label: 'Partial Payments', icon: Wallet, badge: partialCheques.length, badgeColor: 'sky', visible: true },
-              { id: 'cleared' as NavView, label: 'Cleared Cheques', icon: CheckCircle2, badge: clearedCheques.length, badgeColor: 'emerald', visible: true },
-              { id: 'reports' as NavView, label: 'Reports & Analytics', icon: BarChart3, visible: true },
-              { id: 'print_cheque' as NavView, label: 'Print Cheque Leaf', icon: Printer, visible: activeFeatures.print_cheque },
-              { id: 'banks' as NavView, label: 'Banks', icon: Landmark, badge: banks.length, visible: activeFeatures.parties_banks },
-              { id: 'parties' as NavView, label: 'Parties / Payees', icon: Users, badge: parties.length, visible: activeFeatures.parties_banks },
-              { id: 'company_users' as NavView, label: 'Company & Users', icon: Building2, visible: true },
-              { id: 'backup' as NavView, label: 'Backup & Restore', icon: Database, visible: activeFeatures.local_disk_backup || activeFeatures.google_drive_backup },
-              { id: 'import_cheques' as NavView, label: 'Import External Cheques', icon: FileSpreadsheet, badge: 'External', badgeColor: 'purple', visible: activeFeatures.import_cheques },
-            ]
-              .filter((item) => item.visible)
-              .map((item) => {
-                const Icon = item.icon;
-                const isActive = currentView === item.id;
-                return (
+            {registeredSidebarNavItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = currentView === item.id;
+              return (
+                <React.Fragment key={item.id}>
+                  {item.id === 'accounting_auditing' && (
+                    <div className="pt-2.5 pb-1 px-3">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                        <span>Accounting & Auditing</span>
+                      </div>
+                    </div>
+                  )}
+                  {item.id === 'due_date_timeline' && (
+                    <div className="pt-2.5 pb-1 px-3">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-600" />
+                        <span>Cheque Registers</span>
+                      </div>
+                    </div>
+                  )}
                   <button
-                    key={item.id}
                     onClick={() => setCurrentView(item.id)}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
                       isActive ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
@@ -6324,6 +8175,8 @@ export default function App() {
                             ? 'bg-emerald-500/20 text-emerald-300'
                             : item.badgeColor === 'purple'
                             ? 'bg-purple-500/20 text-purple-300'
+                            : item.badgeColor === 'indigo'
+                            ? 'bg-indigo-500/20 text-indigo-300'
                             : 'bg-slate-800 text-slate-400'
                         }`}
                       >
@@ -6331,8 +8184,10 @@ export default function App() {
                       </span>
                     )}
                   </button>
-                );
-              })}
+                  {item.id === 'accounting_auditing' && renderTransactionsSidebarTree(false)}
+                </React.Fragment>
+              );
+            })}
           </div>
 
           <div className="p-3 border-t border-slate-800">
@@ -6369,28 +8224,28 @@ export default function App() {
               </div>
 
               <div className="flex-1 overflow-y-auto space-y-1">
-                {[
-                  { id: 'dashboard' as NavView, label: 'Dashboard', icon: Laptop, visible: true },
-                  { id: 'due_date_timeline' as NavView, label: 'Due Date Timeline', icon: Clock, visible: true },
-                  { id: 'issued_date_log' as NavView, label: 'Issued Date Log', icon: Calendar, visible: true },
-                  { id: 'pending' as NavView, label: 'Pending Cheques', icon: Clock, badge: pendingCheques.length, badgeColor: 'amber', visible: true },
-                  { id: 'partial_payments' as NavView, label: 'Partial Payments', icon: Wallet, badge: partialCheques.length, badgeColor: 'sky', visible: true },
-                  { id: 'cleared' as NavView, label: 'Cleared Cheques', icon: CheckCircle2, badge: clearedCheques.length, badgeColor: 'emerald', visible: true },
-                  { id: 'reports' as NavView, label: 'Reports & Analytics', icon: BarChart3, visible: true },
-                  { id: 'print_cheque' as NavView, label: 'Print Cheque Leaf', icon: Printer, visible: activeFeatures.print_cheque },
-                  { id: 'banks' as NavView, label: 'Banks', icon: Landmark, badge: banks.length, visible: activeFeatures.parties_banks },
-                  { id: 'parties' as NavView, label: 'Parties / Payees', icon: Users, badge: parties.length, visible: activeFeatures.parties_banks },
-                  { id: 'company_users' as NavView, label: 'Company & Users', icon: Building2, visible: true },
-                  { id: 'backup' as NavView, label: 'Backup & Restore', icon: Database, visible: activeFeatures.local_disk_backup || activeFeatures.google_drive_backup },
-                  { id: 'import_cheques' as NavView, label: 'Import External Cheques', icon: FileSpreadsheet, badge: 'External', badgeColor: 'purple', visible: activeFeatures.import_cheques },
-                ]
-                  .filter((item) => item.visible)
-                  .map((item) => {
-                    const Icon = item.icon;
-                    const isActive = currentView === item.id;
-                    return (
+                {registeredSidebarNavItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = currentView === item.id;
+                  return (
+                    <React.Fragment key={item.id}>
+                      {item.id === 'accounting_auditing' && (
+                        <div className="pt-2.5 pb-1 px-3">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                            <span>Accounting & Auditing</span>
+                          </div>
+                        </div>
+                      )}
+                      {item.id === 'due_date_timeline' && (
+                        <div className="pt-2.5 pb-1 px-3">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-600" />
+                            <span>Cheque Registers</span>
+                          </div>
+                        </div>
+                      )}
                       <button
-                        key={item.id}
                         onClick={() => {
                           setCurrentView(item.id);
                           setIsMobileMenuOpen(false);
@@ -6414,6 +8269,8 @@ export default function App() {
                                 ? 'bg-emerald-500/20 text-emerald-300'
                                 : item.badgeColor === 'purple'
                                 ? 'bg-purple-500/20 text-purple-300'
+                                : item.badgeColor === 'indigo'
+                                ? 'bg-indigo-500/20 text-indigo-300'
                                 : 'bg-slate-800 text-slate-400'
                             }`}
                           >
@@ -6421,8 +8278,10 @@ export default function App() {
                           </span>
                         )}
                       </button>
-                    );
-                  })}
+                      {item.id === 'accounting_auditing' && renderTransactionsSidebarTree(true)}
+                    </React.Fragment>
+                  );
+                })}
               </div>
 
               <div className="pt-3 border-t border-slate-800">
@@ -6459,7 +8318,12 @@ export default function App() {
                 />
                 <span className="truncate">
                   <strong>Notice:</strong> Software subscription {subscriptionExpiryInfo.isExpired ? 'expired' : 'expires'} on{' '}
-                  <span className="font-bold underline">{subscriptionExpiryInfo.displayDate}</span>{' '}
+                  <span className="font-bold text-slate-900 bg-white/90 px-1.5 py-0.5 rounded border border-slate-300 font-mono">
+                    {subscriptionExpiryInfo.expiryDateBs} BS ({subscriptionExpiryInfo.friendlyBs})
+                  </span>{' '}
+                  <span className="font-semibold text-slate-700 bg-white/90 px-1.5 py-0.5 rounded border border-slate-300 font-mono">
+                    {subscriptionExpiryInfo.expiryDateAd} AD
+                  </span>{' '}
                   ({subscriptionExpiryInfo.isExpired
                     ? `Overdue by ${Math.abs(subscriptionExpiryInfo.diffDays)} days`
                     : `${subscriptionExpiryInfo.diffDays} days remaining`}). Please renew.
@@ -6888,6 +8752,483 @@ export default function App() {
                 </div>
               </div>
             )}
+
+            {/* VIEW: FOR ACCOUNTING & AUDITING */}
+            {currentView === 'accounting_auditing' && (() => {
+              const totalGrossCheques = cheques.reduce((sum, c) => sum + (c.amount || 0), 0);
+              const totalClearedVal = clearedCheques.reduce((sum, c) => sum + (c.amount || 0), 0);
+              const totalPendingVal = pendingCheques.reduce((sum, c) => sum + (c.amount || 0), 0);
+              const totalPartialRemainingVal = partialCheques.reduce((sum, c) => sum + (c.remaining_amount ?? c.amount), 0);
+              const totalUnclearedLiability = totalPendingVal + totalPartialRemainingVal;
+              
+              const highValueCheques = cheques.filter((c) => (c.amount || 0) >= 100000);
+              const highValueTotal = highValueCheques.reduce((sum, c) => sum + c.amount, 0);
+
+              const partiesWithPan = parties.filter((p) => p.pan_vat && p.pan_vat.trim() !== '');
+
+              return (
+                <div className="space-y-6">
+                  {/* Executive Header Banner */}
+                  <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-6 text-white border border-slate-800 shadow-lg">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                            Audit & Financial Control Module
+                          </span>
+                          <span className="text-xs text-slate-400 font-mono">
+                            FY {getCurrentBsDate().split('-')[0]} BS
+                          </span>
+                        </div>
+                        <h2 className="text-xl sm:text-2xl font-black tracking-tight mt-1 text-white">
+                          For Accounting & Auditing
+                        </h2>
+                        <p className="text-xs text-slate-300 max-w-2xl mt-1 leading-relaxed">
+                          Centralized ledger verification, bank reconciliation statements (BRS), tax and PAN/VAT compliance audit logs, and auditor verification packets.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        {activeFeatures.excel_pdf_export && (
+                          <UniversalExportDropdown
+                            onExportExcel={() => exportChequesToExcel(cheques, 'Audit_Ledger_Complete', 'All')}
+                            onExportPdf={() => exportChequesToPdf(cheques, 'Accounting & Auditing Ledger Summary')}
+                            onExportCsv={() => exportChequesToCsv(cheques, 'Audit_Ledger_Export')}
+                            title="Export Comprehensive Audit Pack"
+                            buttonText="Export Audit Pack"
+                          />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setCurrentView('reports')}
+                          className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer flex items-center gap-1.5"
+                        >
+                          <BarChart3 className="w-3.5 h-3.5" />
+                          <span>View Reports & Analytics</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Metric Cards Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mt-6 pt-6 border-t border-slate-800/80">
+                      <div className="p-3.5 bg-slate-900/80 rounded-xl border border-slate-800">
+                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Gross Cheque Commitments</div>
+                        <div className="text-lg font-black text-white font-mono mt-1">{formatNPR(totalGrossCheques)}</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">{cheques.length} Total Issued Cheques</div>
+                      </div>
+
+                      <div className="p-3.5 bg-slate-900/80 rounded-xl border border-slate-800">
+                        <div className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider">Cleared & Bank Settled</div>
+                        <div className="text-lg font-black text-emerald-400 font-mono mt-1">{formatNPR(totalClearedVal)}</div>
+                        <div className="text-[10px] text-emerald-300/80 mt-0.5">{clearedCheques.length} Reconciled Outflows</div>
+                      </div>
+
+                      <div className="p-3.5 bg-slate-900/80 rounded-xl border border-slate-800">
+                        <div className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider">Uncleared Floating Liability</div>
+                        <div className="text-lg font-black text-amber-400 font-mono mt-1">{formatNPR(totalUnclearedLiability)}</div>
+                        <div className="text-[10px] text-amber-300/80 mt-0.5">{pendingCheques.length + partialCheques.length} Outstanding Cheques</div>
+                      </div>
+
+                      <div className="p-3.5 bg-slate-900/80 rounded-xl border border-slate-800">
+                        <div className="text-[11px] font-semibold text-indigo-400 uppercase tracking-wider">High-Value Audit Items</div>
+                        <div className="text-lg font-black text-indigo-300 font-mono mt-1">{formatNPR(highValueTotal)}</div>
+                        <div className="text-[10px] text-indigo-300/80 mt-0.5">{highValueCheques.length} Cheques &ge; NPR 1,00,000</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Busy / Tally Style Transactions & Gateway of Vouchers */}
+                  {activeFeatures.accounting_transactions !== false && (
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 space-y-4">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2.5 bg-indigo-600 text-white rounded-xl shadow-xs">
+                            <Receipt className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-base font-bold text-slate-900">Transactions & Voucher Management</h3>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                Busy / Tally Architecture
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              Double-entry voucher transactions with tree navigation, rapid keyboard traversal, and ledger synchronization.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-mono bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-200 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <span>Nav: [↑] [↓] [Enter]</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                        {VOUCHER_CATEGORIES.map((cat) => {
+                          if (activeFeatures[cat.id] === false) return null;
+                          const CatIcon = cat.icon;
+                          const catVouchers = vouchers.filter((v) => v.voucher_type === cat.key);
+                          const totalVal = catVouchers.reduce((sum, v) => sum + (v.amount || 0), 0);
+
+                          return (
+                            <div
+                              key={cat.key}
+                              className="bg-slate-50/70 hover:bg-white rounded-xl p-3.5 border border-slate-200/80 hover:border-indigo-300 hover:shadow-sm transition flex flex-col justify-between"
+                            >
+                              <div>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <div className="p-1.5 bg-white rounded-lg border border-slate-200 text-indigo-600">
+                                      <CatIcon className="w-4 h-4" />
+                                    </div>
+                                    <span className="font-bold text-xs text-slate-900">{cat.label}</span>
+                                  </div>
+                                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 font-bold">
+                                    {cat.hotkeyPlaceholder}
+                                  </span>
+                                </div>
+
+                                <div className="mt-2.5 flex items-baseline justify-between text-[11px]">
+                                  <span className="text-slate-500">Recorded:</span>
+                                  <span className="font-semibold text-slate-800">{catVouchers.length} Entries</span>
+                                </div>
+                                <div className="flex items-baseline justify-between text-[11px]">
+                                  <span className="text-slate-500">Volume:</span>
+                                  <span className="font-mono font-bold text-slate-900">{formatNPR(totalVal)}</span>
+                                </div>
+                              </div>
+
+                              <div className="mt-3 pt-2.5 border-t border-slate-200/60 grid grid-cols-3 gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => openVoucherAction(cat.key, 'add')}
+                                  className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold transition cursor-pointer text-center"
+                                >
+                                  + Add
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openVoucherAction(cat.key, 'modify')}
+                                  className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[10px] font-semibold transition cursor-pointer text-center"
+                                >
+                                  Modify
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openVoucherAction(cat.key, 'list')}
+                                  className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-semibold transition cursor-pointer text-center"
+                                >
+                                  List
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Flexible Sub-Modules & Hub Categories Grid */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900">Accounting & Auditing Sub-Modules</h3>
+                        <p className="text-xs text-slate-500">Modular financial control categories and verification tools</p>
+                      </div>
+                      <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
+                        Flexible Menu Hub
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {/* Module 1: General Ledger & Reconciliation */}
+                      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs hover:shadow-md transition flex flex-col justify-between">
+                        <div>
+                          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3">
+                            <BookOpen className="w-5 h-5" />
+                          </div>
+                          <h4 className="text-sm font-bold text-slate-900">General Ledger & Party Statements</h4>
+                          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                            Audit individual payee balances, installment histories, invoice cross-referencing, and settlement confirmation slips.
+                          </p>
+                          <div className="mt-3 text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100 font-mono">
+                            Active Payees: {parties.length} | PAN/VAT Verified: {partiesWithPan.length}
+                          </div>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => setCurrentView('reports')}
+                            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>Open Party Ledgers</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Module 2: Bank Reconciliation Statement (BRS) */}
+                      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs hover:shadow-md transition flex flex-col justify-between">
+                        <div>
+                          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
+                            <Landmark className="w-5 h-5" />
+                          </div>
+                          <h4 className="text-sm font-bold text-slate-900">Bank Reconciliation Statement (BRS)</h4>
+                          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                            Reconcile issued bank leaves against bank passbooks, check uncleared deposits, and track pending transit float.
+                          </p>
+                          <div className="mt-3 text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100 font-mono">
+                            Connected Bank Accounts: {banks.length} | Transit Cheques: {pendingCheques.length}
+                          </div>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => setCurrentView('banks')}
+                            className="text-xs font-bold text-emerald-600 hover:text-emerald-800 transition flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>View Bank Registers</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Module 3: Cash Flow & Maturity Audit */}
+                      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs hover:shadow-md transition flex flex-col justify-between">
+                        <div>
+                          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
+                            <Clock className="w-5 h-5" />
+                          </div>
+                          <h4 className="text-sm font-bold text-slate-900">Due Date & Cash Flow Audit</h4>
+                          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                            Audit chronological payment schedules, overdue liabilities, and projected daily bank liquidity demands.
+                          </p>
+                          <div className="mt-3 text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100 font-mono">
+                            Total Floating: {formatNPR(totalUnclearedLiability)}
+                          </div>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => setCurrentView('due_date_timeline')}
+                            className="text-xs font-bold text-amber-600 hover:text-amber-800 transition flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>Inspect Timeline</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Module 4: High-Value & Tax Audit Log */}
+                      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs hover:shadow-md transition flex flex-col justify-between">
+                        <div>
+                          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center mb-3">
+                            <Receipt className="w-5 h-5" />
+                          </div>
+                          <h4 className="text-sm font-bold text-slate-900">High-Value Cheques & TDS Compliance</h4>
+                          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                            Audit threshold payments (&ge; NPR 1,00,000) requiring mandatory PAN/VAT documentation and internal sign-off.
+                          </p>
+                          <div className="mt-3 text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100 font-mono">
+                            High-Value Entries: {highValueCheques.length} ({formatNPR(highValueTotal)})
+                          </div>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => setCurrentView('pending')}
+                            className="text-xs font-bold text-purple-600 hover:text-purple-800 transition flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>Inspect Pending Cheques</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Module 5: Cleared Archive & Payment Audit Trail */}
+                      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs hover:shadow-md transition flex flex-col justify-between">
+                        <div>
+                          <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center mb-3">
+                            <CheckCircle2 className="w-5 h-5" />
+                          </div>
+                          <h4 className="text-sm font-bold text-slate-900">Cleared Cheques & Partial Installments</h4>
+                          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                            Audit trail of partial settlements, cash vs IPS settlement modes, and immutable cleared payment vouchers.
+                          </p>
+                          <div className="mt-3 text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100 font-mono">
+                            Cleared Value: {formatNPR(totalClearedVal)}
+                          </div>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => setCurrentView('partial_payments')}
+                            className="text-xs font-bold text-sky-600 hover:text-sky-800 transition flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>Review Partial Payments</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Module 6: System Ledger Backup & Cloud Archive */}
+                      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs hover:shadow-md transition flex flex-col justify-between">
+                        <div>
+                          <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center mb-3">
+                            <Database className="w-5 h-5" />
+                          </div>
+                          <h4 className="text-sm font-bold text-slate-900">Auditor Backup Archive & Snapshots</h4>
+                          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                            Create immutable 1-click ZIP backups containing full database JSON dumps and auditor verification reports.
+                          </p>
+                          <div className="mt-3 text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100 font-mono">
+                            Cloud Status: {isOnline ? 'Realtime Auto-Sync' : 'Local Offline Mode'}
+                          </div>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => setCurrentView('backup')}
+                            className="text-xs font-bold text-slate-700 hover:text-slate-900 transition flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>Open Backup & Restore</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* High-Value Cheques Statutory Audit Table */}
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+                    <div className="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50/60">
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                          <Receipt className="w-4 h-4 text-indigo-600" />
+                          <span>Statutory Audit: High-Value Cheque Register (&ge; NPR 1,00,000)</span>
+                        </h4>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          List of material transactions subject to external auditor examination and PAN/VAT review
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold font-mono text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg">
+                          {highValueCheques.length} Transactions ({formatNPR(highValueTotal)})
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-100/80 text-slate-600 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                            <th className="py-2.5 px-3">Cheque #</th>
+                            <th className="py-2.5 px-3">Payee / Party</th>
+                            <th className="py-2.5 px-3">PAN / VAT</th>
+                            <th className="py-2.5 px-3">Bank</th>
+                            <th className="py-2.5 px-3">Issue Date (BS)</th>
+                            <th className="py-2.5 px-3">Due Date (BS)</th>
+                            <th className="py-2.5 px-3 text-right">Amount (NPR)</th>
+                            <th className="py-2.5 px-3 text-center">Status</th>
+                            <th className="py-2.5 px-3 text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {highValueCheques.length === 0 ? (
+                            <tr>
+                              <td colSpan={9} className="py-8 text-center text-slate-400">
+                                No high-value cheques (&ge; NPR 1,00,000) recorded in the current financial year.
+                              </td>
+                            </tr>
+                          ) : (
+                            highValueCheques.map((c) => {
+                              const party = parties.find((p) => p.id === c.party_id);
+                              const bank = banks.find((b) => b.id === c.bank_id);
+                              return (
+                                <tr key={c.id} className="hover:bg-slate-50 transition">
+                                  <td className="py-2.5 px-3 font-mono font-bold text-slate-800">
+                                    #{c.cheque_number}
+                                  </td>
+                                  <td className="py-2.5 px-3 font-medium text-slate-900">
+                                    {party?.name || 'Unknown Party'}
+                                  </td>
+                                  <td className="py-2.5 px-3 font-mono text-slate-600">
+                                    {party?.pan_vat ? (
+                                      <span className="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 font-bold text-[10px]">
+                                        {party.pan_vat}
+                                      </span>
+                                    ) : (
+                                      <span className="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 text-[10px]">
+                                        No PAN
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-slate-700">
+                                    {bank?.name || 'Unknown Bank'}
+                                  </td>
+                                  <td className="py-2.5 px-3 font-mono text-slate-600 whitespace-nowrap">
+                                    {c.issue_date_bs} BS
+                                  </td>
+                                  <td className="py-2.5 px-3 font-mono text-slate-600 whitespace-nowrap">
+                                    {c.due_date_bs} BS
+                                  </td>
+                                  <td className="py-2.5 px-3 font-mono font-bold text-slate-900 text-right">
+                                    {formatNPR(c.amount)}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                    <span
+                                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                        c.status === 'Cleared'
+                                          ? 'bg-emerald-100 text-emerald-800'
+                                          : c.status === 'Partially Paid'
+                                          ? 'bg-sky-100 text-sky-800'
+                                          : 'bg-amber-100 text-amber-800'
+                                      }`}
+                                    >
+                                      {c.status}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedCheque(c);
+                                        setIsDetailModalOpen(true);
+                                      }}
+                                      className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
+                                      title="Inspect Cheque Leaf"
+                                    >
+                                      <Eye className="w-3.5 h-3.5" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                        {highValueCheques.length > 0 && (
+                          <tfoot>
+                            <tr className="bg-slate-50 font-bold text-slate-900 border-t border-slate-200">
+                              <td colSpan={6} className="py-2.5 px-3 text-slate-600 uppercase tracking-wider text-[10px]">
+                                Total High-Value Audit Transactions
+                              </td>
+                              <td className="py-2.5 px-3 font-mono text-right text-indigo-700 font-extrabold">
+                                {formatNPR(highValueTotal)}
+                              </td>
+                              <td colSpan={2} className="py-2.5 px-3"></td>
+                            </tr>
+                          </tfoot>
+                        )}
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* VIEW: DUE DATE TIMELINE */}
             {currentView === 'due_date_timeline' && (() => {
@@ -9830,17 +12171,73 @@ export default function App() {
                           {currentCompany?.subscription_status || 'Active'}
                         </span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between items-center py-1">
                         <span className="text-slate-500">License Expiry / Renewal:</span>
-                        <span className="font-mono text-slate-700 font-medium">
-                          {currentCompany?.subscription_expiry || '2027-12-31'}
-                        </span>
+                        <div className="text-right flex items-center gap-1.5">
+                          <span className="font-mono text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-xs" title="Nepali BS Expiry">
+                            {subscriptionExpiryInfo ? `${subscriptionExpiryInfo.expiryDateBs} BS` : (currentCompany?.expiry_date_bs || '2084-06-07 BS')}
+                          </span>
+                          <span className="font-mono text-indigo-700 font-semibold bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded text-xs" title="English AD Expiry">
+                            {subscriptionExpiryInfo ? `${subscriptionExpiryInfo.expiryDateAd} AD` : (currentCompany?.expiry_date_ad || '2027-09-24 AD')}
+                          </span>
+                          {subscriptionExpiryInfo && (
+                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${
+                              subscriptionExpiryInfo.isExpired
+                                ? 'bg-rose-100 text-rose-800 border-rose-200'
+                                : subscriptionExpiryInfo.isExpiringSoon
+                                ? 'bg-amber-100 text-amber-800 border-amber-200'
+                                : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                            }`}>
+                              {subscriptionExpiryInfo.isExpired ? 'Expired' : `${subscriptionExpiryInfo.diffDays}d left`}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="flex justify-between pt-2 border-t border-slate-200">
                         <span className="text-slate-500">Active Database Records:</span>
                         <span className="font-semibold text-emerald-700">
                           {cheques.length} Cheques • {parties.length} Parties • {banks.length} Banks
                         </span>
+                      </div>
+                    </div>
+
+                    {/* Voucher & Billing Configurations (Tenant Level) */}
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 space-y-3 text-xs">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                            <Receipt className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>Voucher &amp; Invoicing Configurations</span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            Tenant-level toggle for sales pricing and item discounting columns
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                        <div>
+                          <span className="font-semibold text-slate-700">Enable Sales Discount</span>
+                          <p className="text-[10px] text-slate-400">
+                            {isSalesDiscountEnabled
+                              ? 'Discount % & Rs. columns are visible in Sales Voucher'
+                              : 'Discount fields are completely hidden from Sales Voucher'}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          id="btn-toggle-company-sales-discount"
+                          onClick={() => handleToggleCompanyDiscount(!isSalesDiscountEnabled)}
+                          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                            isSalesDiscountEnabled ? 'bg-indigo-600' : 'bg-slate-300'
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                              isSalesDiscountEnabled ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
                       </div>
                     </div>
 
@@ -9894,30 +12291,30 @@ export default function App() {
                             </span>
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-xs">
-                            {[
-                              { label: 'Print Cheque Leaf', enabled: activeFeatures.print_cheque },
-                              { label: 'Google Drive Sync', enabled: activeFeatures.google_drive_backup },
-                              { label: 'Local Disk Backup', enabled: activeFeatures.local_disk_backup },
-                              { label: 'Import External Cheques', enabled: activeFeatures.import_cheques },
-                              { label: 'Parties & Banks Master', enabled: activeFeatures.parties_banks },
-                              { label: 'Excel & PDF Export', enabled: activeFeatures.excel_pdf_export },
-                            ].map((feat, i) => (
-                              <div
-                                key={i}
-                                className={`p-2 rounded-xl border flex items-center justify-between ${
-                                  feat.enabled ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50 border-slate-200 opacity-60'
-                                }`}
-                              >
-                                <span className="text-[11px] font-medium text-slate-800">{feat.label}</span>
-                                <span
-                                  className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                                    feat.enabled ? 'bg-emerald-200 text-emerald-800' : 'bg-slate-200 text-slate-600'
+                            {MASTER_FEATURE_REGISTRY.map((feat) => {
+                              const isEnabled = activeFeatures[feat.id] !== false;
+                              const FeatIcon = feat.icon;
+                              return (
+                                <div
+                                  key={feat.id}
+                                  className={`p-2 rounded-xl border flex items-center justify-between gap-1.5 ${
+                                    isEnabled ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50 border-slate-200 opacity-60'
                                   }`}
                                 >
-                                  {feat.enabled ? 'ENABLED' : 'DISABLED'}
-                                </span>
-                              </div>
-                            ))}
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <FeatIcon className={`w-3.5 h-3.5 shrink-0 ${isEnabled ? 'text-emerald-700' : 'text-slate-400'}`} />
+                                    <span className="text-[11px] font-medium text-slate-800 truncate">{feat.name}</span>
+                                  </div>
+                                  <span
+                                    className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                                      isEnabled ? 'bg-emerald-200 text-emerald-800' : 'bg-slate-200 text-slate-600'
+                                    }`}
+                                  >
+                                    {isEnabled ? 'ENABLED' : 'DISABLED'}
+                                  </span>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       </>
@@ -11795,6 +14192,1960 @@ export default function App() {
                 </div>
               );
             })()}
+          </div>
+        </div>
+      )}
+
+      {/* 23. Busy/Tally Style Voucher Action Modal (Add, Modify, List) */}
+      {activeVoucherModal.isOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          {activeVoucherModal.action === 'list' ? (
+            /* LIST REGISTER VIEW */
+            <div className="bg-white rounded-2xl max-w-5xl w-full p-6 shadow-2xl space-y-4 border border-slate-100 my-8">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl">
+                    <Receipt className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-bold text-slate-900">
+                        {activeVoucherModal.type === 'sales'
+                          ? 'Sales Voucher Register (Tax Invoices)'
+                          : `${VOUCHER_CATEGORIES.find((c) => c.key === activeVoucherModal.type)?.label || 'Voucher'} Register`}
+                      </h3>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 font-mono">
+                        {VOUCHER_CATEGORIES.find((c) => c.key === activeVoucherModal.type)?.hotkeyPlaceholder || '[F8]'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      {vouchers.filter((v) => v.voucher_type === activeVoucherModal.type || (activeVoucherModal.type === 'sales' && v.voucher_type === 'invoice')).length} recorded vouchers in ledger
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openVoucherAction(activeVoucherModal.type, 'add')}
+                    className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  >
+                    <span>+ Add New {activeVoucherModal.type === 'sales' ? 'Sales Voucher' : 'Entry'} [Enter]</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveVoucherModal((prev) => ({ ...prev, isOpen: false }))}
+                    className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Search Bar & Stats */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search by voucher #, party/account, narration, vehicle #..."
+                    value={voucherSearchTerm}
+                    onChange={(e) => setVoucherSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div className="text-xs text-slate-600 font-mono flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200">
+                  <span>Total Volume:</span>
+                  <span className="font-bold text-slate-900">
+                    {formatNPR(
+                      vouchers
+                        .filter((v) => v.voucher_type === activeVoucherModal.type || (activeVoucherModal.type === 'sales' && v.voucher_type === 'invoice'))
+                        .reduce((sum, v) => sum + (v.amount || 0), 0)
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {/* Table */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <div className="max-h-96 overflow-y-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 sticky top-0">
+                      {activeVoucherModal.type === 'sales' ? (
+                        <tr>
+                          <th className="p-3">Vch #</th>
+                          <th className="p-3">Date (BS / AD)</th>
+                          <th className="p-3">Series</th>
+                          <th className="p-3">Party Account (Customer)</th>
+                          <th className="p-3">Material Centre</th>
+                          <th className="p-3 text-right">Net Amount (NPR)</th>
+                          <th className="p-3">Vehicle / Transport</th>
+                          <th className="p-3 text-center">Status</th>
+                          <th className="p-3 text-center">Actions</th>
+                        </tr>
+                      ) : (
+                        <tr>
+                          <th className="p-3">Voucher #</th>
+                          <th className="p-3">Date (BS / AD)</th>
+                          <th className="p-3">Mode</th>
+                          <th className="p-3">Debit Account (Dr)</th>
+                          <th className="p-3">Credit Account (Cr)</th>
+                          <th className="p-3 text-right">Amount (NPR)</th>
+                          <th className="p-3">Cheque / Ref</th>
+                          <th className="p-3">Narration</th>
+                          <th className="p-3 text-center">Actions</th>
+                        </tr>
+                      )}
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {(() => {
+                        const filtered = vouchers.filter((v) => {
+                          const matchesType = activeVoucherModal.type === 'sales'
+                            ? (v.voucher_type === 'sales' || v.voucher_type === 'invoice')
+                            : v.voucher_type === activeVoucherModal.type;
+                          if (!matchesType) return false;
+                          if (!voucherSearchTerm.trim()) return true;
+                          const q = voucherSearchTerm.toLowerCase();
+                          return (
+                            v.voucher_number.toLowerCase().includes(q) ||
+                            v.account_debit.toLowerCase().includes(q) ||
+                            v.account_credit.toLowerCase().includes(q) ||
+                            (v.party_name && v.party_name.toLowerCase().includes(q)) ||
+                            (v.transport_info?.vehicle_no && v.transport_info.vehicle_no.toLowerCase().includes(q)) ||
+                            (v.cheque_number && v.cheque_number.toLowerCase().includes(q)) ||
+                            v.narration.toLowerCase().includes(q)
+                          );
+                        });
+
+                        if (filtered.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={activeVoucherModal.type === 'sales' ? 9 : 9} className="p-8 text-center text-slate-400">
+                                No vouchers found matching your filter.
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        if (activeVoucherModal.type === 'sales') {
+                          return filtered.map((v) => (
+                            <tr key={v.id} className="hover:bg-slate-50/80 transition">
+                              <td className="p-3 font-mono font-bold text-indigo-700">#{v.voucher_number}</td>
+                              <td className="p-3">
+                                <div className="font-semibold text-slate-800">{v.date_bs} BS</div>
+                                <div className="text-[10px] text-slate-400 font-mono">{v.date_ad} AD</div>
+                              </td>
+                              <td className="p-3">
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                  {v.series || 'Main'}
+                                </span>
+                              </td>
+                              <td className="p-3 font-semibold text-slate-900">
+                                {v.party_name || v.account_debit}
+                              </td>
+                              <td className="p-3 text-slate-600 font-mono">{v.mat_centre || 'Main Store'}</td>
+                              <td className="p-3 text-right font-mono font-bold text-slate-900">
+                                {formatNPR(v.amount)}
+                              </td>
+                              <td className="p-3 text-slate-600 font-mono text-[11px]">
+                                {v.transport_info?.vehicle_no ? (
+                                  <div className="flex items-center gap-1">
+                                    <Truck className="w-3.5 h-3.5 text-slate-400" />
+                                    <span>{v.transport_info.vehicle_no}</span>
+                                  </div>
+                                ) : (
+                                  '—'
+                                )}
+                              </td>
+                              <td className="p-3 text-center">
+                                {v.is_held ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                    HELD
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                    SAVED
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3 text-center">
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => openVoucherAction('sales', 'modify', v)}
+                                    className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[10px] font-bold transition cursor-pointer"
+                                  >
+                                    Modify
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setBusySalesModal({ type: 'print_preview', data: v })}
+                                    className="p-1 text-slate-500 hover:text-indigo-600 rounded transition cursor-pointer"
+                                    title="Print Tax Invoice"
+                                  >
+                                    <Printer className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteVoucher(v.id)}
+                                    className="p-1 text-slate-400 hover:text-rose-600 rounded transition cursor-pointer"
+                                    title="Delete Voucher"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ));
+                        }
+
+                        return filtered.map((v) => (
+                          <tr key={v.id} className="hover:bg-slate-50/80 transition">
+                            <td className="p-3 font-mono font-bold text-indigo-700">{v.voucher_number}</td>
+                            <td className="p-3">
+                              <div className="font-semibold text-slate-800">{v.date_bs} BS</div>
+                              <div className="text-[10px] text-slate-400 font-mono">{v.date_ad} AD</div>
+                            </td>
+                            <td className="p-3">
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                {v.payment_mode}
+                              </span>
+                            </td>
+                            <td className="p-3 font-semibold text-slate-800">{v.account_debit}</td>
+                            <td className="p-3 text-slate-600">{v.account_credit}</td>
+                            <td className="p-3 text-right font-mono font-bold text-slate-900">
+                              {formatNPR(v.amount)}
+                            </td>
+                            <td className="p-3 font-mono text-slate-500">{v.cheque_number || v.reference_no || '—'}</td>
+                            <td className="p-3 text-slate-500 max-w-xs truncate" title={v.narration}>
+                              {v.narration || '—'}
+                            </td>
+                            <td className="p-3 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => openVoucherAction(activeVoucherModal.type, 'modify', v)}
+                                  className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[10px] font-bold transition cursor-pointer"
+                                >
+                                  Modify
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteVoucher(v.id)}
+                                  className="p-1 text-slate-400 hover:text-rose-600 rounded transition cursor-pointer"
+                                  title="Delete Voucher"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ));
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveVoucherModal((prev) => ({ ...prev, isOpen: false }))}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+                >
+                  Close Register [Esc]
+                </button>
+              </div>
+            </div>
+          ) : activeVoucherModal.type === 'sales' ? (
+            /* ========================================================================= */
+            /* EXACT BUSY SOFTWARE SALES VOUCHER REPLICA SCREEN                          */
+            /* ========================================================================= */
+            <div
+              tabIndex={0}
+              onKeyDown={handleBusySalesKeyDown}
+              className="bg-slate-100 text-slate-800 rounded-xl shadow-2xl border border-slate-300 w-full max-w-6xl max-h-[96vh] flex flex-col overflow-hidden my-4 focus:outline-none"
+            >
+              {/* 1. BUSY ERP TITLE / SYSTEM BAR */}
+              <div className="bg-slate-900 text-white px-4 py-2.5 flex items-center justify-between border-b border-slate-800 shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-6 h-6 rounded bg-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-xs">
+                    B
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm tracking-wide">Sales Voucher</span>
+                    <span className="text-slate-400 font-mono text-xs">[{salesVoucherData.series}]</span>
+                    {salesVoucherData.isHeld && (
+                      <span className="bg-amber-500 text-slate-950 font-bold px-2 py-0.5 rounded text-[10px] font-mono tracking-wider animate-pulse">
+                        HELD / DRAFT
+                      </span>
+                    )}
+                  </div>
+                  <span className="hidden sm:inline text-slate-400 text-xs">• FY 2081/82 • {activeCompanyName}</span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="hidden md:flex items-center gap-2 text-[11px] text-slate-300 font-mono">
+                    <span className="bg-slate-800 px-2 py-0.5 rounded border border-slate-700">[F2] Save</span>
+                    <span className="bg-slate-800 px-2 py-0.5 rounded border border-slate-700">[Esc] Quit</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveVoucherModal((prev) => ({ ...prev, isOpen: false }))}
+                    className="p-1 text-slate-400 hover:text-white rounded hover:bg-slate-800 transition cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* 2. MAIN SCROLLABLE VOUCHER WORKBENCH */}
+              <div className="p-4 overflow-y-auto space-y-3.5 flex-1 text-xs">
+                {/* 2A. HEADER & TOP INFORMATION BAR */}
+                <div className="bg-white rounded-lg border border-slate-300 p-3.5 shadow-2xs space-y-3">
+                  {/* Top Row: Series, Date BS, Date AD, Voucher No, Sale Type */}
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Series</label>
+                      <select
+                        value={salesVoucherData.series}
+                        onChange={(e) => setSalesVoucherData({ ...salesVoucherData, series: e.target.value })}
+                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      >
+                        <option value="Main">Main</option>
+                        <option value="Tax Invoice">Tax Invoice</option>
+                        <option value="Retail">Retail</option>
+                        <option value="Wholesale">Wholesale</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Date (BS - Nepali)</label>
+                      <input
+                        type="text"
+                        required
+                        value={salesVoucherData.date_bs}
+                        onChange={(e) => {
+                          const bs = e.target.value;
+                          const ad = bsToAd(bs);
+                          setSalesVoucherData({
+                            ...salesVoucherData,
+                            date_bs: bs,
+                            date_ad: ad || salesVoucherData.date_ad,
+                          });
+                        }}
+                        placeholder="YYYY-MM-DD"
+                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded font-mono font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Date (AD - English)</label>
+                      <input
+                        type="date"
+                        required
+                        value={salesVoucherData.date_ad}
+                        onChange={(e) => {
+                          const ad = e.target.value;
+                          const bs = adToBs(ad);
+                          setSalesVoucherData({
+                            ...salesVoucherData,
+                            date_ad: ad,
+                            date_bs: bs || salesVoucherData.date_bs,
+                          });
+                        }}
+                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded font-mono text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Vch No.</label>
+                      <input
+                        type="text"
+                        required
+                        value={salesVoucherData.voucher_number}
+                        onChange={(e) => setSalesVoucherData({ ...salesVoucherData, voucher_number: e.target.value })}
+                        placeholder="e.g. 1"
+                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded font-mono font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Sale Type</label>
+                      <select
+                        value={salesVoucherData.sale_type}
+                        onChange={(e) => setSalesVoucherData({ ...salesVoucherData, sale_type: e.target.value })}
+                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      >
+                        <option value="VAT 13%">VAT 13%</option>
+                        <option value="L/GST-13% (Tax Invoice)">L/GST-13% (Tax Invoice)</option>
+                        <option value="Exempted / Non-Taxable">Exempted / Non-Taxable</option>
+                        <option value="Multi-Rate (Composite)">Multi-Rate (Composite)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Middle Row: Party Account Selector with Live Balance & Material Centre */}
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                    <div className="sm:col-span-8">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-bold text-slate-700">Party Account</label>
+                        {(() => {
+                          const bal = getPartyBalanceInfo(salesVoucherData.party_name);
+                          return (
+                            <span className="text-[11px] font-mono flex items-center gap-1.5">
+                              <span className="text-slate-500">Cur. Bal:</span>
+                              <span className="font-bold text-slate-900">Rs. {formatNPR(bal.amount)}</span>
+                              <span
+                                className={`px-1.5 py-0.2 rounded font-bold text-[10px] ${
+                                  bal.drCr === 'Dr' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
+                                }`}
+                              >
+                                {bal.drCr}
+                              </span>
+                            </span>
+                          );
+                        })()}
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        list="busy-party-list"
+                        value={salesVoucherData.party_name}
+                        onChange={(e) => setSalesVoucherData({ ...salesVoucherData, party_name: e.target.value })}
+                        placeholder="Search or select Party Name / Sundry Debtor..."
+                        className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                      <datalist id="busy-party-list">
+                        {parties.map((p) => (
+                          <option key={p.id} value={p.name} />
+                        ))}
+                      </datalist>
+                    </div>
+
+                    <div className="sm:col-span-4">
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Mat. Centre</label>
+                      <select
+                        value={salesVoucherData.mat_centre}
+                        onChange={(e) => setSalesVoucherData({ ...salesVoucherData, mat_centre: e.target.value })}
+                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      >
+                        <option value="Main Store">Main Store</option>
+                        <option value="Warehouse 1">Warehouse 1 (Kathmandu)</option>
+                        <option value="Showroom Counter">Showroom Counter</option>
+                        <option value="Birgunj Depot">Birgunj Depot</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Narration Row & Transport Toggle */}
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                    <div className="sm:col-span-9">
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Narration</label>
+                      <input
+                        type="text"
+                        value={salesVoucherData.narration}
+                        onChange={(e) => setSalesVoucherData({ ...salesVoucherData, narration: e.target.value })}
+                        placeholder="e.g. Goods sold on 30-day credit terms / PO reference"
+                        className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-3 pt-4 sm:pt-0">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSalesVoucherData((prev) => ({ ...prev, showTransport: !prev.showTransport }))
+                        }
+                        className={`w-full py-1.5 px-2.5 rounded border text-[11px] font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                          salesVoucherData.showTransport || salesVoucherData.vehicle_no
+                            ? 'bg-indigo-50 text-indigo-700 border-indigo-300'
+                            : 'bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-100'
+                        }`}
+                      >
+                        <Truck className="w-3.5 h-3.5" />
+                        <span>
+                          {salesVoucherData.showTransport ? 'Hide Transport' : '+ Transport / Delivery'}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 2B. TRANSPORT & DELIVERY INFORMATION (CUSTOM FIELDS) */}
+                  {(salesVoucherData.showTransport || salesVoucherData.vehicle_no) && (
+                    <div className="p-3 bg-slate-50/80 rounded border border-slate-200 space-y-2 mt-2">
+                      <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                        <Truck className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Transport &amp; Dispatch Information (Optional Custom Fields)</span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        <div>
+                          <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Driver Name</label>
+                          <input
+                            type="text"
+                            value={salesVoucherData.driver_name}
+                            onChange={(e) => setSalesVoucherData({ ...salesVoucherData, driver_name: e.target.value })}
+                            placeholder="e.g. Ramesh Thapa"
+                            className="w-full px-2 py-1 bg-white border border-slate-300 rounded text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Driver Phone No</label>
+                          <input
+                            type="text"
+                            value={salesVoucherData.driver_phone}
+                            onChange={(e) => setSalesVoucherData({ ...salesVoucherData, driver_phone: e.target.value })}
+                            placeholder="e.g. 9841234567"
+                            className="w-full px-2 py-1 bg-white border border-slate-300 rounded text-xs font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Vehicle No</label>
+                          <input
+                            type="text"
+                            value={salesVoucherData.vehicle_no}
+                            onChange={(e) => setSalesVoucherData({ ...salesVoucherData, vehicle_no: e.target.value })}
+                            placeholder="e.g. BA 2 KHA 8492"
+                            className="w-full px-2 py-1 bg-white border border-slate-300 rounded text-xs font-mono font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Delivery Person Name</label>
+                          <input
+                            type="text"
+                            value={salesVoucherData.delivery_person}
+                            onChange={(e) => setSalesVoucherData({ ...salesVoucherData, delivery_person: e.target.value })}
+                            placeholder="e.g. Suman Sharma"
+                            className="w-full px-2 py-1 bg-white border border-slate-300 rounded text-xs"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2C. ITEM ENTRY GRID TABLE */}
+                <div className="bg-white rounded-lg border border-slate-300 shadow-2xs overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-slate-200/80 text-slate-700 font-bold border-b border-slate-300 text-[11px]">
+                        <tr>
+                          <th className="p-2 text-center w-10 border-r border-slate-300">S.N.</th>
+                          <th className="p-2 border-r border-slate-300">Item Description</th>
+                          <th className="p-2 text-right w-20 border-r border-slate-300">Qty</th>
+                          <th className="p-2 text-center w-24 border-r border-slate-300">Unit</th>
+                          <th className="p-2 text-right w-28 border-r border-slate-300">Price (Rs.)</th>
+                          {/* COMPANY SETTING: DISCOUNT TOGGLE - Completely hidden if disabled */}
+                          {isSalesDiscountEnabled && (
+                            <>
+                              <th className="p-2 text-right w-20 border-r border-slate-300">Disc (%)</th>
+                              <th className="p-2 text-right w-24 border-r border-slate-300">Disc (Rs.)</th>
+                            </>
+                          )}
+                          <th className="p-2 text-right w-32 border-r border-slate-300">Amount (Rs.)</th>
+                          <th className="p-2 text-center w-10">✕</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {busySalesComputed.computedItems.map((item, idx) => (
+                          <tr key={item.id} className="hover:bg-slate-50/70">
+                            <td className="p-1.5 text-center font-mono font-bold text-slate-500 border-r border-slate-200">
+                              {idx + 1}
+                            </td>
+                            <td className="p-1 border-r border-slate-200">
+                              <input
+                                type="text"
+                                list="busy-item-catalog"
+                                value={item.item_description}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setSalesVoucherData((prev) => ({
+                                    ...prev,
+                                    items: prev.items.map((it, i) =>
+                                      i === idx ? { ...it, item_description: val } : it
+                                    ),
+                                  }));
+                                }}
+                                placeholder="Type item name or code..."
+                                className="w-full px-2 py-1 bg-transparent border-0 focus:ring-1 focus:ring-indigo-500 rounded font-medium text-slate-900"
+                              />
+                            </td>
+                            <td className="p-1 border-r border-slate-200">
+                              <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={item.qty}
+                                onChange={(e) => {
+                                  const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                                  setSalesVoucherData((prev) => ({
+                                    ...prev,
+                                    items: prev.items.map((it, i) => (i === idx ? { ...it, qty: val } : it)),
+                                  }));
+                                }}
+                                placeholder="0"
+                                className="w-full px-2 py-1 text-right font-mono font-bold text-slate-900 bg-transparent border-0 focus:ring-1 focus:ring-indigo-500 rounded"
+                              />
+                            </td>
+                            <td className="p-1 border-r border-slate-200">
+                              <select
+                                value={item.unit}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setSalesVoucherData((prev) => ({
+                                    ...prev,
+                                    items: prev.items.map((it, i) => (i === idx ? { ...it, unit: val } : it)),
+                                  }));
+                                }}
+                                className="w-full px-1.5 py-1 text-center bg-transparent border-0 font-medium text-slate-800 focus:ring-1 focus:ring-indigo-500 rounded"
+                              >
+                                <option value="Case">Case</option>
+                                <option value="Pcs">Pcs</option>
+                                <option value="Box">Box</option>
+                                <option value="Bag">Bag</option>
+                                <option value="Kg">Kg</option>
+                                <option value="Ctn">Ctn</option>
+                                <option value="Bundle">Bundle</option>
+                                <option value="Mtr">Mtr</option>
+                                <option value="Nos">Nos</option>
+                              </select>
+                            </td>
+                            <td className="p-1 border-r border-slate-200">
+                              <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={item.price}
+                                onChange={(e) => {
+                                  const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                                  setSalesVoucherData((prev) => ({
+                                    ...prev,
+                                    items: prev.items.map((it, i) => (i === idx ? { ...it, price: val } : it)),
+                                  }));
+                                }}
+                                placeholder="0.00"
+                                className="w-full px-2 py-1 text-right font-mono font-semibold text-slate-900 bg-transparent border-0 focus:ring-1 focus:ring-indigo-500 rounded"
+                              />
+                            </td>
+                            {/* DISCOUNT COLUMNS: STRICTLY CONDITIONAL */}
+                            {isSalesDiscountEnabled && (
+                              <>
+                                <td className="p-1 border-r border-slate-200">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="any"
+                                    value={item.disc_pct}
+                                    onChange={(e) => {
+                                      const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                                      setSalesVoucherData((prev) => ({
+                                        ...prev,
+                                        items: prev.items.map((it, i) => (i === idx ? { ...it, disc_pct: val } : it)),
+                                      }));
+                                    }}
+                                    placeholder="0"
+                                    className="w-full px-2 py-1 text-right font-mono text-amber-700 bg-transparent border-0 focus:ring-1 focus:ring-indigo-500 rounded"
+                                  />
+                                </td>
+                                <td className="p-1.5 text-right font-mono text-slate-600 border-r border-slate-200">
+                                  {formatNPR(item.disc_amt || 0)}
+                                </td>
+                              </>
+                            )}
+                            <td className="p-1.5 text-right font-mono font-bold text-slate-900 border-r border-slate-200">
+                              {formatNPR(item.amount || 0)}
+                            </td>
+                            <td className="p-1 text-center">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (salesVoucherData.items.length <= 1) {
+                                    showToast('Voucher must contain at least 1 row.', 'warning');
+                                    return;
+                                  }
+                                  setSalesVoucherData((prev) => ({
+                                    ...prev,
+                                    items: prev.items.filter((_, i) => i !== idx),
+                                  }));
+                                }}
+                                className="text-slate-400 hover:text-rose-600 p-1 rounded cursor-pointer"
+                              >
+                                ✕
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Add Row Button & Alt. Qty / Total Qty Summary Bar */}
+                  <div className="bg-slate-50 border-t border-slate-200 p-2.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSalesVoucherData((prev) => ({
+                          ...prev,
+                          items: [
+                            ...prev.items,
+                            {
+                              id: `item-${Date.now()}-${prev.items.length + 1}`,
+                              item_description: '',
+                              qty: '',
+                              unit: 'Pcs',
+                              price: '',
+                              disc_pct: '',
+                              disc_amt: 0,
+                              amount: 0,
+                            },
+                          ],
+                        }));
+                      }}
+                      className="px-3 py-1 bg-white hover:bg-slate-100 text-indigo-700 border border-indigo-200 rounded font-bold shadow-2xs transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Item Line [Enter]</span>
+                    </button>
+
+                    {/* Alt. Qty / Total Qty Summary Bar directly below grid */}
+                    <div className="flex flex-wrap items-center gap-4 text-xs font-mono">
+                      <div>
+                        <span className="text-slate-500">Total Qty: </span>
+                        <strong className="text-slate-900 font-bold">{busySalesComputed.totalQty} Units</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Alt. Qty: </span>
+                        <strong className="text-indigo-700 font-bold">{busySalesComputed.altQty} Cases / Boxes</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Items Count: </span>
+                        <strong className="text-slate-900 font-bold">{busySalesComputed.validItemsCount} Lines</strong>
+                      </div>
+                      <div className="bg-slate-200 px-2.5 py-1 rounded">
+                        <span className="text-slate-600 font-sans">Subtotal: </span>
+                        <strong className="text-slate-900 font-bold">Rs. {formatNPR(busySalesComputed.grossSubtotal)}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2D. BILL SUNDRY SECTION (EXACT BOTTOM TABLE) */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
+                  {/* Left Table: Bill Sundry Grid */}
+                  <div className="lg:col-span-7 bg-white rounded-lg border border-slate-300 shadow-2xs overflow-hidden">
+                    <div className="p-2.5 bg-slate-100 border-b border-slate-300 font-bold text-slate-700 text-xs flex items-center justify-between">
+                      <span>Bill Sundry (Tax, Freight, Discounts &amp; Adjustments)</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSalesVoucherData((prev) => ({
+                            ...prev,
+                            billSundries: [
+                              ...prev.billSundries,
+                              {
+                                id: `bs-${Date.now()}`,
+                                name: 'Other Charges / Sundry',
+                                rate_pct: '',
+                                amount: 500,
+                                type: 'additive',
+                              },
+                            ],
+                          }));
+                        }}
+                        className="text-[11px] text-indigo-700 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Add Sundry</span>
+                      </button>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 text-[11px]">
+                          <tr>
+                            <th className="p-2 text-center w-10">S.N.</th>
+                            <th className="p-2">Bill Sundry Name</th>
+                            <th className="p-2 text-right w-20">@ (%)</th>
+                            <th className="p-2 text-right w-28">Amount (Rs.)</th>
+                            <th className="p-2 text-center w-8">✕</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {busySalesComputed.computedSundries.map((bs, sIdx) => (
+                            <tr key={bs.id} className="hover:bg-slate-50/70">
+                              <td className="p-2 text-center font-mono font-bold text-slate-400">{sIdx + 1}</td>
+                              <td className="p-1.5">
+                                <input
+                                  type="text"
+                                  value={bs.name}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setSalesVoucherData((prev) => ({
+                                      ...prev,
+                                      billSundries: prev.billSundries.map((s, idx) =>
+                                        idx === sIdx ? { ...s, name: val } : s
+                                      ),
+                                    }));
+                                  }}
+                                  className="w-full px-2 py-1 bg-transparent border-0 font-medium text-slate-800 focus:ring-1 focus:ring-indigo-500 rounded"
+                                />
+                              </td>
+                              <td className="p-1.5">
+                                <input
+                                  type="number"
+                                  step="any"
+                                  value={bs.rate_pct}
+                                  onChange={(e) => {
+                                    const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                                    setSalesVoucherData((prev) => ({
+                                      ...prev,
+                                      billSundries: prev.billSundries.map((s, idx) =>
+                                        idx === sIdx ? { ...s, rate_pct: val } : s
+                                      ),
+                                    }));
+                                  }}
+                                  placeholder="—"
+                                  className="w-full px-1 py-1 text-right font-mono text-slate-700 bg-transparent border-0 focus:ring-1 focus:ring-indigo-500 rounded"
+                                />
+                              </td>
+                              <td className="p-1.5 text-right font-mono font-bold text-slate-900">
+                                {bs.name.toLowerCase().includes('trade discount') && '- '}
+                                {formatNPR(bs.computedAmount || 0)}
+                              </td>
+                              <td className="p-1 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSalesVoucherData((prev) => ({
+                                      ...prev,
+                                      billSundries: prev.billSundries.filter((_, idx) => idx !== sIdx),
+                                    }));
+                                  }}
+                                  className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
+                                >
+                                  ✕
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Right Box: Dynamic Net Amount & Calculations */}
+                  <div className="lg:col-span-5 bg-white rounded-lg border border-slate-300 p-3.5 shadow-2xs space-y-2.5">
+                    <div className="text-xs font-bold text-slate-700 uppercase tracking-wider pb-1 border-b border-slate-200">
+                      Accounting Totals Summary
+                    </div>
+
+                    <div className="space-y-1.5 text-xs font-mono">
+                      <div className="flex justify-between items-center text-slate-600">
+                        <span>Items Gross Subtotal:</span>
+                        <span className="font-bold text-slate-900">Rs. {formatNPR(busySalesComputed.grossSubtotal)}</span>
+                      </div>
+                      {busySalesComputed.tradeDiscount > 0 && (
+                        <div className="flex justify-between items-center text-amber-700">
+                          <span>Less: Trade Discount:</span>
+                          <span className="font-bold">- Rs. {formatNPR(busySalesComputed.tradeDiscount)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center text-slate-700">
+                        <span>Add: VAT (13%):</span>
+                        <span className="font-bold text-slate-900">+ Rs. {formatNPR(busySalesComputed.vatAmount)}</span>
+                      </div>
+                      {busySalesComputed.freightCharges > 0 && (
+                        <div className="flex justify-between items-center text-slate-700">
+                          <span>Add: Freight / Delivery:</span>
+                          <span className="font-bold text-slate-900">+ Rs. {formatNPR(busySalesComputed.freightCharges)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center text-slate-500 text-[11px]">
+                        <span>Round Off Adjustment:</span>
+                        <span>{busySalesComputed.roundOffVal >= 0 ? '+' : ''}{busySalesComputed.roundOffVal.toFixed(2)}</span>
+                      </div>
+                    </div>
+
+                    {/* Prominent Busy Net Amount Box */}
+                    <div className="p-3 bg-slate-900 text-white rounded-lg shadow-inner space-y-1 mt-2">
+                      <div className="text-[11px] text-slate-300 font-semibold uppercase tracking-wider">
+                        Net Amount (Total Payable)
+                      </div>
+                      <div className="text-xl sm:text-2xl font-mono font-bold text-emerald-400">
+                        Rs. {formatNPR(busySalesComputed.netAmount)}
+                      </div>
+                      <div className="text-[10px] text-slate-300 italic pt-1 border-t border-slate-800 leading-tight">
+                        Words: {numberToWords(busySalesComputed.netAmount)} Rupees Only
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. BOTTOM ACTION BUTTON BAR (EXACT BUSY STYLE) */}
+              <div className="bg-slate-200 border-t border-slate-300 p-2.5 px-4 flex flex-wrap items-center justify-between gap-2 shrink-0">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setBusySalesModal({ type: 'vch_detail' })}
+                    className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded text-xs font-semibold shadow-2xs transition cursor-pointer"
+                  >
+                    Vch. Detail [Alt+D]
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBusySalesModal({ type: 'master_detail' })}
+                    className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded text-xs font-semibold shadow-2xs transition cursor-pointer"
+                  >
+                    Master Detail [Alt+M]
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBusySalesModal({ type: 'party_dashboard' })}
+                    className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded text-xs font-semibold shadow-2xs transition cursor-pointer"
+                  >
+                    Party Dash Board [Alt+B]
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSalesVoucherData((prev) => ({ ...prev, isHeld: !prev.isHeld }));
+                      showToast(!salesVoucherData.isHeld ? 'Voucher placed on HOLD [Draft]' : 'Voucher taken off hold', 'info');
+                    }}
+                    className={`px-2.5 py-1.5 rounded text-xs font-semibold shadow-2xs transition cursor-pointer border ${
+                      salesVoucherData.isHeld
+                        ? 'bg-amber-500 text-slate-950 border-amber-600 font-bold'
+                        : 'bg-white hover:bg-slate-50 text-slate-800 border-slate-300'
+                    }`}
+                  >
+                    {salesVoucherData.isHeld ? 'Held [Alt+H] ✓' : 'Hold Vch. [Alt+H]'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBusySalesModal({ type: 'update_discount' })}
+                    className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded text-xs font-semibold shadow-2xs transition cursor-pointer"
+                  >
+                    Update Discount [Alt+U]
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBusySalesModal({ type: 'check_scheme' })}
+                    className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded text-xs font-semibold shadow-2xs transition cursor-pointer"
+                  >
+                    Check Scheme [Alt+S]
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveVoucherModal((prev) => ({ ...prev, isOpen: false }))}
+                    className="px-4 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded text-xs font-bold transition cursor-pointer shadow-2xs"
+                  >
+                    Quit [Esc]
+                  </button>
+                  <button
+                    type="button"
+                    id="btn-save-busy-sales-voucher"
+                    onClick={handleSaveBusySalesVoucher}
+                    className="px-6 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Save [F2]</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* ADD / MODIFY VOUCHER FORM FOR OTHER VOUCHERS (Payment, Receipt, Journal, Contra, Notes, Stock) */
+            <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 border border-slate-100 my-8">
+              <div className="flex items-start justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-indigo-600 text-white rounded-xl shadow-xs">
+                    <Receipt className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-bold text-slate-900">
+                        {VOUCHER_CATEGORIES.find((c) => c.key === activeVoucherModal.type)?.label || 'Voucher'}{' '}
+                        <span className="text-indigo-600 font-mono font-bold">
+                          [{activeVoucherModal.action === 'add' ? 'ADD ENTRY' : 'MODIFY ENTRY'}]
+                        </span>
+                      </h3>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 font-mono">
+                        {VOUCHER_CATEGORIES.find((c) => c.key === activeVoucherModal.type)?.hotkeyPlaceholder}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Busy/Tally keyboard entry: Press <kbd className="px-1 py-0.5 bg-slate-100 rounded text-[10px] font-mono border">Enter</kbd> to traverse fields. Press <kbd className="px-1 py-0.5 bg-slate-100 rounded text-[10px] font-mono border">Esc</kbd> to exit.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveVoucherModal((prev) => ({ ...prev, isOpen: false }))}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Interactive Form */}
+              <form onSubmit={handleSaveVoucher} onKeyDown={handleVoucherFormKeyDown} className="space-y-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Voucher Series / No</label>
+                    <input
+                      type="text"
+                      required
+                      value={voucherFormData.voucher_number}
+                      onChange={(e) => setVoucherFormData({ ...voucherFormData, voucher_number: e.target.value })}
+                      placeholder="e.g. PV-102"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Date (BS - Nepali)</label>
+                    <input
+                      type="text"
+                      required
+                      value={voucherFormData.date_bs}
+                      onChange={(e) => {
+                        const bs = e.target.value;
+                        const ad = bsToAd(bs);
+                        setVoucherFormData({ ...voucherFormData, date_bs: bs, date_ad: ad || voucherFormData.date_ad });
+                      }}
+                      placeholder="YYYY-MM-DD"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Date (AD - English)</label>
+                    <input
+                      type="date"
+                      required
+                      value={voucherFormData.date_ad}
+                      onChange={(e) => {
+                        const ad = e.target.value;
+                        const bs = adToBs(ad);
+                        setVoucherFormData({ ...voucherFormData, date_ad: ad, date_bs: bs || voucherFormData.date_bs });
+                      }}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Payment / Tx Mode</label>
+                    <select
+                      value={voucherFormData.payment_mode}
+                      onChange={(e) =>
+                        setVoucherFormData({
+                          ...voucherFormData,
+                          payment_mode: e.target.value as 'Cash' | 'Bank' | 'Cheque' | 'IPS',
+                        })
+                      }
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                    >
+                      <option value="Bank">Bank Account</option>
+                      <option value="Cash">Cash Account</option>
+                      <option value="Cheque">Cheque Settlement</option>
+                      <option value="IPS">ConnectIPS / Online</option>
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-slate-700 font-semibold mb-1">Cheque # / Instrument Ref</label>
+                    <input
+                      type="text"
+                      value={voucherFormData.cheque_number}
+                      onChange={(e) => setVoucherFormData({ ...voucherFormData, cheque_number: e.target.value })}
+                      placeholder="e.g. 0048192 or Bank Txn ID"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Double-Entry Ledger Accounts (Debit / Credit) */}
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-indigo-700 flex items-center gap-1.5">
+                    <CheckSquare className="w-3.5 h-3.5" />
+                    <span>Double-Entry Ledger Allocation</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-slate-700 font-semibold">Debit Account (Dr.)</label>
+                        <span className="text-[10px] text-slate-400 font-mono">Receiving / Expense / Asset</span>
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        list="debit-accounts-list"
+                        value={voucherFormData.account_debit}
+                        onChange={(e) => setVoucherFormData({ ...voucherFormData, account_debit: e.target.value })}
+                        placeholder="e.g. Supplier A/c or Rent Expense"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                      <datalist id="debit-accounts-list">
+                        {parties.map((p) => (
+                          <option key={p.id} value={p.name} />
+                        ))}
+                        {banks.map((b) => (
+                          <option key={b.id} value={`${b.name} A/c`} />
+                        ))}
+                        <option value="Cash A/c" />
+                        <option value="Purchase A/c" />
+                        <option value="Sales Return A/c" />
+                        <option value="Rent Expense A/c" />
+                        <option value="Salary Expense A/c" />
+                      </datalist>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-slate-700 font-semibold">Credit Account (Cr.)</label>
+                        <span className="text-[10px] text-slate-400 font-mono">Giving / Income / Source</span>
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        list="credit-accounts-list"
+                        value={voucherFormData.account_credit}
+                        onChange={(e) => setVoucherFormData({ ...voucherFormData, account_credit: e.target.value })}
+                        placeholder="e.g. Nabil Bank A/c or Cash A/c"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                      <datalist id="credit-accounts-list">
+                        {banks.map((b) => (
+                          <option key={b.id} value={`${b.name} A/c`} />
+                        ))}
+                        {parties.map((p) => (
+                          <option key={p.id} value={p.name} />
+                        ))}
+                        <option value="Cash A/c" />
+                        <option value="Sales A/c" />
+                        <option value="Purchase Return A/c" />
+                        <option value="Discount Received A/c" />
+                      </datalist>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Voucher Amount (NPR)</label>
+                    <input
+                      type="number"
+                      required
+                      min="0.01"
+                      step="any"
+                      value={voucherFormData.amount}
+                      onChange={(e) =>
+                        setVoucherFormData({
+                          ...voucherFormData,
+                          amount: e.target.value === '' ? '' : parseFloat(e.target.value),
+                        })
+                      }
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Reference No / Bill #</label>
+                    <input
+                      type="text"
+                      value={voucherFormData.reference_no}
+                      onChange={(e) => setVoucherFormData({ ...voucherFormData, reference_no: e.target.value })}
+                      placeholder="e.g. INV-9042"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-slate-700 font-semibold">Narration / Ledger Description</label>
+                    <span className="text-[10px] text-slate-400">Press Enter to advance to Save button</span>
+                  </div>
+                  <textarea
+                    rows={2}
+                    value={voucherFormData.narration}
+                    onChange={(e) => setVoucherFormData({ ...voucherFormData, narration: e.target.value })}
+                    placeholder="Enter voucher explanation or settlement details..."
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                {/* Keyboard Form Control Helper */}
+                <div className="p-2.5 bg-indigo-50/60 rounded-xl border border-indigo-100 flex items-center justify-between text-[11px] text-indigo-950">
+                  <div className="flex items-center gap-1.5 font-medium">
+                    <Info className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                    <span>Keyboard shortcuts: [Enter] Advance &bull; [Shift+Enter] Previous &bull; [Esc] Cancel</span>
+                  </div>
+                  <span className="font-mono font-bold text-indigo-700">ChequeDesk Ledger Engine</span>
+                </div>
+
+                {/* Form Buttons */}
+                <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setActiveVoucherModal((prev) => ({ ...prev, isOpen: false }))}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition cursor-pointer text-xs"
+                  >
+                    Cancel [Esc]
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition cursor-pointer shadow-md flex items-center gap-1.5 text-xs"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>
+                      {activeVoucherModal.action === 'modify' ? 'Update Voucher [Enter]' : 'Save & Post Voucher [Enter]'}
+                    </span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 24. BUSY SALES AUXILIARY DIALOGS & PRINT PREVIEW MODALS                   */}
+      {/* ========================================================================= */}
+
+      {/* 24A. VOUCHER DETAIL (TRANSPORT & DELIVERY) MODAL [Alt+D] */}
+      {busySalesModal.type === 'vch_detail' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-100">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                  <Truck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Voucher Transport &amp; Delivery Details</h3>
+                  <p className="text-xs text-slate-500">Dispatch details, vehicle number, driver &amp; courier tracking</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBusySalesModal({ type: null })}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Driver Name</label>
+                  <input
+                    type="text"
+                    value={salesVoucherData.driver_name}
+                    onChange={(e) => setSalesVoucherData({ ...salesVoucherData, driver_name: e.target.value })}
+                    placeholder="e.g. Ramesh Thapa"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Driver Phone Number</label>
+                  <input
+                    type="text"
+                    value={salesVoucherData.driver_phone}
+                    onChange={(e) => setSalesVoucherData({ ...salesVoucherData, driver_phone: e.target.value })}
+                    placeholder="e.g. 9841234567"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Vehicle Number</label>
+                  <input
+                    type="text"
+                    value={salesVoucherData.vehicle_no}
+                    onChange={(e) => setSalesVoucherData({ ...salesVoucherData, vehicle_no: e.target.value })}
+                    placeholder="e.g. BA 2 KHA 8492"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Delivery Person Name</label>
+                  <input
+                    type="text"
+                    value={salesVoucherData.delivery_person}
+                    onChange={(e) => setSalesVoucherData({ ...salesVoucherData, delivery_person: e.target.value })}
+                    placeholder="e.g. Suman Sharma"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Transporter / Courier</label>
+                  <input
+                    type="text"
+                    value={salesVoucherData.transporter_name}
+                    onChange={(e) => setSalesVoucherData({ ...salesVoucherData, transporter_name: e.target.value })}
+                    placeholder="e.g. Everest Cargo"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Station / Destination</label>
+                  <input
+                    type="text"
+                    value={salesVoucherData.station}
+                    onChange={(e) => setSalesVoucherData({ ...salesVoucherData, station: e.target.value })}
+                    placeholder="e.g. Pokhara Depot"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">GR / Bilty No.</label>
+                  <input
+                    type="text"
+                    value={salesVoucherData.gr_no}
+                    onChange={(e) => setSalesVoucherData({ ...salesVoucherData, gr_no: e.target.value })}
+                    placeholder="e.g. GR-9081"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setBusySalesModal({ type: null })}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition cursor-pointer"
+              >
+                Close [Esc]
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSalesVoucherData((prev) => ({ ...prev, showTransport: true }));
+                  setBusySalesModal({ type: null });
+                  showToast('Transport details saved to voucher.', 'success');
+                }}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition cursor-pointer shadow-xs"
+              >
+                Apply Details [Enter]
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 24B. MASTER DETAIL MODAL [Alt+M] */}
+      {busySalesModal.type === 'master_detail' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-100">
+            {(() => {
+              const matchedParty = parties.find((p) => p.name === salesVoucherData.party_name) || parties[0];
+              const bal = getPartyBalanceInfo(salesVoucherData.party_name);
+              return (
+                <>
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                        <Users className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900">Party Master Profile</h3>
+                        <p className="text-xs text-slate-500">Master ledger profile for {salesVoucherData.party_name || 'Selected Customer'}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setBusySalesModal({ type: null })}
+                      className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2.5 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Account Title:</span>
+                      <strong className="text-slate-900 font-bold text-sm">{salesVoucherData.party_name}</strong>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Ledger Group:</span>
+                      <span className="bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded text-[11px]">
+                        {matchedParty?.party_type || 'Sundry Debtors'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">PAN / VAT Registration No:</span>
+                      <span className="font-mono font-bold text-slate-800">
+                        {matchedParty?.tax_number || matchedParty?.pan_number || '302918291'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Contact Phone:</span>
+                      <span className="font-mono text-slate-800">{matchedParty?.phone || '+977 1 4410928'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Billing Address:</span>
+                      <span className="text-slate-800">{matchedParty?.address || 'Kathmandu, Nepal'}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2 border-t border-slate-200">
+                      <span className="text-slate-500 font-semibold">Current Outstanding Balance:</span>
+                      <span className="font-mono font-bold text-sm text-slate-900">
+                        Rs. {formatNPR(bal.amount)}{' '}
+                        <span className={`px-1.5 py-0.2 rounded text-[10px] ${bal.drCr === 'Dr' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                          {bal.drCr}
+                        </span>
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Credit Term Limit:</span>
+                      <span className="font-mono text-slate-700 font-bold">30 Days (Max Rs. 500,000)</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-2 text-xs font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setBusySalesModal({ type: null })}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition cursor-pointer shadow-xs"
+                    >
+                      Close [Esc]
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* 24C. PARTY DASHBOARD MODAL [Alt+B] */}
+      {busySalesModal.type === 'party_dashboard' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 border border-slate-100 max-h-[90vh] overflow-y-auto">
+            {(() => {
+              const matchedParty = parties.find((p) => p.name === salesVoucherData.party_name) || parties[0];
+              const partyCheques = cheques.filter((c) => matchedParty && c.party_id === matchedParty.id);
+              const totalTurnover = partyCheques.reduce((sum, c) => sum + c.amount, 0);
+              const pendingDue = partyCheques.filter((c) => c.status !== 'Cleared').reduce((sum, c) => sum + (c.remaining_amount ?? c.amount), 0);
+              const settled = totalTurnover - pendingDue;
+              return (
+                <>
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                        <BarChart3 className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900">Party 360° Dashboard</h3>
+                        <p className="text-xs text-slate-500">Real-time ledger and exposure analysis for {salesVoucherData.party_name || 'Selected Customer'}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setBusySalesModal({ type: null })}
+                      className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* 3 Metrics */}
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Volume</span>
+                      <span className="text-sm font-bold font-mono text-slate-900">{formatNPR(totalTurnover)}</span>
+                    </div>
+                    <div className="bg-emerald-50/60 p-3 rounded-xl border border-emerald-100">
+                      <span className="text-[10px] uppercase font-bold text-emerald-600 block">Settled</span>
+                      <span className="text-sm font-bold font-mono text-emerald-700">{formatNPR(settled)}</span>
+                    </div>
+                    <div className="bg-rose-50/60 p-3 rounded-xl border border-rose-100">
+                      <span className="text-[10px] uppercase font-bold text-rose-600 block">Outstanding</span>
+                      <span className="text-sm font-bold font-mono text-rose-700">{formatNPR(pendingDue)}</span>
+                    </div>
+                  </div>
+
+                  {/* Recent Cheque Records */}
+                  <div className="space-y-2">
+                    <div className="text-xs font-bold text-slate-700">Cheque History ({partyCheques.length} Records)</div>
+                    <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 text-xs">
+                      {partyCheques.length === 0 ? (
+                        <div className="p-4 text-center text-slate-400">No cheque transactions registered for this party.</div>
+                      ) : (
+                        partyCheques.map((c) => (
+                          <div key={c.id} className="p-2.5 flex items-center justify-between hover:bg-slate-50">
+                            <div>
+                              <span className="font-mono font-bold text-slate-800">#{c.cheque_number}</span>
+                              <span className="text-[11px] text-slate-400 ml-2">Due BS: {c.due_date_bs}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="font-mono font-bold text-slate-900">{formatNPR(c.amount)}</span>
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${c.status === 'Cleared' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                                {c.status}
+                              </span>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-2 text-xs font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setBusySalesModal({ type: null })}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition cursor-pointer shadow-xs"
+                    >
+                      Close Dashboard [Esc]
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* 24D. UPDATE DISCOUNT MODAL [Alt+U] */}
+      {busySalesModal.type === 'update_discount' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-100">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                  <Tag className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Update Sales Discounts</h3>
+                  <p className="text-xs text-slate-500">Configure voucher item discounts &amp; tenant settings</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBusySalesModal({ type: null })}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              {/* Tenant Discount Toggle */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-slate-800">Enable Sales Discount Columns</div>
+                  <div className="text-[11px] text-slate-500">
+                    {isSalesDiscountEnabled ? 'Columns are visible in voucher grid' : 'Columns are hidden from voucher grid'}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleToggleCompanyDiscount(!isSalesDiscountEnabled)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    isSalesDiscountEnabled ? 'bg-indigo-600' : 'bg-slate-300'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                      isSalesDiscountEnabled ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Bulk Flat Discount Applicator */}
+              {isSalesDiscountEnabled && (
+                <div className="space-y-2 p-3 bg-indigo-50/50 rounded-xl border border-indigo-100">
+                  <label className="block font-bold text-slate-800">Apply Flat Item Discount % to All Rows</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      placeholder="e.g. 5"
+                      id="bulk-discount-input"
+                      defaultValue="5"
+                      className="w-24 px-3 py-1.5 bg-white border border-slate-300 rounded-lg font-mono font-bold text-center"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const input = document.getElementById('bulk-discount-input') as HTMLInputElement;
+                        const pct = parseFloat(input?.value || '0');
+                        setSalesVoucherData((prev) => ({
+                          ...prev,
+                          items: prev.items.map((it) => ({ ...it, disc_pct: pct })),
+                        }));
+                        setBusySalesModal({ type: null });
+                        showToast(`Applied ${pct}% discount to all item lines.`, 'success');
+                      }}
+                      className="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold transition cursor-pointer"
+                    >
+                      Apply To All Lines
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setBusySalesModal({ type: null })}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition cursor-pointer"
+              >
+                Close [Esc]
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 24E. CHECK SCHEME MODAL [Alt+S] */}
+      {busySalesModal.type === 'check_scheme' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-100">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Promotional Schemes &amp; Offers</h3>
+                  <p className="text-xs text-slate-500">Active manufacturer schemes and seasonal trade discounts</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBusySalesModal({ type: null })}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2.5 text-xs">
+              {[
+                {
+                  id: 'scheme-1',
+                  title: 'Dashain / Tihar Festival Special (3% Trade Rebate)',
+                  desc: 'Applies 3% Trade Discount bill sundry across total invoice billing.',
+                  action: () => {
+                    setSalesVoucherData((prev) => ({
+                      ...prev,
+                      billSundries: prev.billSundries.map((bs) =>
+                        bs.name.toLowerCase().includes('trade discount')
+                          ? { ...bs, rate_pct: 3 }
+                          : bs
+                      ),
+                    }));
+                    setBusySalesModal({ type: null });
+                    showToast('Scheme applied: 3% Trade Discount updated.', 'success');
+                  },
+                },
+                {
+                  id: 'scheme-2',
+                  title: 'Zero Freight Promotion (Orders > Rs. 50,000)',
+                  desc: 'Waives transportation / freight charges to Rs. 0 for prompt logistics.',
+                  action: () => {
+                    setSalesVoucherData((prev) => ({
+                      ...prev,
+                      billSundries: prev.billSundries.map((bs) =>
+                        bs.name.toLowerCase().includes('freight') || bs.name.toLowerCase().includes('transport')
+                          ? { ...bs, amount: 0 }
+                          : bs
+                      ),
+                    }));
+                    setBusySalesModal({ type: null });
+                    showToast('Scheme applied: Freight charges waived.', 'success');
+                  },
+                },
+                {
+                  id: 'scheme-3',
+                  title: 'Volume Quantity Scheme: Flat 5% Item Discount',
+                  desc: 'Applies 5% line discount across all entered items (enables discount toggle).',
+                  action: () => {
+                    if (!isSalesDiscountEnabled) {
+                      handleToggleCompanyDiscount(true);
+                    }
+                    setSalesVoucherData((prev) => ({
+                      ...prev,
+                      items: prev.items.map((it) => ({ ...it, disc_pct: 5 })),
+                    }));
+                    setBusySalesModal({ type: null });
+                    showToast('Scheme applied: 5% line discount applied to all items.', 'success');
+                  },
+                },
+              ].map((sch) => (
+                <div key={sch.id} className="p-3 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-200 transition flex items-center justify-between gap-3">
+                  <div>
+                    <div className="font-bold text-slate-900">{sch.title}</div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">{sch.desc}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={sch.action}
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs shrink-0 cursor-pointer shadow-2xs"
+                  >
+                    Apply Scheme
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end pt-2 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setBusySalesModal({ type: null })}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition cursor-pointer"
+              >
+                Close [Esc]
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 24F. SAVE SUCCESS NOTIFICATION MODAL */}
+      {busySalesModal.type === 'save_success' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-100 text-center">
+            <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
+              <CheckCircle2 className="w-7 h-7" />
+            </div>
+
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">Voucher Successfully Saved!</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Sales Tax Invoice <span className="font-mono font-bold text-slate-800">#{busySalesModal.data?.voucher_number}</span> posted to the general ledger.
+              </p>
+            </div>
+
+            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs font-mono space-y-1.5 text-left">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Party Account:</span>
+                <span className="font-bold text-slate-900">{busySalesModal.data?.party_name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Net Amount:</span>
+                <span className="font-bold text-emerald-700 text-sm">Rs. {formatNPR(busySalesModal.data?.amount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Date (BS / AD):</span>
+                <span>{busySalesModal.data?.date_bs} BS ({busySalesModal.data?.date_ad} AD)</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs font-bold pt-2">
+              <button
+                type="button"
+                onClick={() => setBusySalesModal({ type: 'print_preview', data: busySalesModal.data })}
+                className="py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Print Tax Invoice</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setBusySalesModal({ type: null });
+                  openVoucherAction('sales', 'add');
+                }}
+                className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl transition cursor-pointer"
+              >
+                + Add Another Vch
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setBusySalesModal({ type: null });
+                openVoucherAction('sales', 'list');
+              }}
+              className="text-xs text-slate-400 hover:text-slate-600 font-semibold cursor-pointer block mx-auto"
+            >
+              Return to Sales Register
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 24G. IRD NEPAL COMPLIANT TAX INVOICE PRINT PREVIEW MODAL */}
+      {busySalesModal.type === 'print_preview' && (
+        <div className="fixed inset-0 z-50 bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl max-w-3xl w-full p-6 shadow-2xl space-y-4 border border-slate-300 my-8">
+            {/* Top Toolbar */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 no-print">
+              <div className="flex items-center gap-2">
+                <Printer className="w-5 h-5 text-indigo-600" />
+                <span className="font-bold text-sm text-slate-900">Tax Invoice Print Preview (कर बिजक)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Print / Save PDF [Ctrl+P]</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBusySalesModal({ type: null })}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Printable Tax Invoice Document (Nepal IRD Standard) */}
+            <div className="p-6 border border-slate-300 rounded bg-white text-slate-900 text-xs font-sans space-y-4">
+              {/* Company Header */}
+              <div className="text-center space-y-1 border-b border-slate-300 pb-3">
+                <h1 className="text-xl font-bold uppercase tracking-wider text-slate-900">{activeCompanyName}</h1>
+                <p className="text-[11px] text-slate-600">Kathmandu, Nepal • Tel: +977-1-4428910</p>
+                <p className="text-[11px] font-mono font-bold text-slate-800">PAN / VAT No: 601298453</p>
+                <div className="inline-block bg-slate-100 border border-slate-300 px-3 py-0.5 rounded text-xs font-bold uppercase mt-1">
+                  TAX INVOICE (कर बिजक)
+                </div>
+              </div>
+
+              {/* Invoice & Buyer Metadata Grid */}
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                <div className="space-y-1">
+                  <div>
+                    <span className="text-slate-500">Buyer Name: </span>
+                    <strong className="text-slate-900 font-bold">{busySalesModal.data?.party_name || salesVoucherData.party_name}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Buyer Address: </span>
+                    <span>Kathmandu, Nepal</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Buyer PAN: </span>
+                    <span className="font-mono font-bold">302918291</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Vehicle No: </span>
+                    <span className="font-mono font-bold">{busySalesModal.data?.transport_info?.vehicle_no || salesVoucherData.vehicle_no || '—'}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1 text-right">
+                  <div>
+                    <span className="text-slate-500">Invoice No: </span>
+                    <strong className="font-mono font-bold text-slate-900">
+                      {busySalesModal.data?.voucher_number || salesVoucherData.voucher_number}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Invoice Date (BS): </span>
+                    <strong className="font-mono">{busySalesModal.data?.date_bs || salesVoucherData.date_bs} BS</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Invoice Date (AD): </span>
+                    <span className="font-mono">{busySalesModal.data?.date_ad || salesVoucherData.date_ad} AD</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Payment Terms: </span>
+                    <span>Credit (30 Days)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Items Table */}
+              <table className="w-full text-left text-xs border border-slate-300 border-collapse">
+                <thead className="bg-slate-100 font-bold border-b border-slate-300 text-[11px]">
+                  <tr>
+                    <th className="p-2 border-r border-slate-300 text-center w-10">S.N.</th>
+                    <th className="p-2 border-r border-slate-300">Description of Goods</th>
+                    <th className="p-2 border-r border-slate-300 text-right w-16">Qty</th>
+                    <th className="p-2 border-r border-slate-300 text-center w-16">Unit</th>
+                    <th className="p-2 border-r border-slate-300 text-right w-24">Rate (Rs.)</th>
+                    <th className="p-2 text-right w-28">Amount (Rs.)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {busySalesComputed.computedItems.map((item, idx) => (
+                    <tr key={item.id}>
+                      <td className="p-2 text-center font-mono border-r border-slate-300">{idx + 1}</td>
+                      <td className="p-2 border-r border-slate-300 font-medium">
+                        {item.item_description || `General Trading Goods #${idx + 1}`}
+                      </td>
+                      <td className="p-2 text-right font-mono border-r border-slate-300">{item.qty || 1}</td>
+                      <td className="p-2 text-center border-r border-slate-300">{item.unit || 'Pcs'}</td>
+                      <td className="p-2 text-right font-mono border-r border-slate-300">
+                        {formatNPR(Number(item.price) || 0)}
+                      </td>
+                      <td className="p-2 text-right font-mono font-bold">
+                        {formatNPR(item.amount || 0)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Totals Summary */}
+              <div className="flex justify-end">
+                <div className="w-64 space-y-1 text-xs font-mono">
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Subtotal:</span>
+                    <span className="font-bold">Rs. {formatNPR(busySalesComputed.grossSubtotal)}</span>
+                  </div>
+                  {busySalesComputed.tradeDiscount > 0 && (
+                    <div className="flex justify-between text-amber-700">
+                      <span>Less: Discount:</span>
+                      <span>- Rs. {formatNPR(busySalesComputed.tradeDiscount)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">VAT (13%):</span>
+                    <span>+ Rs. {formatNPR(busySalesComputed.vatAmount)}</span>
+                  </div>
+                  {busySalesComputed.freightCharges > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Freight:</span>
+                      <span>+ Rs. {formatNPR(busySalesComputed.freightCharges)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between pt-1 border-t border-slate-300 text-sm font-bold text-slate-900">
+                    <span>Grand Total:</span>
+                    <span>Rs. {formatNPR(busySalesComputed.netAmount)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Amount in words */}
+              <div className="p-2.5 bg-slate-50 rounded border border-slate-200 text-xs italic">
+                <strong>In Words:</strong> {numberToWords(busySalesComputed.netAmount)} Rupees Only
+              </div>
+
+              {/* Signatures */}
+              <div className="grid grid-cols-3 gap-4 pt-12 text-center text-xs">
+                <div className="border-t border-slate-300 pt-1">Prepared By</div>
+                <div className="border-t border-slate-300 pt-1">Checked By</div>
+                <div className="border-t border-slate-300 pt-1">Receiver's Signature</div>
+              </div>
+            </div>
           </div>
         </div>
       )}

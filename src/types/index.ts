@@ -124,6 +124,7 @@ export interface CompanyFeatures {
   connectips_gateway?: boolean;
   custom_theme_customizer?: boolean;
   offline_backup_system?: boolean;
+  enable_sales_discount?: boolean;
   [key: string]: boolean | undefined;
 }
 
@@ -193,6 +194,7 @@ export interface Company {
   admin_password?: string;
   plan_type?: string;
   subscription_expiry?: string;
+  enable_sales_discount?: boolean;
 }
 
 export interface AppUser {

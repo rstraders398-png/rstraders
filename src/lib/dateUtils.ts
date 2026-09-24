@@ -16,7 +16,7 @@ export const BS_MONTH_NAMES = [
   'Chaitra',
 ];
 
-// Days in each month for BS years 2075-2090
+// Days in each month for BS years 2075-2100
 export const BS_CALENDAR_DATA: Record<number, number[]> = {
   2075: [31, 31, 32, 31, 31, 31, 30, 29, 30, 29, 30, 30],
   2076: [31, 32, 31, 32, 31, 30, 30, 30, 29, 29, 30, 30],
@@ -34,6 +34,16 @@ export const BS_CALENDAR_DATA: Record<number, number[]> = {
   2088: [31, 31, 32, 32, 31, 30, 30, 30, 29, 30, 30, 30],
   2089: [31, 32, 31, 32, 31, 30, 30, 30, 29, 30, 30, 30],
   2090: [31, 32, 31, 32, 31, 30, 30, 30, 29, 30, 30, 30],
+  2091: [31, 32, 31, 32, 31, 30, 30, 30, 29, 30, 30, 30],
+  2092: [31, 31, 32, 32, 31, 30, 30, 30, 29, 30, 30, 30],
+  2093: [31, 32, 31, 32, 31, 30, 30, 30, 29, 30, 30, 30],
+  2094: [31, 32, 31, 32, 31, 30, 30, 30, 29, 30, 30, 30],
+  2095: [31, 32, 31, 32, 31, 30, 30, 30, 29, 30, 30, 30],
+  2096: [31, 31, 32, 32, 31, 30, 30, 30, 29, 30, 30, 30],
+  2097: [31, 32, 31, 32, 31, 30, 30, 30, 29, 30, 30, 30],
+  2098: [31, 32, 31, 32, 31, 30, 30, 30, 29, 30, 30, 30],
+  2099: [31, 32, 31, 32, 31, 30, 30, 30, 29, 30, 30, 30],
+  2100: [31, 31, 32, 32, 31, 30, 30, 30, 29, 30, 30, 30],
 };
 
 // Reference point: 2075-01-01 BS corresponds to 2018-04-14 AD
@@ -162,4 +172,60 @@ export function formatCurrency(amount: number): string {
 
 export function formatNPR(amount: number): string {
   return `रू ${formatCurrency(amount)}`;
+}
+
+export function syncBsAdDates(bs?: string, ad?: string): { bsDate: string; adDate: string; isSynced: boolean } {
+  const cleanBs = bs?.trim() || '';
+  const cleanAd = ad?.trim() || '';
+
+  if (cleanAd && /^\d{4}-\d{2}-\d{2}$/.test(cleanAd)) {
+    const calculatedBs = adToBs(cleanAd);
+    if (cleanBs && /^\d{4}-\d{2}-\d{2}$/.test(cleanBs)) {
+      const isSynced = calculatedBs === cleanBs || bsToAd(cleanBs) === cleanAd;
+      return { bsDate: cleanBs, adDate: cleanAd, isSynced };
+    }
+    return { bsDate: calculatedBs, adDate: cleanAd, isSynced: true };
+  }
+
+  if (cleanBs && /^\d{4}-\d{2}-\d{2}$/.test(cleanBs)) {
+    const calculatedAd = bsToAd(cleanBs);
+    return { bsDate: cleanBs, adDate: calculatedAd, isSynced: true };
+  }
+
+  const todayAd = getCurrentAdDate();
+  const todayBs = adToBs(todayAd);
+  return { bsDate: todayBs, adDate: todayAd, isSynced: true };
+}
+
+export function addDurationToAdDate(baseAd?: string, duration: '1m' | '3m' | '6m' | '1y' = '1y'): { adDate: string; bsDate: string } {
+  let date: Date;
+  if (baseAd && /^\d{4}-\d{2}-\d{2}$/.test(baseAd)) {
+    date = new Date(baseAd + 'T00:00:00Z');
+    if (isNaN(date.getTime())) {
+      date = new Date();
+    }
+  } else {
+    date = new Date();
+  }
+
+  const now = new Date();
+  now.setUTCHours(0, 0, 0, 0);
+  if (date.getTime() < now.getTime()) {
+    date = now;
+  }
+
+  const target = new Date(date);
+  if (duration === '1m') {
+    target.setUTCMonth(target.getUTCMonth() + 1);
+  } else if (duration === '3m') {
+    target.setUTCMonth(target.getUTCMonth() + 3);
+  } else if (duration === '6m') {
+    target.setUTCMonth(target.getUTCMonth() + 6);
+  } else if (duration === '1y') {
+    target.setUTCFullYear(target.getUTCFullYear() + 1);
+  }
+
+  const adDate = target.toISOString().split('T')[0];
+  const bsDate = adToBs(adDate);
+  return { adDate, bsDate };
 }
