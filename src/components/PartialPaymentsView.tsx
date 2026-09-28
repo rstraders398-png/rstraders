@@ -436,7 +436,7 @@ export const PartialPaymentsView: React.FC<PartialPaymentsViewProps> = ({
   // EXPORT 1: Real Excel (.xlsx) Export
   // ==========================================
   const handleExportXLSX = () => {
-    const activeCompany = companyName || "rstraders's Company";
+    const activeCompany = companyName || 'Simple Accounting & Cheque Management ERP';
     const reportTitle = 'Partial Payment Ledger Report';
     const genDate = `${getCurrentBsDate()} BS (${getCurrentAdDate()} AD)`;
 
@@ -558,7 +558,7 @@ export const PartialPaymentsView: React.FC<PartialPaymentsViewProps> = ({
   // EXPORT 2: Real PDF (.pdf) Export
   // ==========================================
   const handleExportPDF = () => {
-    const activeCompany = companyName || "rstraders's Company";
+    const activeCompany = companyName || 'Simple Accounting & Cheque Management ERP';
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
 
     // Document Header
@@ -718,7 +718,7 @@ export const PartialPaymentsView: React.FC<PartialPaymentsViewProps> = ({
               <Receipt className="w-5 h-5" />
             </span>
             <h2 className="text-xl font-bold text-slate-900 tracking-tight">
-              {companyName || "rstraders's Company"}
+              {companyName || 'Simple Accounting & Cheque Management ERP'}
             </h2>
             <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-blue-50 text-blue-700 border border-blue-200">
               Partial Payment Ledger
@@ -1521,7 +1521,7 @@ export const PartialPaymentsView: React.FC<PartialPaymentsViewProps> = ({
         <div className="border-b-2 border-black pb-4 mb-4">
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-2xl font-bold">{companyName || "rstraders's Company"}</h1>
+              <h1 className="text-2xl font-bold">{companyName || 'Simple Accounting & Cheque Management ERP'}</h1>
               <h2 className="text-lg font-semibold text-gray-800">Partial Payment Ledger Report</h2>
               <p className="text-xs text-gray-600 mt-1">Date Range: {dateRangeDescription}</p>
             </div>

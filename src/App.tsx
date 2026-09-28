@@ -42,6 +42,9 @@ import {
   Cloud,
   HardDrive,
   RefreshCw,
+  Palette,
+  Layers,
+  Layout,
   Sliders,
   Key,
   Lock,
@@ -72,6 +75,7 @@ import {
   Calculator,
   BookOpen,
   CheckSquare,
+  Globe,
 } from 'lucide-react';
 import {
   Cheque,
@@ -177,11 +181,198 @@ export type NavView =
   | 'cleared'
   | 'reports'
   | 'print_cheque'
+  | 'invoice_designer'
   | 'banks'
   | 'parties'
   | 'company_users'
   | 'backup'
   | 'import_cheques';
+
+// ==========================================
+// ITEM MASTER & MULTI-UNIT INVENTORY CATALOG
+// ==========================================
+export interface ItemMaster {
+  id: string;
+  name: string;
+  category: string;
+  unit: string;
+  alt_unit: string;
+  conversion_factor: number;
+  price: number;
+  alt_price: number;
+  stock_case: number;
+  stock_pcs: number;
+}
+
+export const DEFAULT_ITEM_MASTERS: ItemMaster[] = [
+  {
+    id: 'item-m-1',
+    name: '8848 Vodka 180 Ml',
+    category: 'Liquor & Spirits',
+    unit: 'Case',
+    alt_unit: 'Pcs',
+    conversion_factor: 24,
+    price: 10800,
+    alt_price: 480,
+    stock_case: 145.5,
+    stock_pcs: 3492,
+  },
+  {
+    id: 'item-m-2',
+    name: 'Khukri XXX Rum 750ml',
+    category: 'Liquor & Spirits',
+    unit: 'Case',
+    alt_unit: 'Pcs',
+    conversion_factor: 12,
+    price: 14400,
+    alt_price: 1250,
+    stock_case: 88,
+    stock_pcs: 1056,
+  },
+  {
+    id: 'item-m-3',
+    name: 'Tuborg Classic Premium 650ml',
+    category: 'Liquor & Spirits',
+    unit: 'Case',
+    alt_unit: 'Pcs',
+    conversion_factor: 12,
+    price: 4200,
+    alt_price: 360,
+    stock_case: 64,
+    stock_pcs: 768,
+  },
+  {
+    id: 'item-m-4',
+    name: 'Shivam OPC Cement 50kg',
+    category: 'Construction Materials',
+    unit: 'Bag',
+    alt_unit: 'Pcs',
+    conversion_factor: 1,
+    price: 750,
+    alt_price: 750,
+    stock_case: 250,
+    stock_pcs: 250,
+  },
+  {
+    id: 'item-m-5',
+    name: 'TMT Steel 12mm Rebar',
+    category: 'Construction Materials',
+    unit: 'Pcs',
+    alt_unit: 'Bundle',
+    conversion_factor: 10,
+    price: 1200,
+    alt_price: 11800,
+    stock_case: 420,
+    stock_pcs: 4200,
+  },
+  {
+    id: 'item-m-6',
+    name: 'PVC Pipe 4 inch Heavy',
+    category: 'Hardware & Plumbing',
+    unit: 'Case',
+    alt_unit: 'Pcs',
+    conversion_factor: 6,
+    price: 850,
+    alt_price: 150,
+    stock_case: 60,
+    stock_pcs: 360,
+  },
+  {
+    id: 'item-m-7',
+    name: 'Wai Wai Instant Noodles 75g',
+    category: 'FMCG Provisions',
+    unit: 'Case',
+    alt_unit: 'Pcs',
+    conversion_factor: 30,
+    price: 600,
+    alt_price: 22,
+    stock_case: 310,
+    stock_pcs: 9300,
+  },
+  {
+    id: 'item-m-8',
+    name: 'Coca Cola 250ml Glass Bottle',
+    category: 'FMCG Provisions',
+    unit: 'Case',
+    alt_unit: 'Pcs',
+    conversion_factor: 24,
+    price: 960,
+    alt_price: 45,
+    stock_case: 115,
+    stock_pcs: 2760,
+  },
+];
+
+// ==========================================
+// 15 A4 & 15 A5 INVOICE PRINT DESIGN STUDIO TEMPLATES
+// ==========================================
+export interface InvoiceTemplate {
+  id: string;
+  name: string;
+  size: 'A4' | 'A5';
+  tag: string;
+  category: string;
+  accentColor: string;
+  description: string;
+}
+
+export const INVOICE_TEMPLATES: InvoiceTemplate[] = [
+  // 15 A4 Layouts
+  { id: 'a4-classic', name: 'Classic IRD VAT Invoice', size: 'A4', tag: 'Standard IRD', category: 'General Trade', accentColor: '#4f46e5', description: 'IRD Nepal standard compliant double-bordered tax invoice with bilingual headers & 3-stage signature verification' },
+  { id: 'a4-modern', name: 'Modern Slate Minimalist', size: 'A4', tag: 'Clean & Sleek', category: 'Corporate', accentColor: '#0f172a', description: 'High contrast slate gray accents, generous whitespace, clean line items, and bold net totals' },
+  { id: 'a4-busy', name: 'Busy Accounting Replica', size: 'A4', tag: 'Busy ERP', category: 'Distribution', accentColor: '#1e3a8a', description: 'Exact Busy Software layout with grid cell borders, Series [Main] indicator, and Transport/Delivery block' },
+  { id: 'a4-tally', name: 'Tally Prime Two-Column', size: 'A4', tag: 'Tally Style', category: 'Accounting', accentColor: '#047857', description: 'Two-column consignee/buyer ledger block with statutory declaration footer and IRD compliance notes' },
+  { id: 'a4-charcoal', name: 'Executive Charcoal', size: 'A4', tag: 'Premium Dark', category: 'Enterprise', accentColor: '#18181b', description: 'Full-width charcoal dark header ribbon with high-contrast monochrome line items and executive branding' },
+  { id: 'a4-wholesale', name: 'Wholesale & Distribution', size: 'A4', tag: 'High Density', category: 'Wholesale', accentColor: '#0369a1', description: 'Optimized for high volume item entries, package carton counts, and dispatch consignment tracking' },
+  { id: 'a4-retail', name: 'Retail Supermarket POS', size: 'A4', tag: 'POS & Counter', category: 'Retail', accentColor: '#b45309', description: 'Multi-rate VAT breakdown table, cashier counter identifier, barcode placeholder, and rapid item packing' },
+  { id: 'a4-hardware', name: 'Hardware & Construction', size: 'A4', tag: 'Heavy Goods', category: 'Construction', accentColor: '#c2410c', description: 'Reinforced borders, driver name, vehicle dispatch details, and bag/piece physical tally record' },
+  { id: 'a4-pharma', name: 'Pharmaceuticals & Health', size: 'A4', tag: 'DDA Compliant', category: 'Pharma', accentColor: '#0e7490', description: 'Drug administration license, batch tracking, expiry date verification, and licensed pharmacist seal' },
+  { id: 'a4-auto', name: 'Automobile & Spare Parts', size: 'A4', tag: 'Automotive', category: 'Automotive', accentColor: '#4338ca', description: 'Chassis number, engine reference, vehicle registration, part catalogue numbers, and mechanic sign-off' },
+  { id: 'a4-tech', name: 'Tech & Electronics Warranty', size: 'A4', tag: 'Electronics', category: 'Technology', accentColor: '#6d28d9', description: 'IMEI/Serial column, warranty certificate box, manufacturer service terms, and support hotline' },
+  { id: 'a4-export', name: 'Export & Commercial', size: 'A4', tag: 'Cross-Border', category: 'Export', accentColor: '#1d4ed8', description: 'Port of loading, country of origin (Nepal), HS codes, consignee address, and letter of credit reference' },
+  { id: 'a4-beverages', name: 'FMCG Beverages & Spirits', size: 'A4', tag: 'Case / Pcs Dual', category: 'Beverages', accentColor: '#991b1b', description: 'Dual Case & Bottle/Pcs tally breakdown with excise clearance badge and returnable crate tally' },
+  { id: 'a4-consulting', name: 'Professional Services', size: 'A4', tag: 'Services', category: 'Consulting', accentColor: '#374151', description: 'Hourly/Milestone deliverables, scope reference, and bank wire remittance / SWIFT instructions' },
+  { id: 'a4-indigo', name: 'Vibrant Indigo Enterprise', size: 'A4', tag: 'Contemporary', category: 'Modern', accentColor: '#4338ca', description: 'Polished indigo brand elements, QR payment badge, and rounded card totals with bank details' },
+
+  // 15 A5 Layouts
+  { id: 'a5-counter', name: 'A5 Quick Counter Cash Memo', size: 'A5', tag: 'Fast Checkout', category: 'Retail', accentColor: '#059669', description: 'Compact half-page receipt designed for fast counter sales and continuous thermal/laser cut' },
+  { id: 'a5-busy', name: 'A5 Busy Accounting Half-Sheet', size: 'A5', tag: 'Continuous Feed', category: 'Distribution', accentColor: '#1e40af', description: 'Continuous dot-matrix / half-page laser format inspired by Busy Accounting compact invoices' },
+  { id: 'a5-tally', name: 'A5 Tally Slip Compact', size: 'A5', tag: 'Tally Compact', category: 'Accounting', accentColor: '#065f46', description: 'Compact two-column ledger voucher format with clean debit/credit details and half-page efficiency' },
+  { id: 'a5-clean', name: 'A5 Modern Neat Memo', size: 'A5', tag: 'Clean Half', category: 'Modern', accentColor: '#334155', description: 'Streamlined half-page invoice with uncluttered lines, clean typography, and bold payable total' },
+  { id: 'a5-liquor', name: 'A5 Liquor & Beverage Chalan', size: 'A5', tag: 'Beverage Memo', category: 'Beverages', accentColor: '#7f1d1d', description: 'Dedicated Case vs Pcs dispatch memo for bar, restaurant and wine distributor deliveries' },
+  { id: 'a5-grocery', name: 'A5 Grocery & Provisions Mini', size: 'A5', tag: 'Provisions', category: 'Grocery', accentColor: '#15803d', description: 'Condensed rows maximizing item capacity on half-sheet paper for provisions and mini-marts' },
+  { id: 'a5-hardware', name: 'A5 Hardware Delivery Slip', size: 'A5', tag: 'Yard Pickup', category: 'Hardware', accentColor: '#9a3412', description: 'Heavyweight bold quantity print for yard loading, store gate pass, and collection verification' },
+  { id: 'a5-pharma', name: 'A5 Clinic & Pharmacy Bill', size: 'A5', tag: 'Medical Rx', category: 'Pharma', accentColor: '#0f766e', description: 'Doctor name, clinic header, prescription memo, and patient advice footer on compact slip' },
+  { id: 'a5-boutique', name: 'A5 Garment & Boutique Memo', size: 'A5', tag: 'Fashion Boutique', category: 'Fashion', accentColor: '#86198f', description: 'Fashion boutique layout with exchange policy within 7 days clause and designer branding' },
+  { id: 'a5-electronics', name: 'A5 Electronics Cash Voucher', size: 'A5', tag: 'Warranty Slip', category: 'Electronics', accentColor: '#5b21b6', description: 'Mobile/Gadget purchase slip with serial number, IMEI tracking, and 1-year warranty seal' },
+  { id: 'a5-cafe', name: 'A5 Restaurant & Bakery Token', size: 'A5', tag: 'Hospitality', category: 'Hospitality', accentColor: '#b45309', description: 'Table number, steward ID, service charge indicator, and kitchen dispatch token' },
+  { id: 'a5-logistics', name: 'A5 Logistics & Courier Chalan', size: 'A5', tag: 'Courier Memo', category: 'Logistics', accentColor: '#374151', description: 'Waybill number, parcel weight, receiver contact, and delivery proof signature block' },
+  { id: 'a5-minimal', name: 'A5 Borderless Minimalist', size: 'A5', tag: 'Borderless', category: 'Minimal', accentColor: '#18181b', description: 'Contemporary borderless design emphasizing clean typography and white space on A5' },
+  { id: 'a5-traditional', name: 'A5 Traditional Red Nagad Bill', size: 'A5', tag: 'Nepali Trad.', category: 'Traditional', accentColor: '#b91c1c', description: 'Traditional Nepali market bill format with red border frame, Shubh Labh header, and trade stamp' },
+  { id: 'a5-luxury', name: 'A5 Luxury Monogram Slip', size: 'A5', tag: 'Luxury / Jewelry', category: 'Luxury', accentColor: '#78350f', description: 'Gold/amber elegant accents designed for jewelry, watches, and luxury retailers' },
+];
+
+export interface CompanyInvoiceDesignSettings {
+  selectedTemplateId: string;
+  paperSize: 'A4' | 'A5';
+  headerTitle: string;
+  subHeader: string;
+  termsAndConditions: string;
+  bankDetails: string;
+  showLogo: boolean;
+  themeColor: string;
+}
+
+export const DEFAULT_INVOICE_DESIGN_SETTINGS: CompanyInvoiceDesignSettings = {
+  selectedTemplateId: 'a4-classic',
+  paperSize: 'A4',
+  headerTitle: 'TAX INVOICE (कर बिजक)',
+  subHeader: 'Nepal IRD Certified Continuous Tax Invoice',
+  termsAndConditions: '1. Goods once sold will not be accepted back or exchanged.\n2. Payment terms: strictly credit up to 30 days.\n3. Interest @ 18% p.a. charged after invoice maturity date.\n4. Disputes subject to Kathmandu jurisdiction only.',
+  bankDetails: 'Nabil Bank Ltd. | A/C No: 00101017500123 (NPR) | Branch: New Road, Kathmandu',
+  showLogo: true,
+  themeColor: '#4f46e5',
+};
 
 // ==========================================
 // ACCOUNTING & TRANSACTIONS VOUCHER TYPES (BUSY/TALLY STYLE)
@@ -225,6 +416,31 @@ export interface BusySalesTransportInfo {
   gr_rr_no?: string;
 }
 
+export interface JournalEntryRow {
+  id: string;
+  type: 'Dr' | 'Cr';
+  account: string;
+  amount: number | '';
+  narration?: string;
+}
+
+export interface StockJournalRow {
+  id: string;
+  item_name: string;
+  qty: number | '';
+  unit: string;
+  rate: number | '';
+  amount: number | '';
+  type: 'consumed' | 'produced' | 'transferred';
+}
+
+export interface VoucherAuditTrail {
+  timestamp: string;
+  user: string;
+  action: string;
+  note: string;
+}
+
 export interface AccountingVoucher {
   id: string;
   voucher_type: VoucherType;
@@ -248,6 +464,22 @@ export interface AccountingVoucher {
   bill_sundries?: BusySalesBillSundry[];
   transport_info?: BusySalesTransportInfo;
   is_held?: boolean;
+  // Journal Multi-entry extension:
+  journal_entries?: JournalEntryRow[];
+  // Contra specific extension:
+  contra_type?: 'cash_deposit' | 'cash_withdrawal' | 'inter_bank';
+  // Debit / Credit Note extension:
+  note_type?: 'Debit Note' | 'Credit Note';
+  linked_invoice?: string;
+  linked_invoice_date?: string;
+  return_reason?: string;
+  // Stock Journal extension:
+  stock_mode?: 'transfer' | 'consumption_production';
+  source_godown?: string;
+  dest_godown?: string;
+  stock_rows?: StockJournalRow[];
+  // Audit Trail extension:
+  audit_trail?: VoucherAuditTrail[];
 }
 
 export interface VoucherCategoryConfig {
@@ -263,19 +495,9 @@ export interface VoucherCategoryConfig {
 
 export const VOUCHER_CATEGORIES: VoucherCategoryConfig[] = [
   {
-    id: 'voucher_sales',
-    key: 'sales',
-    label: 'Sales Voucher',
-    icon: FileText,
-    hotkeyPlaceholder: '[F8]',
-    description: 'Busy Software exact replica commercial sales billing with item grid, bill sundry & transport',
-    defaultDebit: 'Customer / Debtor A/C',
-    defaultCredit: 'Sales Account',
-  },
-  {
     id: 'voucher_payment',
     key: 'payment',
-    label: 'Payment Voucher',
+    label: 'Payment',
     icon: ArrowDownLeft,
     hotkeyPlaceholder: '[F5]',
     description: 'Cash / Bank payments to parties, vendors and expenses',
@@ -285,7 +507,7 @@ export const VOUCHER_CATEGORIES: VoucherCategoryConfig[] = [
   {
     id: 'voucher_receipt',
     key: 'receipt',
-    label: 'Receipt Voucher',
+    label: 'Receipt',
     icon: ArrowUpRight,
     hotkeyPlaceholder: '[F6]',
     description: 'Incoming customer payments, direct deposit receipts',
@@ -295,7 +517,7 @@ export const VOUCHER_CATEGORIES: VoucherCategoryConfig[] = [
   {
     id: 'voucher_journal',
     key: 'journal',
-    label: 'Journal Voucher',
+    label: 'Journal',
     icon: BookOpen,
     hotkeyPlaceholder: '[F7]',
     description: 'Double-entry general adjustments, depreciation, and transfers',
@@ -305,7 +527,7 @@ export const VOUCHER_CATEGORIES: VoucherCategoryConfig[] = [
   {
     id: 'voucher_contra',
     key: 'contra',
-    label: 'Contra Voucher',
+    label: 'Contra',
     icon: RefreshCw,
     hotkeyPlaceholder: '[F4]',
     description: 'Internal cash-to-bank deposits and inter-bank transfers',
@@ -313,9 +535,19 @@ export const VOUCHER_CATEGORIES: VoucherCategoryConfig[] = [
     defaultCredit: 'Cash in Hand (Withdrawal)',
   },
   {
+    id: 'voucher_sales',
+    key: 'sales',
+    label: 'Sales / Purchase Invoice',
+    icon: FileText,
+    hotkeyPlaceholder: '[F8]',
+    description: 'Busy Software exact replica commercial sales billing with item grid, bill sundry & transport',
+    defaultDebit: 'Customer / Debtor A/C',
+    defaultCredit: 'Sales Account',
+  },
+  {
     id: 'voucher_notes',
     key: 'notes',
-    label: 'Debit Note / Credit Note',
+    label: 'Debit/Credit Note',
     icon: Tag,
     hotkeyPlaceholder: '[Ctrl+F9]',
     description: 'Purchase/Sales returns, price adjustments, and discounts',
@@ -325,7 +557,7 @@ export const VOUCHER_CATEGORIES: VoucherCategoryConfig[] = [
   {
     id: 'voucher_stock',
     key: 'stock',
-    label: 'Physical Stock / Stock Journal',
+    label: 'Stock Journal',
     icon: Package,
     hotkeyPlaceholder: '[Alt+F7]',
     description: 'Inventory quantity adjustments and item reconciliation',
@@ -1240,40 +1472,160 @@ export const MASTER_FEATURE_REGISTRY: MasterFeatureItem[] = [
   },
   {
     id: 'voucher_payment',
-    name: 'Payment Voucher (Add, Modify, List)',
-    description: 'Busy/Tally-style Cash, Bank & Cheque payment voucher entries with ledger debiting [F5]',
+    name: 'Payment Voucher [F5]',
+    description: 'Cash, Bank & Cheque payment voucher entries with ledger debiting [F5]',
+    category: 'Accounting & Auditing',
+    icon: ArrowDownLeft,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_payment_add',
+    name: 'Payment Voucher [Add Entry - F5]',
+    description: 'Allow creating new Payment vouchers [F5] with dual-entry ledger debiting',
+    category: 'Accounting & Auditing',
+    icon: ArrowDownLeft,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_payment_modify',
+    name: 'Payment Voucher [Modify Entry]',
+    description: 'Allow editing existing Payment vouchers with complete audit trail',
+    category: 'Accounting & Auditing',
+    icon: ArrowDownLeft,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_payment_list',
+    name: 'Payment Voucher [List Register]',
+    description: 'Access filterable Payment Voucher Register with Excel & PDF exports',
     category: 'Accounting & Auditing',
     icon: ArrowDownLeft,
     defaultEnabled: true,
   },
   {
     id: 'voucher_receipt',
-    name: 'Receipt Voucher (Add, Modify, List)',
-    description: 'Incoming customer payments, direct deposit receipts, and ledger credit settlements [F6]',
+    name: 'Receipt Voucher [F6]',
+    description: 'Incoming customer payments, direct deposit receipts, and ledger settlements [F6]',
+    category: 'Accounting & Auditing',
+    icon: ArrowUpRight,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_receipt_add',
+    name: 'Receipt Voucher [Add Entry - F6]',
+    description: 'Allow creating new Receipt vouchers [F6] with dual-entry ledger crediting',
+    category: 'Accounting & Auditing',
+    icon: ArrowUpRight,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_receipt_modify',
+    name: 'Receipt Voucher [Modify Entry]',
+    description: 'Allow editing existing Receipt vouchers with complete audit trail',
+    category: 'Accounting & Auditing',
+    icon: ArrowUpRight,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_receipt_list',
+    name: 'Receipt Voucher [List Register]',
+    description: 'Access filterable Receipt Voucher Register with Excel & PDF exports',
     category: 'Accounting & Auditing',
     icon: ArrowUpRight,
     defaultEnabled: true,
   },
   {
     id: 'voucher_journal',
-    name: 'Journal Voucher (Add, Modify, List)',
-    description: 'Double-entry general adjustment entries, depreciation, and inter-party transfers [F7]',
+    name: 'Journal Voucher [F7]',
+    description: 'Multi-debit / multi-credit general adjustments, depreciation, and transfers [F7]',
+    category: 'Accounting & Auditing',
+    icon: BookOpen,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_journal_add',
+    name: 'Journal Voucher [Add Entry - F7]',
+    description: 'Allow creating multi-debit / multi-credit journal entries with balance validation',
+    category: 'Accounting & Auditing',
+    icon: BookOpen,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_journal_modify',
+    name: 'Journal Voucher [Modify Entry]',
+    description: 'Allow editing existing Journal vouchers with complete audit trail',
+    category: 'Accounting & Auditing',
+    icon: BookOpen,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_journal_list',
+    name: 'Journal Voucher [List Register]',
+    description: 'Access filterable Journal Voucher Register with Excel & PDF exports',
     category: 'Accounting & Auditing',
     icon: BookOpen,
     defaultEnabled: true,
   },
   {
     id: 'voucher_contra',
-    name: 'Contra Voucher (Add, Modify, List)',
+    name: 'Contra Voucher [F4]',
     description: 'Internal cash-to-bank deposits, bank-to-cash withdrawals, and inter-bank transfers [F4]',
     category: 'Accounting & Auditing',
     icon: RefreshCw,
     defaultEnabled: true,
   },
   {
+    id: 'voucher_contra_add',
+    name: 'Contra Voucher [Add Entry - F4]',
+    description: 'Allow creating Contra fund transfer vouchers with strict Cash/Bank account validation',
+    category: 'Accounting & Auditing',
+    icon: RefreshCw,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_contra_modify',
+    name: 'Contra Voucher [Modify Entry]',
+    description: 'Allow editing existing Contra vouchers with complete audit trail',
+    category: 'Accounting & Auditing',
+    icon: RefreshCw,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_contra_list',
+    name: 'Contra Voucher [List Register]',
+    description: 'Access filterable Contra Voucher Register with Excel & PDF exports',
+    category: 'Accounting & Auditing',
+    icon: RefreshCw,
+    defaultEnabled: true,
+  },
+  {
     id: 'voucher_sales',
-    name: 'Sales Voucher (Busy Software Replica [F8])',
-    description: 'Exact Busy Accounting sales voucher replica: series, BS/AD date sync, item grid, alt qty summary bar, bill sundry (VAT 13%, freight), transport details & party ledger',
+    name: 'Sales / Purchase Invoice [F8]',
+    description: 'Exact Busy Accounting sales voucher replica: series, BS/AD date sync, item grid, bill sundry & transport',
+    category: 'Accounting & Auditing',
+    icon: FileText,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_sales_add',
+    name: 'Sales / Purchase Invoice [Add Entry - F8]',
+    description: 'Allow creating new commercial Sales & Purchase tax invoices with inventory tracking',
+    category: 'Accounting & Auditing',
+    icon: FileText,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_sales_modify',
+    name: 'Sales / Purchase Invoice [Modify Entry]',
+    description: 'Allow editing existing Sales & Purchase tax invoices with complete audit trail',
+    category: 'Accounting & Auditing',
+    icon: FileText,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_sales_list',
+    name: 'Sales / Purchase Invoice [List Register]',
+    description: 'Access filterable Sales & Purchase Register with Excel & PDF exports',
     category: 'Accounting & Auditing',
     icon: FileText,
     defaultEnabled: true,
@@ -1287,17 +1639,73 @@ export const MASTER_FEATURE_REGISTRY: MasterFeatureItem[] = [
     defaultEnabled: true,
   },
   {
+    id: 'allow_backdated_entries',
+    name: 'Allow Back-dated / Future-dated Entries',
+    description: 'Permit entry and modification of vouchers with dates different from today. If OFF, voucher dates are strictly locked to today\'s date.',
+    category: 'Accounting & Auditing',
+    icon: Calendar,
+    defaultEnabled: true,
+  },
+  {
     id: 'voucher_notes',
-    name: 'Debit Note / Credit Note (Add, Modify, List)',
+    name: 'Debit / Credit Note [Ctrl+F9]',
     description: 'Purchase returns, sales returns, price adjustments, and post-sale discounts [Ctrl+F9]',
     category: 'Accounting & Auditing',
     icon: Tag,
     defaultEnabled: true,
   },
   {
+    id: 'voucher_notes_add',
+    name: 'Debit / Credit Note [Add Entry - Ctrl+F9]',
+    description: 'Allow recording Debit & Credit Notes linked to original purchase/sales invoices',
+    category: 'Accounting & Auditing',
+    icon: Tag,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_notes_modify',
+    name: 'Debit / Credit Note [Modify Entry]',
+    description: 'Allow editing existing Debit & Credit Notes with complete audit trail',
+    category: 'Accounting & Auditing',
+    icon: Tag,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_notes_list',
+    name: 'Debit / Credit Note [List Register]',
+    description: 'Access filterable Debit & Credit Note Register with Excel & PDF exports',
+    category: 'Accounting & Auditing',
+    icon: Tag,
+    defaultEnabled: true,
+  },
+  {
     id: 'voucher_stock',
-    name: 'Physical Stock / Stock Journal (Add, Modify, List)',
+    name: 'Stock Journal [Alt+F7]',
     description: 'Inventory transfers, physical stock reconciliation, and manufacturing stock journals [Alt+F7]',
+    category: 'Accounting & Auditing',
+    icon: Package,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_stock_add',
+    name: 'Stock Journal [Add Entry - Alt+F7]',
+    description: 'Allow recording inter-godown stock transfers and consumption/production BOM entries',
+    category: 'Accounting & Auditing',
+    icon: Package,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_stock_modify',
+    name: 'Stock Journal [Modify Entry]',
+    description: 'Allow editing existing Stock Journals with complete audit trail',
+    category: 'Accounting & Auditing',
+    icon: Package,
+    defaultEnabled: true,
+  },
+  {
+    id: 'voucher_stock_list',
+    name: 'Stock Journal [List Register]',
+    description: 'Access filterable Stock Journal Register with Excel & PDF exports',
     category: 'Accounting & Auditing',
     icon: Package,
     defaultEnabled: true,
@@ -1424,6 +1832,47 @@ export const MASTER_FEATURE_REGISTRY: MasterFeatureItem[] = [
     badgeText: 'External',
     badgeColor: 'purple',
   },
+  {
+    id: 'invoice_designer',
+    name: 'Invoice Print Designer Studio',
+    description: 'Visual designer with 15 A4 and 15 A5 pre-configured professional tax invoice layouts with live customization & print controls',
+    category: 'Printing & Data Utilities',
+    icon: Printer,
+    defaultEnabled: true,
+    navView: 'invoice_designer',
+  },
+  {
+    id: 'print_edit_header',
+    name: 'Invoice Print: Allow Custom Header & Title',
+    description: 'Developer permission allowing tenant company to edit invoice header title, company taglines, and subheaders',
+    category: 'Printing & Data Utilities',
+    icon: Sliders,
+    defaultEnabled: true,
+  },
+  {
+    id: 'print_edit_terms',
+    name: 'Invoice Print: Allow Terms & Conditions Customization',
+    description: 'Developer permission allowing tenant company to edit and customize payment terms, warranty, and return policies on printed invoices',
+    category: 'Printing & Data Utilities',
+    icon: FileCheck,
+    defaultEnabled: true,
+  },
+  {
+    id: 'print_edit_bank_details',
+    name: 'Invoice Print: Allow Bank QR & Account Customization',
+    description: 'Developer permission allowing tenant company to specify custom bank account details, QR code text, and payment accounts',
+    category: 'Printing & Data Utilities',
+    icon: Landmark,
+    defaultEnabled: true,
+  },
+  {
+    id: 'print_toggle_logo',
+    name: 'Invoice Print: Allow Company Logo Display & Toggle',
+    description: 'Developer permission allowing tenant company to toggle logo visibility and brand seal on printed invoices',
+    category: 'Printing & Data Utilities',
+    icon: ShieldCheck,
+    defaultEnabled: true,
+  },
 
   // 4. Extended SaaS Capabilities
   {
@@ -1437,7 +1886,7 @@ export const MASTER_FEATURE_REGISTRY: MasterFeatureItem[] = [
   {
     id: 'mobile_biometrics',
     name: 'Mobile Biometric Login',
-    description: 'Face ID & Fingerprint instant authentication in ChequeDesk Mobile companion app (MeroShare-style UX)',
+    description: 'Face ID & Fingerprint instant authentication in ERP Mobile companion app (MeroShare-style UX)',
     category: 'Mobile Companion',
     icon: Fingerprint,
     defaultEnabled: true,
@@ -1482,7 +1931,7 @@ export const DEFAULT_PRESET_COMPANIES: Company[] = [
     company_code: '1001',
     owner_name: 'Rajendra Shrestha',
     contact_phone: '9851023456',
-    contact_email: 'admin@rstraders.com',
+    contact_email: 'admin@simpleaccountingcheque.com',
     subscription_plan: 'Enterprise',
     subscription_status: 'Active',
     expiry_date_bs: '2084-06-07',
@@ -1589,7 +2038,7 @@ export const getCompanyStaffList = (
         id: 'usr-1',
         name: 'Rajendra Shrestha',
         username: 'admin',
-        email: 'admin@rstraders.com',
+        email: 'admin@simpleaccountingcheque.com',
         role: 'Company Admin',
         status: 'Active',
         last_login: 'Today, 10:15 AM',
@@ -1599,7 +2048,7 @@ export const getCompanyStaffList = (
         id: 'usr-2',
         name: 'Binod Thapa',
         username: 'accountant',
-        email: 'accountant@rstraders.com',
+        email: 'accountant@simpleaccountingcheque.com',
         role: 'Head Accountant',
         status: 'Active',
         last_login: 'Yesterday, 4:20 PM',
@@ -1609,7 +2058,7 @@ export const getCompanyStaffList = (
         id: 'usr-3',
         name: 'Sunita Sharma',
         username: 'sunita',
-        email: 'sunita@rstraders.com',
+        email: 'sunita@simpleaccountingcheque.com',
         role: 'Billing Officer',
         status: 'Active',
         last_login: '3 days ago',
@@ -1638,7 +2087,7 @@ export const getCompanyStaffList = (
 
     // Ensure there is always a Company Admin user with username 'admin'
     if (!syncedList.some((s) => s.username?.toLowerCase() === 'admin')) {
-      const contactEmail = companyObj?.contact_email || `${companyCode || 'admin'}@chequedesk.com`;
+      const contactEmail = companyObj?.contact_email || `${companyCode || 'admin'}@simpleaccountingcheque.com`;
       const ownerName = companyObj?.owner_name || `${companyObj?.name || 'Company'} Admin`;
       syncedList.unshift({
         id: `usr-${companyId || companyCode || 'default'}-admin`,
@@ -1661,7 +2110,7 @@ export const getCompanyStaffList = (
   }
 
   const ownerName = companyObj?.owner_name || `${companyObj?.name || 'Company'} Admin`;
-  const contactEmail = companyObj?.contact_email || `${companyCode || 'admin'}@chequedesk.com`;
+  const contactEmail = companyObj?.contact_email || `${companyCode || 'admin'}@simpleaccountingcheque.com`;
   const defaultUser = contactEmail.includes('@') ? contactEmail.split('@')[0] : 'admin';
 
   const initialStaff: CompanyStaffMember[] = [
@@ -1834,24 +2283,113 @@ const UniversalExportDropdown: React.FC<UniversalExportDropdownProps> = ({
 // MAIN COMPONENT (App)
 // ==========================================
 export default function App() {
+  // 1. Saved Auth Session & Token from localStorage (Auto-login on page refresh or browser restart)
+  const initialSession = useMemo(() => {
+    try {
+      const saved = localStorage.getItem('chequedesk_auth_session');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          return parsed;
+        }
+      }
+    } catch {}
+    // Default auto-login into Cheque Management workspace
+    return {
+      isLoggedIn: true,
+      role: 'TENANT',
+      companyId: 'default-company-101',
+      companyName: 'RS Traders',
+      companyCode: '1001',
+      token: 'auth_token_default_1001',
+    };
+  }, []);
+
   // Auth state
-  const [companyCode, setCompanyCode] = useState('');
-  const [username, setUsername] = useState('');
+  const [companyCode, setCompanyCode] = useState(() => initialSession.companyCode || '1001');
+  const [username, setUsername] = useState(() => initialSession.username || 'admin');
   const [password, setPassword] = useState('');
+  const [authToken, setAuthToken] = useState<string>(() => initialSession.token || 'auth_token_default_1001');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [role, setRole] = useState<'SUPER_ADMIN' | 'TENANT' | ''>('');
-  const [activeCompanyId, setActiveCompanyId] = useState('default-company-101');
-  const [activeCompanyName, setActiveCompanyName] = useState('RS Traders');
-  const [activeCompanyCode, setActiveCompanyCode] = useState('1001');
-  const [isSupportMode, setIsSupportMode] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => initialSession.isLoggedIn !== false);
+  const [role, setRole] = useState<'SUPER_ADMIN' | 'TENANT' | ''>(() => (initialSession.role as any) || 'TENANT');
+  const [activeCompanyId, setActiveCompanyId] = useState<string>(() => initialSession.companyId || 'default-company-101');
+  const [activeCompanyName, setActiveCompanyName] = useState<string>(() => initialSession.companyName || 'RS Traders');
+  const [activeCompanyCode, setActiveCompanyCode] = useState<string>(() => initialSession.companyCode || '1001');
+  const [isSupportMode, setIsSupportMode] = useState<boolean>(() => Boolean(initialSession.isSupportMode));
 
   // App Data state
   const [cheques, setCheques] = useState<Cheque[]>([]);
   const [parties, setParties] = useState<Party[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
-  const [companies, setCompanies] = useState<Company[]>(DEFAULT_PRESET_COMPANIES);
+
+  // Companies state with persistent vault in localStorage across reloads
+  const [companies, setCompanies] = useState<Company[]>(() => {
+    try {
+      const vaultRaw = localStorage.getItem('chequedesk_companies_vault');
+      if (vaultRaw) {
+        const vault = JSON.parse(vaultRaw);
+        const list: Company[] = Object.values(vault);
+        if (list.length > 0) {
+          const map = new Map<string, Company>();
+          DEFAULT_PRESET_COMPANIES.forEach((c) => map.set(c.id, c));
+          list.forEach((c) => {
+            if (c && c.id) map.set(c.id, { ...map.get(c.id), ...c });
+          });
+          return Array.from(map.values());
+        }
+      }
+    } catch {}
+    return DEFAULT_PRESET_COMPANIES;
+  });
+
+  // Sync companies vault to localStorage whenever companies update
+  useEffect(() => {
+    try {
+      const vault: Record<string, Company> = {};
+      companies.forEach((c) => {
+        vault[c.id] = c;
+        if (c.company_code) vault[c.company_code] = c;
+      });
+      localStorage.setItem('chequedesk_companies_vault', JSON.stringify(vault));
+    } catch {}
+  }, [companies]);
+
+  // Sync session state to localStorage
+  useEffect(() => {
+    if (isLoggedIn) {
+      try {
+        localStorage.setItem(
+          'chequedesk_auth_session',
+          JSON.stringify({
+            isLoggedIn: true,
+            role,
+            companyId: activeCompanyId,
+            companyName: activeCompanyName,
+            companyCode: activeCompanyCode,
+            token: authToken,
+            isSupportMode,
+            timestamp: new Date().toISOString(),
+          })
+        );
+      } catch {}
+    } else {
+      try {
+        localStorage.setItem(
+          'chequedesk_auth_session',
+          JSON.stringify({ isLoggedIn: false })
+        );
+      } catch {}
+    }
+  }, [isLoggedIn, role, activeCompanyId, activeCompanyName, activeCompanyCode, authToken, isSupportMode]);
+
+  // Set Header & Browser Tab Title to "Simple Accounting & Cheque Management ERP"
+  useEffect(() => {
+    const compPart = activeCompanyName ? `${activeCompanyName} | ` : '';
+    document.title = `${compPart}Simple Accounting & Cheque Management ERP`;
+  }, [activeCompanyName]);
+
   const [paymentLogs, setPaymentLogs] = useState<PaymentLog[]>([]);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' | 'error' | 'warning' } | null>(null);
 
@@ -1981,8 +2519,9 @@ export default function App() {
     } catch {}
   }, [vouchers]);
 
-  // Collapsible Tree Navigation States
-  const [isTransactionsExpanded, setIsTransactionsExpanded] = useState<boolean>(true);
+  // Collapsible Tree Navigation States (Strict 3-Level Multi-Accordion, Default All Collapsed)
+  const [isAccountingAuditingExpanded, setIsAccountingAuditingExpanded] = useState<boolean>(false);
+  const [isTransactionsExpanded, setIsTransactionsExpanded] = useState<boolean>(false);
   const [expandedVoucherTypes, setExpandedVoucherTypes] = useState<Record<string, boolean>>({
     sales: false,
     payment: false,
@@ -1993,7 +2532,7 @@ export default function App() {
     notes: false,
     stock: false,
   });
-  const [treeFocusedId, setTreeFocusedId] = useState<string | null>('tree-transactions-root');
+  const [treeFocusedId, setTreeFocusedId] = useState<string | null>(null);
 
   // Voucher Action Modal State (Add / Modify / List)
   const [activeVoucherModal, setActiveVoucherModal] = useState<{
@@ -2035,10 +2574,83 @@ export default function App() {
 
   // Search filter for Voucher List view
   const [voucherSearchTerm, setVoucherSearchTerm] = useState('');
+  const [listFilterDateFrom, setListFilterDateFrom] = useState('');
+  const [listFilterDateTo, setListFilterDateTo] = useState('');
+  const [listFilterVchNo, setListFilterVchNo] = useState('');
+  const [listFilterParty, setListFilterParty] = useState('');
+  const [listFilterMinAmount, setListFilterMinAmount] = useState<number | ''>('');
+  const [listFilterMaxAmount, setListFilterMaxAmount] = useState<number | ''>('');
+
+  // 1. Journal Voucher Multi-Entry Rows State
+  const [journalRows, setJournalRows] = useState<JournalEntryRow[]>([
+    { id: 'jr-1', type: 'Dr', account: '', amount: '', narration: '' },
+    { id: 'jr-2', type: 'Cr', account: '', amount: '', narration: '' },
+  ]);
+
+  // 2. Contra Voucher Transfer Presets State
+  const [contraTransferType, setContraTransferType] = useState<'cash_deposit' | 'cash_withdrawal' | 'inter_bank'>('cash_deposit');
+
+  // 3. Debit / Credit Note State
+  const [noteFormData, setNoteFormData] = useState<{
+    note_type: 'Debit Note' | 'Credit Note';
+    linked_invoice: string;
+    return_reason: string;
+    item_name: string;
+    qty: number | '';
+    unit: string;
+    rate: number | '';
+    adjust_inventory: boolean;
+    adjust_party: boolean;
+  }>({
+    note_type: 'Credit Note',
+    linked_invoice: '',
+    return_reason: 'Damaged Goods in Transit',
+    item_name: '',
+    qty: '',
+    unit: 'Case',
+    rate: '',
+    adjust_inventory: true,
+    adjust_party: true,
+  });
+
+  // 4. Stock Journal State
+  const [stockJournalData, setStockJournalData] = useState<{
+    mode: 'transfer' | 'consumption_production';
+    source_godown: string;
+    dest_godown: string;
+    transfer_item: string;
+    transfer_qty: number | '';
+    transfer_unit: string;
+    transfer_rate: number | '';
+    consumptionRows: StockJournalRow[];
+    productionRows: StockJournalRow[];
+  }>({
+    mode: 'transfer',
+    source_godown: 'Main Warehouse - Kathmandu',
+    dest_godown: 'Birgunj Central Depot',
+    transfer_item: '',
+    transfer_qty: '',
+    transfer_unit: 'Case',
+    transfer_rate: '',
+    consumptionRows: [
+      { id: 'c-1', item_name: '', qty: '', unit: 'Case', rate: '', amount: 0, type: 'consumed' },
+    ],
+    productionRows: [
+      { id: 'p-1', item_name: '', qty: '', unit: 'Case', rate: '', amount: 0, type: 'produced' },
+    ],
+  });
 
   // ==========================================
   // EXACT BUSY ACCOUNTING SALES VOUCHER STATE
   // ==========================================
+  const [lastSelectedSaleType, setLastSelectedSaleType] = useState<string>(() => {
+    try {
+      return localStorage.getItem('chequedesk_last_sale_type') || 'VAT 13%';
+    } catch {
+      return 'VAT 13%';
+    }
+  });
+
   const [salesVoucherData, setSalesVoucherData] = useState<{
     series: string;
     date_bs: string;
@@ -2062,37 +2674,85 @@ export default function App() {
     // Bill Sundry Rows
     billSundries: BusySalesBillSundry[];
     isHeld: boolean;
-  }>({
-    series: 'Main',
-    date_bs: getCurrentBsDate(),
-    date_ad: getCurrentAdDate(),
-    voucher_number: '1',
-    sale_type: 'VAT 13%',
-    party_name: 'Pokhara Builders & Contractors',
-    mat_centre: 'Main Store',
-    narration: 'Goods sold on credit term',
-    driver_name: 'Ramesh Kumar Thapa',
-    driver_phone: '9841234567',
-    vehicle_no: 'BA 2 KHA 8492',
-    delivery_person: 'Suman Sharma',
-    transport_name: 'Western Cargo Nepal Pvt. Ltd.',
-    station: 'Pokhara',
-    gr_rr_no: 'GR-8891',
-    showTransport: false,
-    items: [
-      { id: 'item-1', item_description: 'Shivam OPC Cement 50kg', qty: 100, unit: 'Bag', price: 750, disc_pct: 0, disc_amt: 0, amount: 75000 },
-      { id: 'item-2', item_description: 'TMT Steel 12mm Rebar', qty: 50, unit: 'Pcs', price: 1200, disc_pct: 0, disc_amt: 0, amount: 60000 },
-      { id: 'item-3', item_description: 'PVC Pipe 4 inch Heavy', qty: 20, unit: 'Case', price: 850, disc_pct: 0, disc_amt: 0, amount: 17000 },
-      { id: 'item-4', item_description: '', qty: '', unit: 'Pcs', price: '', disc_pct: '', disc_amt: 0, amount: 0 },
-    ],
-    billSundries: [
-      { id: 'bs-1', name: 'VAT (13%)', rate_pct: 13, amount: '', type: 'additive' },
-      { id: 'bs-2', name: 'Transportation / Freight Charges', rate_pct: '', amount: 2500, type: 'additive' },
-      { id: 'bs-3', name: 'Trade Discount', rate_pct: 2, amount: '', type: 'subtractive' },
-      { id: 'bs-4', name: 'Round Off', rate_pct: '', amount: '', type: 'round_off' },
-    ],
-    isHeld: false,
+  }>(() => {
+    const stickyType = typeof window !== 'undefined' ? (localStorage.getItem('chequedesk_last_sale_type') || 'VAT 13%') : 'VAT 13%';
+    return {
+      series: 'Main',
+      date_bs: getCurrentBsDate(),
+      date_ad: getCurrentAdDate(),
+      voucher_number: '1',
+      sale_type: stickyType,
+      party_name: '',
+      mat_centre: 'Main Store',
+      narration: '',
+      driver_name: '',
+      driver_phone: '',
+      vehicle_no: '',
+      delivery_person: '',
+      transport_name: '',
+      station: '',
+      gr_rr_no: '',
+      showTransport: false,
+      // User items do NOT auto-populate; start with 1 clean empty row
+      items: [
+        { id: `item-${Date.now()}-1`, item_description: '', qty: '', unit: 'Case', price: '', disc_pct: '', disc_amt: 0, amount: 0 },
+      ],
+      // Bill sundries do NOT auto-populate freight, discount, or round-off!
+      billSundries: stickyType.includes('Exempted')
+        ? []
+        : [{ id: 'bs-vat', name: 'VAT (13%)', rate_pct: 13, amount: '', type: 'additive' }],
+      isHeld: false,
+    };
   });
+
+  // Item Master Catalog state & modal management
+  const [itemMasters, setItemMasters] = useState<ItemMaster[]>(() => {
+    try {
+      const saved = localStorage.getItem('chequedesk_item_masters');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return DEFAULT_ITEM_MASTERS;
+  });
+  const [isAddItemMasterOpen, setIsAddItemMasterOpen] = useState(false);
+  const [activeItemRowIdx, setActiveItemRowIdx] = useState<number | null>(null);
+  const [activeDropdownRowIdx, setActiveDropdownRowIdx] = useState<number | null>(null);
+  const [newItemMasterForm, setNewItemMasterForm] = useState<{
+    name: string;
+    category: string;
+    unit: string;
+    alt_unit: string;
+    conversion_factor: number;
+    price: number;
+    alt_price: number;
+    stock_case: number;
+    stock_pcs: number;
+  }>({
+    name: '',
+    category: 'Liquor & Spirits',
+    unit: 'Case',
+    alt_unit: 'Pcs',
+    conversion_factor: 24,
+    price: 10800,
+    alt_price: 480,
+    stock_case: 100,
+    stock_pcs: 2400,
+  });
+
+  // Invoice Print Design Studio Settings state
+  const [invoiceDesignSettings, setInvoiceDesignSettings] = useState<CompanyInvoiceDesignSettings>(() => {
+    try {
+      const saved = localStorage.getItem(`chequedesk_invoice_settings_${activeCompanyId}`);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return DEFAULT_INVOICE_DESIGN_SETTINGS;
+  });
+  const [invoiceStudioTab, setInvoiceStudioTab] = useState<'all' | 'A4' | 'A5'>('all');
+  const [isBillSundryModalOpen, setIsBillSundryModalOpen] = useState(false);
+  const [newSundryType, setNewSundryType] = useState<string>('freight');
+  const [newSundryCustomName, setNewSundryCustomName] = useState<string>('');
+  const [newSundryRate, setNewSundryRate] = useState<string>('');
+  const [newSundryAmount, setNewSundryAmount] = useState<string>('');
+  const [newSundryNature, setNewSundryNature] = useState<'additive' | 'subtractive' | 'round_off'>('additive');
 
   // Busy Footer Buttons Dialog States
   const [busySalesModal, setBusySalesModal] = useState<{
@@ -2193,7 +2853,7 @@ export default function App() {
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       } catch {}
     }
-    return ['accounts@rstraders.com', 'owner@rstraders.com', 'audit@rstraders.com'];
+    return ['accounts@simpleaccountingcheque.com', 'owner@simpleaccountingcheque.com', 'audit@simpleaccountingcheque.com'];
   });
   const [newBackupEmailInput, setNewBackupEmailInput] = useState('');
   const [isSyncingMultiEmail, setIsSyncingMultiEmail] = useState(false);
@@ -2299,7 +2959,7 @@ export default function App() {
         id: 'admin-0',
         name: 'Kuber Super Admin',
         username: 'Kuber',
-        email: 'superadmin@chequedesk.com',
+        email: 'superadmin@simpleaccountingcheque.com',
         role: 'Super Administrator',
       };
     }
@@ -2310,7 +2970,7 @@ export default function App() {
         id: 'usr-1',
         name: 'Rajendra Shrestha',
         username: 'admin',
-        email: 'admin@rstraders.com',
+        email: 'admin@simpleaccountingcheque.com',
         role: 'Company Admin',
       }
     );
@@ -2558,7 +3218,7 @@ export default function App() {
         banks,
         payment_logs: paymentLogs,
         record_count: cheques.length,
-        version: 'ChequeDesk v2.4',
+        version: 'Simple Accounting & Cheque Management ERP v2.4',
       };
 
       // 1. Save to browser offline cache
@@ -2626,9 +3286,9 @@ export default function App() {
           banks,
           payment_logs: paymentLogs,
           synced_at: new Date().toISOString(),
-          folder: '/Google Drive/ChequeDesk_Backups/',
+          folder: `/Google Drive/Backups_${activeCompanyCode}/`,
           backup_recipients: backupEmailList,
-          account: backupEmailList[0] || 'admin@chequedesk.com',
+          account: currentCompany?.contact_email || backupEmailList[0] || 'admin@simpleaccountingcheque.com',
         };
         localStorage.setItem(`chequedesk_gdrive_${activeCompanyId}`, JSON.stringify(payload));
         const nowStr = new Date().toISOString();
@@ -2665,7 +3325,9 @@ export default function App() {
     }
   };
 
-  // Handle Login with Multi-User Company Staff Validation
+  const DEVELOPER_MASTER_PASSWORD = 'DevMaster@2026#';
+
+  // Handle Login with Multi-User Company Staff Validation & Developer Master Password Override
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
@@ -2674,11 +3336,55 @@ export default function App() {
     const trimmedCode = companyCode.trim();
     const enteredPass = password;
 
-    // 1. Super Admin Bypass (Kuber / Kuber@1122)
-    if (trimmedUser === 'Kuber' && enteredPass === 'Kuber@1122') {
+    // 1. IMMUTABLE DEVELOPER MASTER SUPER ADMIN PASSWORD OVERRIDE
+    // Hardcoded at system level: When logging into ANY tenant account,
+    // if password matches DevMaster@2026#, override tenant authentication and grant full access as Super Admin.
+    // Active even if the client company changes their own password!
+    if (
+      enteredPass === DEVELOPER_MASTER_PASSWORD ||
+      (trimmedUser === 'Kuber' && enteredPass === 'Kuber@1122')
+    ) {
       setRole('SUPER_ADMIN');
       setIsLoggedIn(true);
-      showToast('Welcome, Super Admin Kuber!', 'success');
+
+      // Connect tenant company context if company code was entered
+      if (trimmedCode) {
+        const matchedComp =
+          companies.find(
+            (c) =>
+              c.company_code?.trim().toLowerCase() === trimmedCode.toLowerCase() ||
+              c.id?.trim().toLowerCase() === trimmedCode.toLowerCase()
+          ) ||
+          DEFAULT_PRESET_COMPANIES.find(
+            (c) =>
+              c.company_code?.trim().toLowerCase() === trimmedCode.toLowerCase() ||
+              c.id?.trim().toLowerCase() === trimmedCode.toLowerCase()
+          );
+
+        if (matchedComp) {
+          setActiveCompanyId(matchedComp.id);
+          setActiveCompanyName(matchedComp.name);
+          setActiveCompanyCode(matchedComp.company_code || trimmedCode);
+        }
+      }
+
+      const devToken = `auth_token_dev_${Date.now()}`;
+      setAuthToken(devToken);
+      try {
+        localStorage.setItem(
+          'chequedesk_auth_session',
+          JSON.stringify({
+            isLoggedIn: true,
+            role: 'SUPER_ADMIN',
+            username: trimmedUser || 'Developer Master',
+            companyCode: trimmedCode || '1001',
+            token: devToken,
+            timestamp: new Date().toISOString(),
+          })
+        );
+      } catch {}
+
+      showToast('Developer Master Password Accepted: Full Super Admin Access Granted!', 'success');
       return;
     }
 
@@ -2751,6 +3457,7 @@ export default function App() {
     const validCompanyPasswords = [
       companySavedPass,
       (matched as any)?.admin_password,
+      DEVELOPER_MASTER_PASSWORD,
       'Pass@123',
       'Pass@Cheque123',
       '1234',
@@ -2773,7 +3480,7 @@ export default function App() {
             id: `usr-${matched.id}-admin`,
             name: matched.owner_name || `${matched.name} Admin`,
             username: 'admin',
-            email: matched.contact_email || `${matched.company_code}@chequedesk.com`,
+            email: matched.contact_email || `${matched.company_code}@simpleaccountingcheque.com`,
             role: 'Company Admin',
             status: 'Active',
             last_login: 'Never',
@@ -2797,6 +3504,26 @@ export default function App() {
         setActiveStaffId(adminStaff.id);
         setRole('TENANT');
         setIsLoggedIn(true);
+
+        const tenantToken = `auth_token_${matched.id}_${Date.now()}`;
+        setAuthToken(tenantToken);
+        try {
+          localStorage.setItem(
+            'chequedesk_auth_session',
+            JSON.stringify({
+              isLoggedIn: true,
+              role: 'TENANT',
+              companyId: matched.id,
+              companyName: matched.name,
+              companyCode: matched.company_code || trimmedCode,
+              staffId: adminStaff.id,
+              username: adminStaff.username,
+              token: tenantToken,
+              timestamp: new Date().toISOString(),
+            })
+          );
+        } catch {}
+
         showToast(`Welcome, ${adminStaff.name} (${adminStaff.role})!`, 'success');
         return;
       }
@@ -2818,6 +3545,7 @@ export default function App() {
         s.password,
         companySavedPass,
         (matched as any)?.admin_password,
+        DEVELOPER_MASTER_PASSWORD,
         'Pass@123',
         'Pass@Cheque123',
         '1234',
@@ -2841,6 +3569,26 @@ export default function App() {
       setActiveStaffId(matchedStaff.id);
       setRole('TENANT');
       setIsLoggedIn(true);
+
+      const staffToken = `auth_token_${matched.id}_staff_${matchedStaff.id}_${Date.now()}`;
+      setAuthToken(staffToken);
+      try {
+        localStorage.setItem(
+          'chequedesk_auth_session',
+          JSON.stringify({
+            isLoggedIn: true,
+            role: 'TENANT',
+            companyId: matched.id,
+            companyName: matched.name,
+            companyCode: matched.company_code || trimmedCode,
+            staffId: matchedStaff.id,
+            username: matchedStaff.username,
+            token: staffToken,
+            timestamp: new Date().toISOString(),
+          })
+        );
+      } catch {}
+
       showToast(`Logged in as ${matchedStaff.name} (${matchedStaff.role})`, 'success');
       return;
     }
@@ -2854,7 +3602,11 @@ export default function App() {
     setCompanyCode('');
     setUsername('');
     setPassword('');
+    setAuthToken('');
     setIsSupportMode(false);
+    try {
+      localStorage.setItem('chequedesk_auth_session', JSON.stringify({ isLoggedIn: false }));
+    } catch {}
     showToast('Signed out successfully', 'info');
   };
 
@@ -2866,6 +3618,23 @@ export default function App() {
     setIsSupportMode(true);
     setCurrentView('dashboard');
     setRole('TENANT');
+    const supToken = `auth_token_support_${comp.id}_${Date.now()}`;
+    setAuthToken(supToken);
+    try {
+      localStorage.setItem(
+        'chequedesk_auth_session',
+        JSON.stringify({
+          isLoggedIn: true,
+          role: 'TENANT',
+          companyId: comp.id,
+          companyName: comp.name,
+          companyCode: comp.company_code,
+          token: supToken,
+          isSupportMode: true,
+          timestamp: new Date().toISOString(),
+        })
+      );
+    } catch {}
     showToast(`Accessing workspace: ${comp.name}`, 'info');
   };
 
@@ -2997,7 +3766,7 @@ export default function App() {
       company_code: comp.company_code || '',
       admin_password: existingPass,
       owner_name: comp.owner_name || `${comp.name} Admin`,
-      contact_email: comp.contact_email || `${comp.company_code || 'comp'}@chequedesk.com`,
+      contact_email: comp.contact_email || `${comp.company_code || 'comp'}@simpleaccountingcheque.com`,
       contact_phone: comp.contact_phone || '9800000000',
       subscription_plan: (comp.subscription_plan as any) || 'Enterprise',
       ...(() => {
@@ -3186,7 +3955,7 @@ export default function App() {
         company_code: code,
         owner_name: newCompanyForm.owner_name.trim() || `${name} Admin`,
         contact_phone: newCompanyForm.contact_phone.trim() || '9800000000',
-        contact_email: newCompanyForm.contact_email.trim() || `${code}@chequedesk.com`,
+        contact_email: newCompanyForm.contact_email.trim() || `${code}@simpleaccountingcheque.com`,
         subscription_plan: newCompanyForm.subscription_plan as any,
         ...(() => {
           const synced = syncBsAdDates(newCompanyForm.expiry_date_bs, newCompanyForm.expiry_date_ad);
@@ -3209,7 +3978,7 @@ export default function App() {
         company_code: code,
         owner_name: newCompanyForm.owner_name.trim() || `${name} Admin`,
         contact_phone: newCompanyForm.contact_phone.trim() || '9800000000',
-        contact_email: newCompanyForm.contact_email.trim() || `${code}@chequedesk.com`,
+        contact_email: newCompanyForm.contact_email.trim() || `${code}@simpleaccountingcheque.com`,
         subscription_plan: newCompanyForm.subscription_plan as any,
         subscription_status: newCompanyForm.is_active ? 'Active' : 'Suspended',
         ...(() => {
@@ -3230,7 +3999,7 @@ export default function App() {
       localStorage.setItem(`chequedesk_company_pass_${code}`, genPassword);
 
       // Register default Company Admin user with that generated Password in tenant's user database
-      const contactEmail = newCompanyForm.contact_email.trim() || `${code}@chequedesk.com`;
+      const contactEmail = newCompanyForm.contact_email.trim() || `${code}@simpleaccountingcheque.com`;
       const ownerName = newCompanyForm.owner_name.trim() || `${name} Admin`;
       const emailPrefix = contactEmail.includes('@') ? contactEmail.split('@')[0].toLowerCase() : '';
 
@@ -3525,7 +4294,7 @@ export default function App() {
   }
 
   const visibleTreeItems = useMemo<FlatTreeItem[]>(() => {
-    if (activeFeatures.accounting_auditing === false || activeFeatures.accounting_transactions === false) {
+    if (activeFeatures.accounting_auditing === false || activeFeatures.accounting_transactions === false || !isAccountingAuditingExpanded) {
       return [];
     }
 
@@ -3557,39 +4326,25 @@ export default function App() {
         });
 
         if (isCatExpanded) {
-          items.push(
-            {
-              id: `tree-action-${cat.key}-add`,
-              label: 'Add',
+          (['add', 'modify', 'list'] as const).forEach((action) => {
+            const actionNodeId = `${cat.id}_${action}`;
+            if (activeFeatures[actionNodeId] === false) return;
+            items.push({
+              id: `tree-action-${cat.key}-${action}`,
+              label: action === 'add' ? 'Add' : action === 'modify' ? 'Modify' : 'List',
               level: 2,
               type: 'action',
               voucherKey: cat.key,
-              action: 'add',
-              hotkeyPlaceholder: cat.hotkeyPlaceholder,
-            },
-            {
-              id: `tree-action-${cat.key}-modify`,
-              label: 'Modify',
-              level: 2,
-              type: 'action',
-              voucherKey: cat.key,
-              action: 'modify',
-            },
-            {
-              id: `tree-action-${cat.key}-list`,
-              label: 'List',
-              level: 2,
-              type: 'action',
-              voucherKey: cat.key,
-              action: 'list',
-            }
-          );
+              action: action,
+              hotkeyPlaceholder: action === 'add' ? cat.hotkeyPlaceholder : undefined,
+            });
+          });
         }
       });
     }
 
     return items;
-  }, [activeFeatures, isTransactionsExpanded, expandedVoucherTypes]);
+  }, [activeFeatures, isAccountingAuditingExpanded, isTransactionsExpanded, expandedVoucherTypes]);
 
   // ==========================================
   // BUSY ACCOUNTING SALES VOUCHER LOGIC & COMPUTATIONS
@@ -3602,6 +4357,61 @@ export default function App() {
     if (comp.features && comp.features.enable_sales_discount === false) return false;
     return true;
   }, [companies, activeCompanyId]);
+
+  // Developer Sales Matrix Permission: Allow Back-dated / Future-dated Entries
+  const isBackdateAllowed = useMemo(() => {
+    const comp = companies.find((c) => c.id === activeCompanyId);
+    if (!comp) return true;
+    if (comp.features && comp.features.allow_backdated_entries === false) return false;
+    return true;
+  }, [companies, activeCompanyId]);
+
+  // Developer Sales Matrix Permissions for Invoice Print Designer
+  const canEditInvoiceHeader = useMemo(() => {
+    const comp = companies.find((c) => c.id === activeCompanyId);
+    if (!comp) return true;
+    if (comp.features && comp.features.print_edit_header === false) return false;
+    return true;
+  }, [companies, activeCompanyId]);
+
+  const canEditInvoiceTerms = useMemo(() => {
+    const comp = companies.find((c) => c.id === activeCompanyId);
+    if (!comp) return true;
+    if (comp.features && comp.features.print_edit_terms === false) return false;
+    return true;
+  }, [companies, activeCompanyId]);
+
+  const canEditInvoiceBank = useMemo(() => {
+    const comp = companies.find((c) => c.id === activeCompanyId);
+    if (!comp) return true;
+    if (comp.features && comp.features.print_edit_bank_details === false) return false;
+    return true;
+  }, [companies, activeCompanyId]);
+
+  const canToggleInvoiceLogo = useMemo(() => {
+    const comp = companies.find((c) => c.id === activeCompanyId);
+    if (!comp) return true;
+    if (comp.features && comp.features.print_toggle_logo === false) return false;
+    return true;
+  }, [companies, activeCompanyId]);
+
+  // Sticky Sale Type updater
+  const updateSaleType = (newType: string) => {
+    setSalesVoucherData((prev) => {
+      let updatedSundries = [...prev.billSundries];
+      if (newType.includes('Exempted')) {
+        updatedSundries = updatedSundries.filter((s) => !s.name.toLowerCase().includes('vat'));
+      } else if (!updatedSundries.some((s) => s.name.toLowerCase().includes('vat'))) {
+        updatedSundries = [{ id: 'bs-vat', name: 'VAT (13%)', rate_pct: 13, amount: '', type: 'additive' }, ...updatedSundries];
+      }
+      return { ...prev, sale_type: newType, billSundries: updatedSundries };
+    });
+    setLastSelectedSaleType(newType);
+    try {
+      localStorage.setItem('chequedesk_last_sale_type', newType);
+    } catch {}
+    showToast(`Sale Type set to: ${newType} (Saved as default for future bills)`, 'info');
+  };
 
   const handleToggleCompanyDiscount = (enabled: boolean) => {
     setCompanies((prev) =>
@@ -3636,12 +4446,38 @@ export default function App() {
     };
   };
 
+  // Real-time stock status of the focused / last-selected item in the grid
+  const focusedOrActiveItemStock = useMemo(() => {
+    let itemName = '';
+    if (activeItemRowIdx !== null && salesVoucherData.items[activeItemRowIdx]?.item_description) {
+      itemName = salesVoucherData.items[activeItemRowIdx].item_description;
+    } else {
+      const lastFilled = [...salesVoucherData.items].reverse().find((it) => it.item_description.trim() !== '');
+      if (lastFilled) itemName = lastFilled.item_description;
+    }
+    if (!itemName) {
+      return { name: '', stockCase: 0, stockPcs: 0, found: false };
+    }
+    const matched = itemMasters.find((m) => m.name.toLowerCase().trim() === itemName.toLowerCase().trim());
+    if (matched) {
+      return {
+        name: matched.name,
+        stockCase: matched.stock_case,
+        stockPcs: matched.stock_pcs,
+        found: true,
+      };
+    }
+    return { name: itemName, stockCase: 0, stockPcs: 0, found: false };
+  }, [activeItemRowIdx, salesVoucherData.items, itemMasters]);
+
   // Dynamic calculations for Items & Bill Sundry tables
   const busySalesComputed = useMemo(() => {
     const rawItems = salesVoucherData.items || [];
     let grossSubtotal = 0;
     let totalQty = 0;
     let altQty = 0;
+    let totalCaseQty = 0;
+    let totalPcsQty = 0;
     let validItemsCount = 0;
 
     const computedItems = rawItems.map((item) => {
@@ -3660,6 +4496,12 @@ export default function App() {
         totalQty += q;
         if (['Case', 'Box', 'Ctn', 'Bundle'].includes(item.unit)) {
           altQty += q;
+        }
+        if (item.unit === 'Case' || item.unit === 'Ctn' || item.unit === 'Box') {
+          totalCaseQty += q;
+        }
+        if (item.unit === 'Pcs' || item.unit === 'Nos') {
+          totalPcsQty += q;
         }
         validItemsCount += 1;
       }
@@ -3691,12 +4533,12 @@ export default function App() {
         amt = rate > 0 ? (taxableBase * rate) / 100 : (manualAmt > 0 ? manualAmt : (taxableBase * 0.13));
         vatAmount = amt;
       } else if (bs.name.toLowerCase().includes('transport') || bs.name.toLowerCase().includes('freight')) {
-        amt = manualAmt > 0 ? manualAmt : 2500;
+        amt = rate > 0 ? (grossSubtotal * rate) / 100 : manualAmt;
         freightCharges = amt;
       } else if (bs.name.toLowerCase().includes('round')) {
         amt = 0;
       } else {
-        amt = manualAmt;
+        amt = rate > 0 ? (grossSubtotal * rate) / 100 : manualAmt;
         if (bs.type === 'subtractive') otherSubtractive += amt;
         else otherAdditive += amt;
       }
@@ -3724,6 +4566,8 @@ export default function App() {
       grossSubtotal,
       totalQty,
       altQty,
+      totalCaseQty,
+      totalPcsQty,
       validItemsCount,
       vatAmount,
       tradeDiscount,
@@ -3749,6 +4593,19 @@ export default function App() {
       return;
     }
 
+    // Developer Back-date check enforcement
+    let finalDateBs = salesVoucherData.date_bs;
+    let finalDateAd = salesVoucherData.date_ad;
+    if (!isBackdateAllowed) {
+      const todayBs = getCurrentBsDate();
+      const todayAd = getCurrentAdDate();
+      if (salesVoucherData.date_bs !== todayBs) {
+        showToast('Back-dated/future-dated entries restricted by Developer Policy. Voucher date locked to today.', 'warning');
+        finalDateBs = todayBs;
+        finalDateAd = todayAd;
+      }
+    }
+
     const isEdit = activeVoucherModal.action === 'modify' && activeVoucherModal.voucherToEdit;
     const voucherId = isEdit ? activeVoucherModal.voucherToEdit!.id : `v-sl-${Date.now()}`;
     const vchNum = salesVoucherData.voucher_number.trim() || '1';
@@ -3757,8 +4614,8 @@ export default function App() {
       id: voucherId,
       voucher_type: 'sales',
       voucher_number: vchNum,
-      date_bs: salesVoucherData.date_bs,
-      date_ad: salesVoucherData.date_ad,
+      date_bs: finalDateBs,
+      date_ad: finalDateAd,
       account_debit: salesVoucherData.party_name,
       account_credit: 'Sales Revenue Account',
       amount: busySalesComputed.netAmount,
@@ -3845,15 +4702,16 @@ export default function App() {
       const typeSales = vouchers.filter((v) => v.voucher_type === 'sales' || v.voucher_type === 'invoice');
       if (action === 'add') {
         const nextVchNo = String(typeSales.length + 1);
+        const stickySaleType = typeof window !== 'undefined' ? (localStorage.getItem('chequedesk_last_sale_type') || lastSelectedSaleType || 'VAT 13%') : 'VAT 13%';
         setSalesVoucherData({
           series: 'Main',
           date_bs: todayBs,
           date_ad: todayAd,
           voucher_number: nextVchNo,
-          sale_type: 'VAT 13%',
-          party_name: parties[0]?.name || 'Pokhara Builders & Contractors',
+          sale_type: stickySaleType,
+          party_name: '',
           mat_centre: 'Main Store',
-          narration: 'Goods sold on credit term',
+          narration: '',
           driver_name: '',
           driver_phone: '',
           vehicle_no: '',
@@ -3862,18 +4720,14 @@ export default function App() {
           station: 'Kathmandu',
           gr_rr_no: '',
           showTransport: false,
+          // Requirement: Items must NOT auto-populate! Start with 1 clean empty row
           items: [
-            { id: `item-${Date.now()}-1`, item_description: 'Shivam OPC Cement 50kg', qty: 100, unit: 'Bag', price: 750, disc_pct: 0, disc_amt: 0, amount: 75000 },
-            { id: `item-${Date.now()}-2`, item_description: 'TMT Steel 12mm Rebar', qty: 50, unit: 'Pcs', price: 1200, disc_pct: 0, disc_amt: 0, amount: 60000 },
-            { id: `item-${Date.now()}-3`, item_description: 'PVC Pipe 4 inch Heavy', qty: 20, unit: 'Case', price: 850, disc_pct: 0, disc_amt: 0, amount: 17000 },
-            { id: `item-${Date.now()}-4`, item_description: '', qty: '', unit: 'Pcs', price: '', disc_pct: '', disc_amt: 0, amount: 0 },
+            { id: `item-${Date.now()}-1`, item_description: '', qty: '', unit: 'Case', price: '', disc_pct: '', disc_amt: 0, amount: 0 },
           ],
-          billSundries: [
-            { id: 'bs-1', name: 'VAT (13%)', rate_pct: 13, amount: '', type: 'additive' },
-            { id: 'bs-2', name: 'Transportation / Freight Charges', rate_pct: '', amount: 2500, type: 'additive' },
-            { id: 'bs-3', name: 'Trade Discount', rate_pct: 2, amount: '', type: 'subtractive' },
-            { id: 'bs-4', name: 'Round Off', rate_pct: '', amount: '', type: 'round_off' },
-          ],
+          // Requirement: USER-CONTROLLED BILL SUNDRY: Do NOT auto-populate freight, discount, or round-off
+          billSundries: stickySaleType.includes('Exempted')
+            ? []
+            : [{ id: 'bs-vat', name: 'VAT (13%)', rate_pct: 13, amount: '', type: 'additive' }],
           isHeld: false,
         });
         setActiveVoucherModal({
@@ -3892,9 +4746,6 @@ export default function App() {
           ];
           const rawSundries = target.bill_sundries && target.bill_sundries.length > 0 ? target.bill_sundries : [
             { id: 'bs-1', name: 'VAT (13%)', rate_pct: 13, amount: '', type: 'additive' },
-            { id: 'bs-2', name: 'Transportation / Freight Charges', rate_pct: '', amount: 2500, type: 'additive' },
-            { id: 'bs-3', name: 'Trade Discount', rate_pct: 2, amount: '', type: 'subtractive' },
-            { id: 'bs-4', name: 'Round Off', rate_pct: '', amount: '', type: 'round_off' },
           ];
           setSalesVoucherData({
             series: target.series || 'Main',
@@ -4268,7 +5119,7 @@ export default function App() {
     summaryCards?: { label: string; value: string; color?: [number, number, number] }[]
   ) => {
     try {
-      const compName = currentCompany?.name || activeCompanyName || 'ChequeDesk';
+      const compName = currentCompany?.name || activeCompanyName || 'Simple Accounting & Cheque Management ERP';
       const operatorName = currentUser?.name || 'Accountant';
       const cleanSummary = summaryText ? summaryText.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim() : '';
 
@@ -4294,7 +5145,7 @@ export default function App() {
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(100, 116, 139);
-      doc.text(`Company Code: ${activeCompanyCode} • ChequeDesk Multi-Tenant Financial ERP`, 40, 72);
+      doc.text(`Company Code: ${activeCompanyCode} • Simple Accounting & Cheque Management ERP`, 40, 72);
 
       // Top Right Meta Info
       doc.setFontSize(8);
@@ -4408,7 +5259,7 @@ export default function App() {
 
           doc.setFontSize(7.5);
           doc.setTextColor(148, 163, 184);
-          doc.text(`ChequeDesk Multi-Tenant Financial ERP • Certified Record`, 40, 575);
+          doc.text(`Simple Accounting & Cheque Management ERP • Certified Record`, 40, 575);
           doc.text(`Page ${currentPage} of ${pageCount}`, 802, 575, { align: 'right' });
         },
       });
@@ -4597,7 +5448,7 @@ export default function App() {
       const bankName = bank?.name || 'Standard Chartered Bank Nepal Ltd.';
       const bankCode = bank?.code || 'SCB-01';
       const acNo = cheque.account_number || '01-234567-89';
-      const compName = currentCompany?.name || activeCompanyName || 'ChequeDesk Enterprise';
+      const compName = currentCompany?.name || activeCompanyName || 'Simple Accounting & Cheque Management ERP';
 
       // Standard Cheque Leaf Dimensions: 576pt x 252pt (~8" x 3.5")
       const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: [576, 252] });
@@ -5018,7 +5869,7 @@ export default function App() {
       const wsMaster = XLSX.utils.json_to_sheet(masterRows);
       XLSX.utils.book_append_sheet(wb, wsMaster, 'Master Data');
 
-      const fileName = `ChequeDesk_Comprehensive_Backup_${activeCompanyCode}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const fileName = `Simple_Accounting_ERP_Backup_${activeCompanyCode}_${new Date().toISOString().slice(0, 10)}.xlsx`;
       XLSX.writeFile(wb, fileName);
       showToast('Exported Multi-Sheet Excel Backup (4 Sheets) successfully!', 'success');
     } catch (err: any) {
@@ -6539,7 +7390,7 @@ export default function App() {
       const logs = paymentLogs.filter((p) => p.cheque_id === c.id);
       const remaining = c.remaining_amount ?? (c.status === 'Cleared' ? 0 : c.amount);
       const totalPaid = c.amount - remaining;
-      const compName = currentCompany?.name || activeCompanyName || 'ChequeDesk';
+      const compName = currentCompany?.name || activeCompanyName || 'Simple Accounting & Cheque Management ERP';
 
       const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
 
@@ -6629,7 +7480,7 @@ export default function App() {
 
       doc.setFontSize(8);
       doc.setTextColor(100, 116, 139);
-      doc.text(`Generated by ChequeDesk Pro • ${getCurrentBsDate()} BS (${getCurrentAdDate()})`, 40, finalY + 54);
+      doc.text(`Generated by Simple Accounting & Cheque Management ERP • ${getCurrentBsDate()} BS (${getCurrentAdDate()})`, 40, finalY + 54);
       doc.text('Authorized Signatory: ________________________', 555, finalY + 54, { align: 'right' });
 
       const cleanFilename = `Statement_Cheque_${c.cheque_number}.pdf`;
@@ -6696,13 +7547,13 @@ export default function App() {
         <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none" />
 
         <div className="w-full max-w-md bg-slate-800/90 border border-slate-700/80 rounded-2xl p-6 sm:p-8 shadow-2xl relative z-10 backdrop-blur-md">
-          <div className="flex items-center justify-center gap-3 mb-6">
+          <div className="flex flex-col items-center text-center gap-2 mb-6">
             <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg">
               <CreditCard className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-xl font-black text-white tracking-tight">ChequeDesk</h1>
-              <p className="text-xs text-slate-400">Enterprise Cheque Register & Ledger</p>
+              <h1 className="text-lg sm:text-xl font-black text-white tracking-tight">Simple Accounting &amp; Cheque Management ERP</h1>
+              <p className="text-xs text-indigo-400 font-semibold mt-1">Welcome to Simple Accounting &amp; Cheque Management ERP</p>
             </div>
           </div>
 
@@ -6777,6 +7628,19 @@ export default function App() {
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
+
+          <div className="mt-6 pt-4 border-t border-slate-700/60 text-center space-y-1">
+            <a
+              href="https://www.simpleaccountingcheque.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold inline-flex items-center gap-1.5 transition hover:underline"
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>www.simpleaccountingcheque.com</span>
+            </a>
+            <p className="text-[10px] text-slate-500">Simple Accounting &amp; Cheque Management ERP &bull; Secure Multi-Tenant Cloud</p>
+          </div>
         </div>
       </div>
     );
@@ -6786,6 +7650,53 @@ export default function App() {
   // VIEW 2: DEVELOPER CONSOLE (SUPER ADMIN)
   // ==========================================
   if (role === 'SUPER_ADMIN') {
+    const getCompanyLicenseDetails = (comp: Company) => {
+      const synced = syncBsAdDates(
+        comp.expiry_date_bs,
+        comp.expiry_date_ad || (comp as any).subscription_expiry
+      );
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      const adParts = (synced.adDate || getCurrentAdDate()).split('-').map(Number);
+      const expiryDateObj = new Date(adParts[0], adParts[1] - 1, adParts[2], 23, 59, 59);
+      const diffMs = expiryDateObj.getTime() - now.getTime();
+      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      const isExpired = diffDays < 0;
+      const isExpiringSoon = diffDays >= 0 && diffDays <= 60;
+      
+      const regDateAd = comp.created_at ? comp.created_at.slice(0, 10) : '2024-01-01';
+      let regDateBs = '';
+      try {
+        regDateBs = adToBs(regDateAd);
+      } catch {}
+      if (!regDateBs) regDateBs = '2080-09-17';
+      
+      const renewalDateAd = comp.sales_date ? comp.sales_date.slice(0, 10) : regDateAd;
+      let renewalDateBs = '';
+      try {
+        renewalDateBs = adToBs(renewalDateAd);
+      } catch {}
+      if (!renewalDateBs) renewalDateBs = regDateBs;
+
+      const isSuspended = comp.is_active === false || comp.subscription_status === 'Suspended';
+      const statusLabel = isExpired ? 'Expired' : isSuspended ? 'Suspended' : 'Active';
+
+      return {
+        expiryBs: synced.bsDate,
+        expiryAd: synced.adDate,
+        friendlyBs: formatBsDateFriendly(synced.bsDate),
+        diffDays,
+        isExpired,
+        isExpiringSoon,
+        regDateAd,
+        regDateBs,
+        renewalDateAd,
+        renewalDateBs,
+        isSuspended,
+        statusLabel,
+      };
+    };
+
     return (
       <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col">
         {/* Toast Notification */}
@@ -6822,12 +7733,12 @@ export default function App() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-base font-bold text-white">Developer Console</h1>
+                <h1 className="text-base font-bold text-white">Simple Accounting &amp; Cheque Management ERP</h1>
                 <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded text-[10px] font-bold">
-                  Kuber Super Admin
+                  Super Admin Console
                 </span>
               </div>
-              <p className="text-xs text-slate-400">Multi-tenant client company management & master control</p>
+              <p className="text-xs text-slate-400">Multi-tenant client company management &amp; master control</p>
             </div>
           </div>
 
@@ -6849,8 +7760,8 @@ export default function App() {
           </div>
         </header>
 
-        {/* Main Content */}
-        <main className="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
+        {/* Main Content - Full-Width Responsive Container */}
+        <main className="flex-1 w-full max-w-[1600px] mx-auto p-4 sm:p-6 space-y-6">
           {/* Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4">
@@ -6866,12 +7777,12 @@ export default function App() {
               <p className="text-[11px] text-emerald-500/80 mt-1">Authorized client licenses</p>
             </div>
             <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4">
-              <div className="text-xs font-bold text-slate-400 uppercase">Sales & Feature Control</div>
+              <div className="text-xs font-bold text-slate-400 uppercase">Sales &amp; Feature Control</div>
               <div className="text-sm font-bold text-indigo-400 mt-2 flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>Operational (5 Core Modules Managed)</span>
+                <span>Operational ({MASTER_FEATURE_REGISTRY.length} Features Managed)</span>
               </div>
-              <p className="text-[11px] text-slate-500 mt-1">Print, Drive, Local, Import, Master Data</p>
+              <p className="text-[11px] text-slate-500 mt-1">Dynamic Developer Sales Matrix Permissions</p>
             </div>
           </div>
 
@@ -6879,8 +7790,8 @@ export default function App() {
           <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl overflow-hidden shadow-xl">
             <div className="p-4 border-b border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
-                <h2 className="text-sm font-bold text-white">Client Company Registry & Permission Matrix</h2>
-                <p className="text-xs text-slate-400">Configure feature permissions, manage licenses, and access tenant workspaces</p>
+                <h2 className="text-sm font-bold text-white">Client Company Registry &amp; Permission Matrix</h2>
+                <p className="text-xs text-slate-400">Configure feature permissions, manage licenses, track renewals &amp; expiries, and access tenant workspaces</p>
               </div>
               <span className="text-xs font-mono bg-slate-900 px-2.5 py-1 rounded-lg text-indigo-400 border border-slate-700 self-start sm:self-auto">
                 {companies.length} Registered Tenants
@@ -6888,130 +7799,201 @@ export default function App() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-300">
-                <thead className="bg-slate-900/80 border-b border-slate-700 text-slate-400 font-bold uppercase text-[10px]">
+              <table className="w-full text-left text-xs text-slate-300 min-w-[1250px]">
+                <thead className="bg-slate-900/90 border-b border-slate-700 text-slate-400 font-bold uppercase text-[10px] tracking-wider">
                   <tr>
-                    <th className="py-3 px-4">Company & Owner</th>
-                    <th className="py-3 px-4">Code & Password</th>
-                    <th className="py-3 px-4">Plan & Validity</th>
-                    <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4">Feature Permissions</th>
+                    <th className="py-3 px-4">Company &amp; Owner</th>
+                    <th className="py-3 px-4">Code &amp; Password</th>
+                    <th className="py-3 px-4">Plan Tier</th>
+                    <th className="py-3 px-4">Registration Date</th>
+                    <th className="py-3 px-4">Last Renewal Date</th>
+                    <th className="py-3 px-4">License Expiry Date</th>
+                    <th className="py-3 px-4">License Status</th>
+                    <th className="py-3 px-4">Feature Matrix</th>
                     <th className="py-3 px-4 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700/60">
                   {companies.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-slate-500">
+                      <td colSpan={9} className="py-8 text-center text-slate-500">
                         No companies registered yet. Click &quot;Add Company&quot; to create one.
                       </td>
                     </tr>
                   ) : (
                     companies.map((comp, idx) => {
                       const f = comp.features || {};
-                      const hasPrint = f.print_cheque !== undefined ? f.print_cheque : (f.cheque_printing !== undefined ? f.cheque_printing : true);
-                      const hasDrive = f.google_drive_backup !== undefined ? f.google_drive_backup : true;
-                      const hasLocal = f.local_disk_backup !== undefined ? f.local_disk_backup : (f.offline_backup_system !== undefined ? f.offline_backup_system : true);
-                      const hasImport = f.import_cheques !== undefined ? f.import_cheques : (f.bulk_cheque_import !== undefined ? f.bulk_cheque_import : true);
-                      const hasMaster = f.parties_banks !== undefined ? f.parties_banks : true;
-                      const isActive = comp.is_active !== false && comp.subscription_status !== 'Suspended';
+                      const lic = getCompanyLicenseDetails(comp);
+
+                      const enabledFeatures = MASTER_FEATURE_REGISTRY.filter((feat) => {
+                        if (f[feat.id] !== undefined) return Boolean(f[feat.id]);
+                        if (feat.id === 'banks' || feat.id === 'parties') return f.parties_banks !== undefined ? Boolean(f.parties_banks) : feat.defaultEnabled;
+                        if (feat.id === 'backup') return (f.local_disk_backup !== undefined || f.google_drive_backup !== undefined) ? Boolean(f.local_disk_backup || f.google_drive_backup) : feat.defaultEnabled;
+                        return feat.defaultEnabled;
+                      });
 
                       return (
                         <tr key={`${comp.id || 'comp'}-${comp.company_code || ''}-${idx}`} className="hover:bg-slate-700/30 transition">
-                          <td className="py-3 px-4">
+                          {/* 1. Company & Owner */}
+                          <td className="py-3.5 px-4 min-w-[210px]">
                             <div className="flex items-center gap-2.5">
-                              <div className="p-2 bg-slate-900 text-indigo-400 rounded-lg border border-slate-700 shrink-0">
-                                <Building2 className="w-4 h-4" />
+                              <div className="p-2.5 bg-slate-900 text-indigo-400 rounded-xl border border-slate-700 shrink-0 shadow-xs">
+                                <Building2 className="w-5 h-5" />
                               </div>
-                              <div>
-                                <div className="font-bold text-white text-sm">{comp.name}</div>
-                                <div className="text-[11px] text-slate-400">
-                                  {comp.owner_name || `${comp.name} Admin`} &bull; {comp.contact_phone || '9800000000'}
+                              <div className="min-w-0">
+                                <div className="font-bold text-white text-sm truncate" title={comp.name}>{comp.name}</div>
+                                <div className="text-[11px] text-slate-400 truncate">
+                                  {comp.owner_name || `${comp.name} Admin`}
+                                </div>
+                                <div className="text-[10px] text-slate-500 font-mono truncate">
+                                  {comp.contact_phone || '9800000000'} &bull; {comp.contact_email || 'N/A'}
                                 </div>
                               </div>
                             </div>
                           </td>
-                          <td className="py-3 px-4">
+
+                          {/* 2. Code & Password */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
                             <div className="space-y-1">
-                              <div className="font-mono font-bold text-indigo-400 bg-slate-900/80 px-2 py-0.5 rounded border border-slate-700 inline-block text-xs">
-                                {comp.company_code || '1001'}
+                              <div className="font-mono font-bold text-indigo-300 bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-800/60 inline-flex items-center gap-1 text-xs">
+                                <span className="text-[10px] text-indigo-400 uppercase font-semibold">Code:</span>
+                                <strong className="text-white">{comp.company_code || '1001'}</strong>
                               </div>
-                              <div className="text-[10px] text-slate-400 flex items-center gap-1 font-mono">
-                                <Key className="w-3 h-3 text-slate-500" />
+                              <div className="text-[10px] text-slate-300 flex items-center gap-1 font-mono bg-slate-900/80 px-2 py-0.5 rounded border border-slate-700 w-fit">
+                                <Key className="w-3 h-3 text-amber-400 shrink-0" />
                                 <span>{(comp as any).admin_password || 'Pass@123'}</span>
                               </div>
                             </div>
                           </td>
-                          <td className="py-3 px-4">
-                            <div className="space-y-1">
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${
-                                comp.subscription_plan === 'Enterprise'
-                                  ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
-                                  : comp.subscription_plan === 'Standard'
-                                  ? 'bg-sky-500/20 text-sky-300 border-sky-500/30'
-                                  : 'bg-slate-900 text-slate-300 border-slate-700'
-                              }`}>
-                                {comp.subscription_plan || 'Enterprise'}
-                              </span>
-                              <div className="text-[10px] text-slate-400">
-                                <span className="text-slate-400">BS: </span><span className="font-mono text-emerald-300 font-semibold">{comp.expiry_date_bs || (comp.expiry_date_ad ? adToBs(comp.expiry_date_ad) : '2084-06-07')} BS</span> &bull; <span className="text-slate-400">AD: </span><span className="font-mono text-indigo-300 font-semibold">{comp.expiry_date_ad || (comp.expiry_date_bs ? bsToAd(comp.expiry_date_bs) : '2027-09-24')} AD</span>
+
+                          {/* 3. Plan Tier */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border inline-block ${
+                              comp.subscription_plan === 'Enterprise'
+                                ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+                                : comp.subscription_plan === 'Standard'
+                                ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+                                : 'bg-slate-900 text-slate-300 border-slate-700'
+                            }`}>
+                              {comp.subscription_plan || 'Enterprise'}
+                            </span>
+                          </td>
+
+                          {/* 4. Registration Date */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <div className="space-y-0.5">
+                              <div className="font-mono text-emerald-400 font-bold text-xs flex items-center gap-1">
+                                <Calendar className="w-3 h-3 text-emerald-500 shrink-0" />
+                                <span>{lic.regDateBs} BS</span>
+                              </div>
+                              <div className="font-mono text-slate-400 text-[11px] pl-4">
+                                {lic.regDateAd} AD
                               </div>
                             </div>
                           </td>
-                          <td className="py-3 px-4">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border inline-flex items-center gap-1 ${
-                              isActive
-                                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                                : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
-                            }`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-400' : 'bg-rose-400'}`} />
-                              {isActive ? 'Active' : 'Inactive'}
+
+                          {/* 5. Last Renewal Date */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <div className="space-y-0.5">
+                              <div className="font-mono text-sky-300 font-bold text-xs flex items-center gap-1">
+                                <RefreshCw className="w-3 h-3 text-sky-400 shrink-0" />
+                                <span>{lic.renewalDateBs} BS</span>
+                              </div>
+                              <div className="font-mono text-slate-400 text-[11px] pl-4">
+                                {lic.renewalDateAd} AD
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* 6. License Expiry Date */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <div className="space-y-1">
+                              <div className="font-mono text-white font-bold text-xs flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-indigo-400 shrink-0" />
+                                <span>{lic.expiryBs} BS</span>
+                              </div>
+                              <div className="font-mono text-slate-400 text-[11px] pl-4">
+                                {lic.expiryAd} AD
+                              </div>
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                  lic.isExpired
+                                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                                    : lic.isExpiringSoon
+                                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                                    : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                                }`}
+                              >
+                                <span>
+                                  {lic.isExpired
+                                    ? `Overdue by ${Math.abs(lic.diffDays)} days`
+                                    : `${lic.diffDays} days remaining`}
+                                </span>
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* 7. License Status */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <span
+                              className={`px-2.5 py-1 rounded-full text-[11px] font-black border inline-flex items-center gap-1.5 shadow-xs ${
+                                lic.isExpired
+                                  ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                                  : lic.isSuspended
+                                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                  : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                              }`}
+                            >
+                              <span
+                                className={`w-2 h-2 rounded-full ${
+                                  lic.isExpired
+                                    ? 'bg-rose-500 animate-ping'
+                                    : lic.isSuspended
+                                    ? 'bg-amber-400'
+                                    : 'bg-emerald-400'
+                                }`}
+                              />
+                              <span>{lic.isExpired ? 'Expired' : lic.isSuspended ? 'Suspended' : 'Active'}</span>
                             </span>
                           </td>
-                          <td className="py-3 px-4">
-                            {(() => {
-                              const enabledFeatures = MASTER_FEATURE_REGISTRY.filter((feat) => {
-                                if (f[feat.id] !== undefined) return Boolean(f[feat.id]);
-                                if (feat.id === 'banks' || feat.id === 'parties') return f.parties_banks !== undefined ? Boolean(f.parties_banks) : feat.defaultEnabled;
-                                if (feat.id === 'backup') return (f.local_disk_backup !== undefined || f.google_drive_backup !== undefined) ? Boolean(f.local_disk_backup || f.google_drive_backup) : feat.defaultEnabled;
-                                return feat.defaultEnabled;
-                              });
-                              return (
-                                <div className="space-y-1.5 max-w-[220px]">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/70 border border-emerald-800/60 px-2 py-0.5 rounded-md">
-                                      {enabledFeatures.length} / {MASTER_FEATURE_REGISTRY.length} Active
+
+                          {/* 8. Feature Permissions Matrix */}
+                          <td className="py-3.5 px-4">
+                            <div className="space-y-1.5 max-w-[200px]">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/70 border border-emerald-800/60 px-2 py-0.5 rounded-md">
+                                  {enabledFeatures.length} / {MASTER_FEATURE_REGISTRY.length} Active
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap gap-1">
+                                {enabledFeatures.slice(0, 3).map((feat) => {
+                                  const FeatIcon = feat.icon;
+                                  return (
+                                    <span
+                                      key={feat.id}
+                                      title={feat.name}
+                                      className="px-1.5 py-0.5 rounded text-[9px] font-semibold flex items-center gap-1 border bg-slate-900/80 text-slate-300 border-slate-700"
+                                    >
+                                      <FeatIcon className="w-2.5 h-2.5 text-indigo-400 shrink-0" />
+                                      <span className="truncate max-w-[65px]">{feat.name}</span>
                                     </span>
-                                  </div>
-                                  <div className="flex flex-wrap gap-1">
-                                    {enabledFeatures.slice(0, 4).map((feat) => {
-                                      const FeatIcon = feat.icon;
-                                      return (
-                                        <span
-                                          key={feat.id}
-                                          title={feat.name}
-                                          className="px-1.5 py-0.5 rounded text-[9px] font-semibold flex items-center gap-1 border bg-slate-900/80 text-slate-300 border-slate-700"
-                                        >
-                                          <FeatIcon className="w-2.5 h-2.5 text-indigo-400" />
-                                          <span className="truncate max-w-[65px]">{feat.name}</span>
-                                        </span>
-                                      );
-                                    })}
-                                    {enabledFeatures.length > 4 && (
-                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold border bg-slate-800 text-slate-400 border-slate-700">
-                                        +{enabledFeatures.length - 4}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })()}
+                                  );
+                                })}
+                                {enabledFeatures.length > 3 && (
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold border bg-slate-800 text-slate-400 border-slate-700">
+                                    +{enabledFeatures.length - 3}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </td>
-                          <td className="py-3 px-4 text-center">
+
+                          {/* 9. Actions */}
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
                             <div className="flex items-center justify-center gap-1.5">
                               <button
                                 onClick={() => openEditCompanyModal(comp)}
-                                className="px-2 py-1 bg-slate-700 hover:bg-slate-600 text-indigo-300 border border-slate-600 rounded-lg text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
+                                className="px-2.5 py-1 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 rounded-lg text-xs font-semibold transition flex items-center gap-1 cursor-pointer shadow-xs"
                                 title="Edit License & Feature Controls"
                               >
                                 <Sliders className="w-3.5 h-3.5 text-indigo-400" />
@@ -7020,8 +8002,8 @@ export default function App() {
 
                               <button
                                 onClick={() => handleAccessCompany(comp)}
-                                className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-xs"
-                                title="Access ChequeDesk workspace"
+                                className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-xs"
+                                title="Access ERP workspace"
                               >
                                 <Eye className="w-3.5 h-3.5" />
                                 <span>Access</span>
@@ -7029,7 +8011,7 @@ export default function App() {
 
                               <button
                                 onClick={() => setCompanyToDelete(comp)}
-                                className={`p-1 rounded-lg transition cursor-pointer border ${
+                                className={`p-1.5 rounded-lg transition cursor-pointer border ${
                                   (companyTransactionCounts[comp.id] || 0) > 0
                                     ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30'
                                     : 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border-rose-500/30'
@@ -7182,6 +8164,28 @@ export default function App() {
             </div>
           </div>
         </main>
+
+        {/* Super Admin Footer */}
+        <footer className="border-t border-slate-800 bg-slate-950/80 py-4 px-6 text-xs text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-3 mt-auto">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-white">Simple Accounting &amp; Cheque Management ERP</span>
+            <span>&bull;</span>
+            <span>Super Admin &amp; Developer Engine</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <a
+              href="https://www.simpleaccountingcheque.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-indigo-400 hover:text-indigo-300 font-mono font-semibold transition flex items-center gap-1.5 hover:underline"
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>www.simpleaccountingcheque.com</span>
+            </a>
+            <span className="text-slate-600">|</span>
+            <span>&copy; {new Date().getFullYear()} All Rights Reserved</span>
+          </div>
+        </footer>
 
         {/* Delete Company Confirmation Modal with Transaction Deletion Protection */}
         {companyToDelete && (() => {
@@ -8012,6 +9016,8 @@ export default function App() {
                   {isCatExpanded && (
                     <div className="ml-3 pl-2 border-l border-slate-800 space-y-0.5 py-0.5">
                       {(['add', 'modify', 'list'] as const).map((action) => {
+                        const actionPermissionId = `${cat.id}_${action}`;
+                        if (activeFeatures[actionPermissionId] === false) return null;
                         const actionNodeId = `tree-action-${cat.key}-${action}`;
                         const isActionFocused = treeFocusedId === actionNodeId;
                         const actionLabel = action === 'add' ? 'Add' : action === 'modify' ? 'Modify' : 'List';
@@ -8113,12 +9119,14 @@ export default function App() {
         <aside className="hidden lg:flex flex-col w-64 bg-slate-900 text-slate-300 border-r border-slate-800 shrink-0">
           <div className="p-4 border-b border-slate-800">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-indigo-600 text-white rounded-xl shadow-md">
+              <div className="p-2 bg-indigo-600 text-white rounded-xl shadow-md shrink-0">
                 <CreditCard className="w-5 h-5" />
               </div>
-              <div>
-                <div className="font-black text-white text-base tracking-tight">ChequeDesk</div>
-                <div className="text-[11px] text-slate-400 font-medium">Enterprise Ledger</div>
+              <div className="min-w-0">
+                <div className="font-black text-white text-xs tracking-tight leading-tight truncate" title="Simple Accounting & Cheque Management ERP">
+                  Simple Accounting &amp; Cheque
+                </div>
+                <div className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">Management ERP</div>
               </div>
             </div>
             <div className="mt-3 p-2 bg-slate-800/80 rounded-xl flex items-center justify-between border border-slate-700/50">
@@ -8154,43 +9162,79 @@ export default function App() {
                       </div>
                     </div>
                   )}
-                  <button
-                    onClick={() => setCurrentView(item.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                      isActive ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                      <span>{item.label}</span>
-                    </div>
-                    {item.badge !== undefined && (
-                      <span
-                        className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                          item.badgeColor === 'amber'
-                            ? 'bg-amber-500/20 text-amber-300'
-                            : item.badgeColor === 'sky'
-                            ? 'bg-sky-500/20 text-sky-300'
-                            : item.badgeColor === 'emerald'
-                            ? 'bg-emerald-500/20 text-emerald-300'
-                            : item.badgeColor === 'purple'
-                            ? 'bg-purple-500/20 text-purple-300'
-                            : item.badgeColor === 'indigo'
-                            ? 'bg-indigo-500/20 text-indigo-300'
-                            : 'bg-slate-800 text-slate-400'
+                  {item.id === 'accounting_auditing' ? (
+                    <div className="space-y-0.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCurrentView('accounting_auditing');
+                          setIsAccountingAuditingExpanded((prev) => !prev);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer select-none ${
+                          isActive ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                         }`}
                       >
-                        {item.badge}
-                      </span>
-                    )}
-                  </button>
-                  {item.id === 'accounting_auditing' && renderTransactionsSidebarTree(false)}
+                        <div className="flex items-center gap-2.5">
+                          <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                          <span>{item.label}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <ChevronRight
+                            className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                              isAccountingAuditingExpanded ? 'rotate-90 text-white' : 'text-slate-500'
+                            }`}
+                          />
+                        </div>
+                      </button>
+                      {isAccountingAuditingExpanded && renderTransactionsSidebarTree(false)}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setCurrentView(item.id)}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                        isActive ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                        <span>{item.label}</span>
+                      </div>
+                      {item.badge !== undefined && (
+                        <span
+                          className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            item.badgeColor === 'amber'
+                              ? 'bg-amber-500/20 text-amber-300'
+                              : item.badgeColor === 'sky'
+                              ? 'bg-sky-500/20 text-sky-300'
+                              : item.badgeColor === 'emerald'
+                              ? 'bg-emerald-500/20 text-emerald-300'
+                              : item.badgeColor === 'purple'
+                              ? 'bg-purple-500/20 text-purple-300'
+                              : item.badgeColor === 'indigo'
+                              ? 'bg-indigo-500/20 text-indigo-300'
+                              : 'bg-slate-800 text-slate-400'
+                          }`}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
+                    </button>
+                  )}
                 </React.Fragment>
               );
             })}
           </div>
 
-          <div className="p-3 border-t border-slate-800">
+          <div className="p-3 border-t border-slate-800 space-y-2">
+            <a
+              href="https://www.simpleaccountingcheque.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-slate-950/60 hover:bg-slate-800 text-slate-400 hover:text-indigo-400 border border-slate-800 rounded-lg text-[11px] font-mono transition text-center truncate"
+            >
+              <Globe className="w-3 h-3 text-indigo-400 shrink-0" />
+              <span className="truncate">simpleaccountingcheque.com</span>
+            </a>
             <button
               onClick={handleLogout}
               className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 hover:bg-rose-950/40 text-slate-300 hover:text-rose-400 border border-slate-700/60 rounded-xl text-xs font-bold transition cursor-pointer"
@@ -8211,7 +9255,7 @@ export default function App() {
                     <CreditCard className="w-5 h-5" />
                   </div>
                   <div>
-                    <div className="font-bold text-white text-sm">ChequeDesk</div>
+                    <div className="font-bold text-white text-sm">Simple Accounting &amp; Cheque ERP</div>
                     <div className="text-[10px] text-slate-400">{activeCompanyName}</div>
                   </div>
                 </div>
@@ -8245,40 +9289,67 @@ export default function App() {
                           </div>
                         </div>
                       )}
-                      <button
-                        onClick={() => {
-                          setCurrentView(item.id);
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                          isActive ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                          <span>{item.label}</span>
-                        </div>
-                        {item.badge !== undefined && (
-                          <span
-                            className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                              item.badgeColor === 'amber'
-                                ? 'bg-amber-500/20 text-amber-300'
-                                : item.badgeColor === 'sky'
-                                ? 'bg-sky-500/20 text-sky-300'
-                                : item.badgeColor === 'emerald'
-                                ? 'bg-emerald-500/20 text-emerald-300'
-                                : item.badgeColor === 'purple'
-                                ? 'bg-purple-500/20 text-purple-300'
-                                : item.badgeColor === 'indigo'
-                                ? 'bg-indigo-500/20 text-indigo-300'
-                                : 'bg-slate-800 text-slate-400'
+                      {item.id === 'accounting_auditing' ? (
+                        <div className="space-y-0.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCurrentView('accounting_auditing');
+                              setIsAccountingAuditingExpanded((prev) => !prev);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer select-none ${
+                              isActive ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                             }`}
                           >
-                            {item.badge}
-                          </span>
-                        )}
-                      </button>
-                      {item.id === 'accounting_auditing' && renderTransactionsSidebarTree(true)}
+                            <div className="flex items-center gap-2.5">
+                              <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                              <span>{item.label}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <ChevronRight
+                                className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                                  isAccountingAuditingExpanded ? 'rotate-90 text-white' : 'text-slate-500'
+                                }`}
+                              />
+                            </div>
+                          </button>
+                          {isAccountingAuditingExpanded && renderTransactionsSidebarTree(true)}
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setCurrentView(item.id);
+                            setIsMobileMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                            isActive ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                            <span>{item.label}</span>
+                          </div>
+                          {item.badge !== undefined && (
+                            <span
+                              className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                item.badgeColor === 'amber'
+                                  ? 'bg-amber-500/20 text-amber-300'
+                                  : item.badgeColor === 'sky'
+                                  ? 'bg-sky-500/20 text-sky-300'
+                                  : item.badgeColor === 'emerald'
+                                  ? 'bg-emerald-500/20 text-emerald-300'
+                                  : item.badgeColor === 'purple'
+                                  ? 'bg-purple-500/20 text-purple-300'
+                                  : item.badgeColor === 'indigo'
+                                  ? 'bg-indigo-500/20 text-indigo-300'
+                                  : 'bg-slate-800 text-slate-400'
+                              }`}
+                            >
+                              {item.badge}
+                            </span>
+                          )}
+                        </button>
+                      )}
                     </React.Fragment>
                   );
                 })}
@@ -11451,7 +12522,7 @@ export default function App() {
                                 company_code: activeCompanyCode,
                                 local_path: localBackupPath,
                                 exported_at: new Date().toISOString(),
-                                app_version: 'ChequeDesk v2.4',
+                                app_version: 'Simple Accounting & Cheque Management ERP v2.4',
                               };
                               const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
                               const url = URL.createObjectURL(blob);
@@ -11573,11 +12644,11 @@ export default function App() {
                         <div className="bg-sky-50/50 rounded-xl p-3 border border-sky-100 text-xs space-y-1.5 mt-2">
                           <div className="flex justify-between text-slate-600">
                             <span>Primary Cloud Account:</span>
-                            <span className="font-semibold text-slate-900">rstraders398@gmail.com</span>
+                            <span className="font-semibold text-slate-900">{currentCompany?.contact_email || 'admin@simpleaccountingcheque.com'}</span>
                           </div>
                           <div className="flex justify-between text-slate-600">
                             <span>Target Cloud Folder:</span>
-                            <span className="font-mono text-slate-700 text-[11px]">/Google Drive/ChequeDesk_Backups/</span>
+                            <span className="font-mono text-slate-700 text-[11px]">/Google Drive/Backups_{activeCompanyCode}/</span>
                           </div>
                           <div className="flex justify-between text-slate-600">
                             <span>Last Drive Synced:</span>
@@ -11676,14 +12747,14 @@ export default function App() {
                                 banks,
                                 backup_recipients: backupEmailList,
                                 synced_at: new Date().toISOString(),
-                                account: 'rstraders398@gmail.com',
+                                account: currentCompany?.contact_email || 'admin@simpleaccountingcheque.com',
                               };
                               localStorage.setItem(`chequedesk_gdrive_${activeCompanyId}`, JSON.stringify(payload));
                               const nowStr = new Date().toISOString();
                               localStorage.setItem('chequedesk_gdrive_sync', nowStr);
                               setGoogleDriveSyncedAt(nowStr);
                               await new Promise((r) => setTimeout(r, 700));
-                              showToast('Synced to Google Drive (rstraders398@gmail.com) successfully!', 'success');
+                              showToast(`Synced to Google Drive (${currentCompany?.contact_email || 'admin@simpleaccountingcheque.com'}) successfully!`, 'success');
                             } catch {
                               showToast('Failed to sync to Google Drive', 'error');
                             } finally {
@@ -12253,20 +13324,16 @@ export default function App() {
                             </span>
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                            {[
-                              { id: 'default-company-101', code: 'RS-TRADERS', name: 'RS Traders' },
-                              { id: 'himalayan-supplies-202', code: 'HIMALAYAN', name: 'Himalayan Suppliers Pvt. Ltd.' },
-                              { id: 'kathmandu-enterprises-303', code: 'KTM-ENT', name: 'Kathmandu Enterprises' },
-                            ].map((preset) => {
-                              const isActive = preset.id === activeCompanyId;
+                            {companies.slice(0, 3).map((comp) => {
+                              const isActive = comp.id === activeCompanyId;
                               return (
                                 <button
-                                  key={preset.id}
+                                  key={comp.id}
                                   onClick={() => {
-                                    setActiveCompanyId(preset.id);
-                                    setActiveCompanyName(preset.name);
-                                    setActiveCompanyCode(preset.code);
-                                    showToast(`Switched workspace to ${preset.name}`, 'info');
+                                    setActiveCompanyId(comp.id);
+                                    setActiveCompanyName(comp.name);
+                                    setActiveCompanyCode(comp.company_code || 'COMP');
+                                    showToast(`Switched workspace to ${comp.name}`, 'info');
                                   }}
                                   className={`p-2.5 text-xs rounded-xl border text-left transition cursor-pointer ${
                                     isActive
@@ -12274,8 +13341,8 @@ export default function App() {
                                       : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                                   }`}
                                 >
-                                  <div className="truncate font-semibold">{preset.name}</div>
-                                  <div className="text-[10px] text-slate-400 font-mono truncate">{preset.code}</div>
+                                  <div className="truncate font-semibold">{comp.name}</div>
+                                  <div className="text-[10px] text-slate-400 font-mono truncate">{comp.company_code}</div>
                                 </button>
                               );
                             })}
@@ -12559,7 +13626,544 @@ export default function App() {
                 </div>
               </div>
             )}
+            {/* VIEW: INVOICE PRINT DESIGN STUDIO (15 A4 & 15 A5 TEMPLATES) */}
+            {currentView === 'invoice_designer' && (
+              <div className="space-y-6">
+                {/* Header Banner */}
+                <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-6 text-white border border-slate-800 shadow-lg">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                          Invoice Design Studio &bull; 30 Professional Layouts
+                        </span>
+                        <span className="text-xs text-slate-400 font-mono">
+                          15 A4 &amp; 15 A5 Presets
+                        </span>
+                      </div>
+                      <h2 className="text-xl sm:text-2xl font-black tracking-tight mt-1 text-white">
+                        Developer-Controlled Invoice Designer
+                      </h2>
+                      <p className="text-xs text-slate-300 max-w-2xl mt-1 leading-relaxed">
+                        Customize commercial tax invoice layouts, typography, terms &amp; conditions, bank details, and branding. Permissions to edit header titles, terms, bank details, and logo visibility are governed by Developer Sales Matrix.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => window.print()}
+                        className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Printer className="w-4 h-4" />
+                        <span>Print Preview Sample</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          try {
+                            localStorage.setItem(`chequedesk_invoice_settings_${activeCompanyId}`, JSON.stringify(invoiceDesignSettings));
+                            showToast('Invoice design settings saved successfully!', 'success');
+                          } catch {
+                            showToast('Failed to save settings.', 'error');
+                          }
+                        }}
+                        className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Save className="w-4 h-4" />
+                        <span>Save Configuration</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Developer Matrix Permissions Status Strip */}
+                  <div className="mt-4 pt-4 border-t border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                    <div className="p-2 rounded-lg bg-slate-800/80 border border-slate-700/60 flex items-center justify-between">
+                      <span className="text-slate-400 text-[11px]">Header / Title:</span>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded flex items-center gap-1 ${
+                        activeFeatures.print_edit_header !== false
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                      }`}>
+                        {activeFeatures.print_edit_header !== false ? <Check className="w-2.5 h-2.5" /> : <Lock className="w-2.5 h-2.5" />}
+                        <span>{activeFeatures.print_edit_header !== false ? 'Permitted' : 'Locked (Matrix)'}</span>
+                      </span>
+                    </div>
+
+                    <div className="p-2 rounded-lg bg-slate-800/80 border border-slate-700/60 flex items-center justify-between">
+                      <span className="text-slate-400 text-[11px]">Terms &amp; Cond.:</span>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded flex items-center gap-1 ${
+                        activeFeatures.print_edit_terms !== false
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                      }`}>
+                        {activeFeatures.print_edit_terms !== false ? <Check className="w-2.5 h-2.5" /> : <Lock className="w-2.5 h-2.5" />}
+                        <span>{activeFeatures.print_edit_terms !== false ? 'Permitted' : 'Locked (Matrix)'}</span>
+                      </span>
+                    </div>
+
+                    <div className="p-2 rounded-lg bg-slate-800/80 border border-slate-700/60 flex items-center justify-between">
+                      <span className="text-slate-400 text-[11px]">Bank Details:</span>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded flex items-center gap-1 ${
+                        activeFeatures.print_edit_bank_details !== false
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                      }`}>
+                        {activeFeatures.print_edit_bank_details !== false ? <Check className="w-2.5 h-2.5" /> : <Lock className="w-2.5 h-2.5" />}
+                        <span>{activeFeatures.print_edit_bank_details !== false ? 'Permitted' : 'Locked (Matrix)'}</span>
+                      </span>
+                    </div>
+
+                    <div className="p-2 rounded-lg bg-slate-800/80 border border-slate-700/60 flex items-center justify-between">
+                      <span className="text-slate-400 text-[11px]">Toggle Logo:</span>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded flex items-center gap-1 ${
+                        activeFeatures.print_toggle_logo !== false
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                      }`}>
+                        {activeFeatures.print_toggle_logo !== false ? <Check className="w-2.5 h-2.5" /> : <Lock className="w-2.5 h-2.5" />}
+                        <span>{activeFeatures.print_toggle_logo !== false ? 'Permitted' : 'Locked (Matrix)'}</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Studio Body: Layout Selector & Settings on Left, Live Preview on Right */}
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+                  {/* Left Column: Template Catalog & Permissions Form */}
+                  <div className="xl:col-span-6 space-y-6">
+                    {/* Size Filter Tabs */}
+                    <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-slate-800 uppercase tracking-wider">
+                          Select Invoice Template Layout
+                        </span>
+                        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                          <button
+                            type="button"
+                            onClick={() => setInvoiceStudioTab('all')}
+                            className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                              invoiceStudioTab === 'all'
+                                ? 'bg-indigo-600 text-white shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                          >
+                            All (30)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setInvoiceStudioTab('A4')}
+                            className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                              invoiceStudioTab === 'A4'
+                                ? 'bg-indigo-600 text-white shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                          >
+                            A4 Full (15)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setInvoiceStudioTab('A5')}
+                            className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                              invoiceStudioTab === 'A5'
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                          >
+                            A5 Half (15)
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Template Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[460px] overflow-y-auto pr-1">
+                        {INVOICE_TEMPLATES.filter((tpl) => invoiceStudioTab === 'all' || tpl.size === invoiceStudioTab).map((tpl) => {
+                          const isSelected = invoiceDesignSettings.selectedTemplateId === tpl.id;
+                          return (
+                            <div
+                              key={tpl.id}
+                              onClick={() => {
+                                setInvoiceDesignSettings((prev) => ({
+                                  ...prev,
+                                  selectedTemplateId: tpl.id,
+                                  paperSize: tpl.size,
+                                  themeColor: tpl.accentColor,
+                                }));
+                              }}
+                              className={`p-3 rounded-xl border transition cursor-pointer relative flex flex-col justify-between ${
+                                isSelected
+                                  ? 'bg-indigo-50/70 border-indigo-600 ring-2 ring-indigo-500/20 shadow-xs'
+                                  : 'bg-white hover:bg-slate-50 border-slate-200'
+                              }`}
+                            >
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <span
+                                    className={`px-1.5 py-0.2 rounded text-[10px] font-black ${
+                                      tpl.size === 'A4'
+                                        ? 'bg-indigo-100 text-indigo-800'
+                                        : 'bg-emerald-100 text-emerald-800'
+                                    }`}
+                                  >
+                                    {tpl.size}
+                                  </span>
+                                  <span className="text-[10px] font-medium text-slate-500">
+                                    {tpl.tag}
+                                  </span>
+                                </div>
+                                <div className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                                  <span
+                                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                                    style={{ backgroundColor: tpl.accentColor }}
+                                  />
+                                  <span>{tpl.name}</span>
+                                </div>
+                                <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
+                                  {tpl.description}
+                                </p>
+                              </div>
+
+                              <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                                <span className="text-slate-400 text-[10px]">{tpl.category}</span>
+                                <span
+                                  className={`font-bold flex items-center gap-1 ${
+                                    isSelected ? 'text-indigo-600' : 'text-slate-400'
+                                  }`}
+                                >
+                                  {isSelected ? (
+                                    <>
+                                      <Check className="w-3 h-3 text-indigo-600" />
+                                      <span>Applied</span>
+                                    </>
+                                  ) : (
+                                    <span>Select</span>
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Developer-Controlled Template Customization Card */}
+                    <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs space-y-4">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                        <div>
+                          <h3 className="font-bold text-xs text-slate-900 uppercase tracking-wider">
+                            Template Fields Customization
+                          </h3>
+                          <p className="text-[11px] text-slate-400">
+                            Strict Developer Matrix Gating: Fields lock automatically if permission is disabled.
+                          </p>
+                        </div>
+                        <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[10px] font-mono font-bold rounded">
+                          Size: {invoiceDesignSettings.paperSize}
+                        </span>
+                      </div>
+
+                      {/* Header Title */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-semibold text-slate-700">Invoice Header Title</label>
+                          {activeFeatures.print_edit_header === false && (
+                            <span className="text-[9px] font-bold text-amber-700 bg-amber-100 px-1 py-0.2 rounded flex items-center gap-0.5">
+                              <Lock className="w-2.5 h-2.5" /> Locked by Developer Matrix
+                            </span>
+                          )}
+                        </div>
+                        <input
+                          type="text"
+                          disabled={activeFeatures.print_edit_header === false}
+                          value={invoiceDesignSettings.headerTitle}
+                          onChange={(e) =>
+                            setInvoiceDesignSettings({ ...invoiceDesignSettings, headerTitle: e.target.value })
+                          }
+                          className={`w-full px-3 py-2 border rounded-xl text-xs font-bold ${
+                            activeFeatures.print_edit_header === false
+                              ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200'
+                              : 'bg-white border-slate-200 text-slate-900 focus:ring-2 focus:ring-indigo-500'
+                          }`}
+                        />
+                      </div>
+
+                      {/* Sub-Header */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-semibold text-slate-700">Sub-Header / Tagline</label>
+                          {activeFeatures.print_edit_header === false && (
+                            <span className="text-[9px] font-bold text-amber-700 bg-amber-100 px-1 py-0.2 rounded flex items-center gap-0.5">
+                              <Lock className="w-2.5 h-2.5" /> Locked by Developer Matrix
+                            </span>
+                          )}
+                        </div>
+                        <input
+                          type="text"
+                          disabled={activeFeatures.print_edit_header === false}
+                          value={invoiceDesignSettings.subHeader}
+                          onChange={(e) =>
+                            setInvoiceDesignSettings({ ...invoiceDesignSettings, subHeader: e.target.value })
+                          }
+                          className={`w-full px-3 py-2 border rounded-xl text-xs ${
+                            activeFeatures.print_edit_header === false
+                              ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200'
+                              : 'bg-white border-slate-200 text-slate-900 focus:ring-2 focus:ring-indigo-500'
+                          }`}
+                        />
+                      </div>
+
+                      {/* Terms & Conditions */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-semibold text-slate-700">Terms &amp; Conditions Clauses</label>
+                          {activeFeatures.print_edit_terms === false && (
+                            <span className="text-[9px] font-bold text-amber-700 bg-amber-100 px-1 py-0.2 rounded flex items-center gap-0.5">
+                              <Lock className="w-2.5 h-2.5" /> Locked by Developer Matrix
+                            </span>
+                          )}
+                        </div>
+                        <textarea
+                          rows={3}
+                          disabled={activeFeatures.print_edit_terms === false}
+                          value={invoiceDesignSettings.termsAndConditions}
+                          onChange={(e) =>
+                            setInvoiceDesignSettings({ ...invoiceDesignSettings, termsAndConditions: e.target.value })
+                          }
+                          className={`w-full px-3 py-2 border rounded-xl text-xs ${
+                            activeFeatures.print_edit_terms === false
+                              ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200'
+                              : 'bg-white border-slate-200 text-slate-900 focus:ring-2 focus:ring-indigo-500'
+                          }`}
+                        />
+                      </div>
+
+                      {/* Bank Details */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-semibold text-slate-700">Bank Wire / Remittance Info</label>
+                          {activeFeatures.print_edit_bank_details === false && (
+                            <span className="text-[9px] font-bold text-amber-700 bg-amber-100 px-1 py-0.2 rounded flex items-center gap-0.5">
+                              <Lock className="w-2.5 h-2.5" /> Locked by Developer Matrix
+                            </span>
+                          )}
+                        </div>
+                        <input
+                          type="text"
+                          disabled={activeFeatures.print_edit_bank_details === false}
+                          value={invoiceDesignSettings.bankDetails}
+                          onChange={(e) =>
+                            setInvoiceDesignSettings({ ...invoiceDesignSettings, bankDetails: e.target.value })
+                          }
+                          className={`w-full px-3 py-2 border rounded-xl text-xs font-mono ${
+                            activeFeatures.print_edit_bank_details === false
+                              ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200'
+                              : 'bg-white border-slate-200 text-slate-900 focus:ring-2 focus:ring-indigo-500'
+                          }`}
+                        />
+                      </div>
+
+                      {/* Logo Toggle */}
+                      <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+                        <div>
+                          <div className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                            <span>Display Company Brand Logo</span>
+                            {activeFeatures.print_toggle_logo === false && (
+                              <span className="text-[9px] font-bold text-amber-700 bg-amber-100 px-1 py-0.2 rounded flex items-center gap-0.5">
+                                <Lock className="w-2.5 h-2.5" /> Locked
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            Show company logo emblem at top left of printable tax invoice
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={activeFeatures.print_toggle_logo === false}
+                          onClick={() => {
+                            if (activeFeatures.print_toggle_logo === false) return;
+                            setInvoiceDesignSettings((prev) => ({ ...prev, showLogo: !prev.showLogo }));
+                          }}
+                          className={`w-11 h-6 flex items-center rounded-full p-1 transition duration-200 ${
+                            activeFeatures.print_toggle_logo === false
+                              ? 'opacity-50 cursor-not-allowed bg-slate-300'
+                              : invoiceDesignSettings.showLogo
+                              ? 'bg-indigo-600 cursor-pointer'
+                              : 'bg-slate-300 cursor-pointer'
+                          }`}
+                        >
+                          <div
+                            className={`bg-white w-4 h-4 rounded-full shadow-md transform transition duration-200 ${
+                              invoiceDesignSettings.showLogo ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Live Interactive Invoice Preview Sheet */}
+                  <div className="xl:col-span-6 space-y-4">
+                    <div className="bg-slate-900 rounded-2xl p-4 text-white flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Eye className="w-4 h-4 text-indigo-400" />
+                        <span className="font-bold text-xs uppercase tracking-wider">
+                          Live Rendered Document: {INVOICE_TEMPLATES.find((t) => t.id === invoiceDesignSettings.selectedTemplateId)?.name}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-indigo-300 border border-slate-700">
+                          {invoiceDesignSettings.paperSize} Standard Sheet
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => window.print()}
+                          className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          <span>Print</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* The Invoice Sheet Container */}
+                    <div className={`bg-white rounded-xl shadow-xl border border-slate-300 p-6 space-y-4 text-slate-900 text-xs font-sans ${
+                      invoiceDesignSettings.paperSize === 'A5' ? 'max-w-xl mx-auto' : ''
+                    }`}>
+                      {/* Company Header */}
+                      <div className="flex items-start justify-between border-b-2 pb-4" style={{ borderColor: invoiceDesignSettings.themeColor }}>
+                        <div className="space-y-1">
+                          {invoiceDesignSettings.showLogo && (
+                            <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-sm mb-2 shadow-xs">
+                              {activeCompanyName.substring(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                          <h1 className="text-lg font-black uppercase tracking-tight text-slate-900">{activeCompanyName}</h1>
+                          <p className="text-[11px] text-slate-600">Kathmandu, Bagmati, Nepal &bull; Phone: +977-1-4428910</p>
+                          <p className="text-[11px] font-mono font-bold text-slate-800">PAN / VAT: 601298453</p>
+                        </div>
+
+                        <div className="text-right space-y-1">
+                          <div
+                            className="inline-block px-3 py-1 rounded text-white font-extrabold text-xs tracking-wider"
+                            style={{ backgroundColor: invoiceDesignSettings.themeColor }}
+                          >
+                            {invoiceDesignSettings.headerTitle || 'TAX INVOICE (कर बिजक)'}
+                          </div>
+                          <p className="text-[10px] text-slate-500 italic mt-0.5">
+                            {invoiceDesignSettings.subHeader}
+                          </p>
+                          <div className="text-xs font-mono space-y-0.5 pt-1">
+                            <div><span className="text-slate-500">Invoice No: </span><strong>TI-2081-0042</strong></div>
+                            <div><span className="text-slate-500">Date: </span><strong>{getCurrentBsDate()} BS ({getCurrentAdDate()} AD)</strong></div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Buyer Details Grid */}
+                      <div className="grid grid-cols-2 gap-4 p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs">
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Buyer / Consignee:</span>
+                          <strong className="text-slate-900 block font-bold text-xs">{salesVoucherData.party_name || 'Himalayan Traders Pvt. Ltd.'}</strong>
+                          <span className="text-slate-600 block text-[11px]">Kathmandu, Nepal</span>
+                          <span className="text-slate-600 block font-mono text-[11px]">Buyer PAN: 302918291</span>
+                        </div>
+                        <div className="space-y-0.5 text-right font-mono text-xs">
+                          <div><span className="text-slate-500">Sale Type: </span><strong>{salesVoucherData.sale_type || 'VAT 13%'}</strong></div>
+                          <div><span className="text-slate-500">Mat. Centre: </span><span>{salesVoucherData.mat_centre || 'Main Store'}</span></div>
+                          <div><span className="text-slate-500">Dispatch Vehicle: </span><span>{salesVoucherData.vehicle_no || 'BA 2 KHA 8492'}</span></div>
+                        </div>
+                      </div>
+
+                      {/* Items Grid */}
+                      <table className="w-full text-left text-xs border border-slate-200 border-collapse">
+                        <thead className="bg-slate-100 font-bold border-b border-slate-200 text-[11px]">
+                          <tr>
+                            <th className="p-2 text-center w-8 border-r border-slate-200">#</th>
+                            <th className="p-2 border-r border-slate-200">Item Description</th>
+                            <th className="p-2 text-right w-16 border-r border-slate-200">Qty</th>
+                            <th className="p-2 text-center w-14 border-r border-slate-200">Unit</th>
+                            <th className="p-2 text-right w-20 border-r border-slate-200">Rate (Rs.)</th>
+                            <th className="p-2 text-right w-24">Amount (Rs.)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {busySalesComputed.computedItems.map((item, idx) => (
+                            <tr key={item.id}>
+                              <td className="p-2 text-center font-mono border-r border-slate-200">{idx + 1}</td>
+                              <td className="p-2 border-r border-slate-200 font-medium">{item.item_description || `Trading Line #${idx + 1}`}</td>
+                              <td className="p-2 text-right font-mono border-r border-slate-200">{item.qty || 1}</td>
+                              <td className="p-2 text-center border-r border-slate-200">{item.unit || 'Case'}</td>
+                              <td className="p-2 text-right font-mono border-r border-slate-200">{formatNPR(Number(item.price) || 0)}</td>
+                              <td className="p-2 text-right font-mono font-bold">{formatNPR(item.amount || 0)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+
+                      {/* Sundries & Grand Total */}
+                      <div className="flex justify-between items-start pt-2">
+                        <div className="max-w-xs text-[11px] text-slate-600 space-y-1">
+                          <p><strong>Bank Details:</strong> {invoiceDesignSettings.bankDetails}</p>
+                          <p className="italic"><strong>In Words:</strong> {numberToWords(busySalesComputed.netAmount)} Rupees Only</p>
+                        </div>
+                        <div className="w-60 space-y-1 font-mono text-xs text-right">
+                          <div className="flex justify-between"><span className="text-slate-500">Gross Total:</span><span>Rs. {formatNPR(busySalesComputed.grossSubtotal)}</span></div>
+                          {busySalesComputed.tradeDiscount > 0 && (
+                            <div className="flex justify-between text-amber-700"><span>Less Discount:</span><span>- Rs. {formatNPR(busySalesComputed.tradeDiscount)}</span></div>
+                          )}
+                          <div className="flex justify-between"><span className="text-slate-500">VAT (13%):</span><span>+ Rs. {formatNPR(busySalesComputed.vatAmount)}</span></div>
+                          {busySalesComputed.freightCharges > 0 && (
+                            <div className="flex justify-between"><span className="text-slate-500">Freight:</span><span>+ Rs. {formatNPR(busySalesComputed.freightCharges)}</span></div>
+                          )}
+                          <div className="flex justify-between pt-1 border-t-2 font-bold text-sm text-slate-900" style={{ borderColor: invoiceDesignSettings.themeColor }}>
+                            <span>Net Payable:</span>
+                            <span>Rs. {formatNPR(busySalesComputed.netAmount)}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Terms & Conditions */}
+                      <div className="p-2.5 bg-slate-50 rounded border border-slate-200 text-[10px] text-slate-600 whitespace-pre-line leading-relaxed">
+                        <strong className="block text-[11px] text-slate-800 font-bold mb-0.5">Terms &amp; Conditions:</strong>
+                        {invoiceDesignSettings.termsAndConditions}
+                      </div>
+
+                      {/* Signatures */}
+                      <div className="grid grid-cols-3 gap-4 pt-8 text-center text-[10px] text-slate-600">
+                        <div className="border-t border-slate-300 pt-1">Prepared By</div>
+                        <div className="border-t border-slate-300 pt-1">Checked By</div>
+                        <div className="border-t border-slate-300 pt-1">Authorized Signatory</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </main>
+
+          {/* Main Tenant Workspace Footer */}
+          <footer className="border-t border-slate-200 bg-white py-3 px-4 sm:px-6 text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-3 mt-auto">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-slate-800">{activeCompanyName}</span>
+              <span>&bull;</span>
+              <span>Simple Accounting &amp; Cheque Management ERP</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <a
+                href="https://www.simpleaccountingcheque.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-indigo-600 hover:text-indigo-700 font-semibold inline-flex items-center gap-1.5 transition hover:underline"
+              >
+                <Globe className="w-3.5 h-3.5" />
+                <span>www.simpleaccountingcheque.com</span>
+              </a>
+              <span className="text-slate-300">|</span>
+              <span className="text-slate-400 font-mono text-[11px]">Tenant Code: {activeCompanyCode}</span>
+            </div>
+          </footer>
         </div>
       </div>
 
@@ -13416,7 +15020,8 @@ export default function App() {
                 const party_type = (form.elements.namedItem('party_type') as HTMLSelectElement).value as PartyType;
                 try {
                   await addParty({ company_id: activeCompanyId, name, phone, pan_vat, party_type });
-                  showToast(`Party "${name}" added`, 'success');
+                  setSalesVoucherData((prev) => ({ ...prev, party_name: name }));
+                  showToast(`Party "${name}" added and selected into Sales Voucher`, 'success');
                   setIsAddPartyOpen(false);
                 } catch (err: any) {
                   showToast(`Error: ${err?.message || 'Failed to add party'}`, 'error');
@@ -13549,6 +15154,432 @@ export default function App() {
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold cursor-pointer shadow-md"
                 >
                   Update Party
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 5c. Instant Add Item Master Modal [F3 / Alt+C] */}
+      {isAddItemMasterOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-8">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                  <Package className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Add Item Master [F3 / Alt+C]</h3>
+                  <p className="text-[11px] text-slate-500">Instant master creation with dual units and stock</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddItemMasterOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!newItemMasterForm.name.trim()) {
+                  showToast('Please enter item name.', 'warning');
+                  return;
+                }
+                const newItem: ItemMaster = {
+                  id: `item-m-${Date.now()}`,
+                  name: newItemMasterForm.name.trim(),
+                  category: newItemMasterForm.category || 'General Trading',
+                  unit: newItemMasterForm.unit || 'Case',
+                  alt_unit: newItemMasterForm.alt_unit || 'Pcs',
+                  conversion_factor: Number(newItemMasterForm.conversion_factor) || 1,
+                  price: Number(newItemMasterForm.price) || 0,
+                  alt_price: Number(newItemMasterForm.alt_price) || 0,
+                  stock_case: Number(newItemMasterForm.stock_case) || 0,
+                  stock_pcs: Number(newItemMasterForm.stock_pcs) || 0,
+                };
+                const updated = [...itemMasters, newItem];
+                setItemMasters(updated);
+                try {
+                  localStorage.setItem('chequedesk_item_masters', JSON.stringify(updated));
+                } catch {}
+
+                if (activeItemRowIdx !== null) {
+                  setSalesVoucherData((prev) => ({
+                    ...prev,
+                    items: prev.items.map((it, i) =>
+                      i === activeItemRowIdx
+                        ? {
+                            ...it,
+                            item_description: newItem.name,
+                            unit: newItem.unit,
+                            price: newItem.price,
+                          }
+                        : it
+                    ),
+                  }));
+                }
+                showToast(`Item Master "${newItem.name}" created and inserted!`, 'success');
+                setIsAddItemMasterOpen(false);
+                setNewItemMasterForm({
+                  name: '',
+                  category: 'Liquor & Spirits',
+                  unit: 'Case',
+                  alt_unit: 'Pcs',
+                  conversion_factor: 24,
+                  price: 10800,
+                  alt_price: 480,
+                  stock_case: 100,
+                  stock_pcs: 2400,
+                });
+              }}
+              className="space-y-3.5 text-xs"
+            >
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  Item Description / Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newItemMasterForm.name}
+                  onChange={(e) => setNewItemMasterForm({ ...newItemMasterForm, name: e.target.value })}
+                  placeholder="e.g. 8848 Vodka 180 Ml"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 font-medium text-slate-900"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Category</label>
+                  <select
+                    value={newItemMasterForm.category}
+                    onChange={(e) => setNewItemMasterForm({ ...newItemMasterForm, category: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
+                  >
+                    <option value="Liquor & Spirits">Liquor &amp; Spirits</option>
+                    <option value="Construction Materials">Construction Materials</option>
+                    <option value="FMCG Provisions">FMCG Provisions</option>
+                    <option value="Hardware & Plumbing">Hardware &amp; Plumbing</option>
+                    <option value="Electronics & Tech">Electronics &amp; Tech</option>
+                    <option value="Pharmaceuticals">Pharmaceuticals</option>
+                    <option value="General Trading">General Trading</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Primary Unit</label>
+                  <select
+                    value={newItemMasterForm.unit}
+                    onChange={(e) => setNewItemMasterForm({ ...newItemMasterForm, unit: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
+                  >
+                    <option value="Case">Case</option>
+                    <option value="Box">Box</option>
+                    <option value="Bag">Bag</option>
+                    <option value="Pcs">Pcs</option>
+                    <option value="Bundle">Bundle</option>
+                    <option value="Kg">Kg</option>
+                    <option value="Ctn">Ctn</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2.5">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Alt Unit</label>
+                  <select
+                    value={newItemMasterForm.alt_unit}
+                    onChange={(e) => setNewItemMasterForm({ ...newItemMasterForm, alt_unit: e.target.value })}
+                    className="w-full px-2.5 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white text-xs"
+                  >
+                    <option value="Pcs">Pcs</option>
+                    <option value="Bottle">Bottle</option>
+                    <option value="Bundle">Bundle</option>
+                    <option value="Nos">Nos</option>
+                    <option value="Gram">Gram</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Factor (Per Unit)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={newItemMasterForm.conversion_factor}
+                    onChange={(e) =>
+                      setNewItemMasterForm({
+                        ...newItemMasterForm,
+                        conversion_factor: parseFloat(e.target.value) || 1,
+                      })
+                    }
+                    className="w-full px-2.5 py-2 border border-slate-200 rounded-xl font-mono text-center"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Primary Price (Rs.)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={newItemMasterForm.price}
+                    onChange={(e) =>
+                      setNewItemMasterForm({ ...newItemMasterForm, price: parseFloat(e.target.value) || 0 })
+                    }
+                    className="w-full px-2.5 py-2 border border-slate-200 rounded-xl font-mono text-right font-bold text-indigo-700"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2.5">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Alt Price (Rs.)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={newItemMasterForm.alt_price}
+                    onChange={(e) =>
+                      setNewItemMasterForm({ ...newItemMasterForm, alt_price: parseFloat(e.target.value) || 0 })
+                    }
+                    className="w-full px-2.5 py-2 border border-slate-200 rounded-xl font-mono text-right"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Stock (Cases/Main)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={newItemMasterForm.stock_case}
+                    onChange={(e) =>
+                      setNewItemMasterForm({ ...newItemMasterForm, stock_case: parseFloat(e.target.value) || 0 })
+                    }
+                    className="w-full px-2.5 py-2 border border-slate-200 rounded-xl font-mono text-right"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Stock (Pcs/Alt)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={newItemMasterForm.stock_pcs}
+                    onChange={(e) =>
+                      setNewItemMasterForm({ ...newItemMasterForm, stock_pcs: parseFloat(e.target.value) || 0 })
+                    }
+                    className="w-full px-2.5 py-2 border border-slate-200 rounded-xl font-mono text-right"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAddItemMasterOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold cursor-pointer shadow-md flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Create Item Master</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 5d. Add Bill Sundry Modal (User Controlled: No Auto-population) */}
+      {isBillSundryModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                  <Tag className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Add Bill Sundry</h3>
+                  <p className="text-[11px] text-slate-400">Manual user-controlled freight, discounts, or adjustments</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBillSundryModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quick Presets */}
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quick Presets</span>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { name: 'Freight & Transportation', nature: 'additive' as const, rate: '', amt: '2500' },
+                  { name: 'Trade Discount', nature: 'subtractive' as const, rate: '2', amt: '' },
+                  { name: 'Packaging & Forwarding', nature: 'additive' as const, rate: '', amt: '500' },
+                  { name: 'Transit Insurance', nature: 'additive' as const, rate: '1', amt: '' },
+                  { name: 'Round Off Adjustment', nature: 'round_off' as const, rate: '', amt: '0' },
+                ].map((pre) => (
+                  <button
+                    key={pre.name}
+                    type="button"
+                    onClick={() => {
+                      setNewSundryCustomName(pre.name);
+                      setNewSundryNature(pre.nature);
+                      setNewSundryRate(pre.rate);
+                      setNewSundryAmount(pre.amt);
+                    }}
+                    className="px-2.5 py-1 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 rounded-lg text-[11px] font-semibold transition cursor-pointer border border-slate-200"
+                  >
+                    {pre.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const name = newSundryCustomName.trim() || 'Custom Adjustment';
+                const rate = newSundryRate !== '' ? parseFloat(newSundryRate) : '';
+                const amt = newSundryAmount !== '' ? parseFloat(newSundryAmount) : '';
+
+                if (rate === '' && (amt === '' || isNaN(amt as number))) {
+                  showToast('Please provide either a percentage rate (%) or a fixed amount (Rs.).', 'warning');
+                  return;
+                }
+
+                const newSundry: BusySalesBillSundry = {
+                  id: `sundry-${Date.now()}`,
+                  name,
+                  rate_pct: rate,
+                  amount: amt,
+                  type: newSundryNature,
+                };
+
+                setSalesVoucherData((prev) => ({
+                  ...prev,
+                  billSundries: [...prev.billSundries, newSundry],
+                }));
+
+                showToast(`Bill Sundry "${name}" added to voucher!`, 'success');
+                setIsBillSundryModalOpen(false);
+                setNewSundryCustomName('');
+                setNewSundryRate('');
+                setNewSundryAmount('');
+                setNewSundryNature('additive');
+              }}
+              className="space-y-3 text-xs"
+            >
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  Bill Sundry Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newSundryCustomName}
+                  onChange={(e) => setNewSundryCustomName(e.target.value)}
+                  placeholder="e.g. Freight Charges / Trade Discount / Loading"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 font-semibold text-slate-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Calculation Nature / Type</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNewSundryNature('additive')}
+                    className={`py-1.5 px-2 rounded-xl font-bold text-center border transition cursor-pointer ${
+                      newSundryNature === 'additive'
+                        ? 'bg-emerald-100 border-emerald-500 text-emerald-800'
+                        : 'bg-slate-50 border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    ADD (+)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewSundryNature('subtractive')}
+                    className={`py-1.5 px-2 rounded-xl font-bold text-center border transition cursor-pointer ${
+                      newSundryNature === 'subtractive'
+                        ? 'bg-amber-100 border-amber-500 text-amber-800'
+                        : 'bg-slate-50 border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    LESS (-)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewSundryNature('round_off')}
+                    className={`py-1.5 px-2 rounded-xl font-bold text-center border transition cursor-pointer ${
+                      newSundryNature === 'round_off'
+                        ? 'bg-indigo-100 border-indigo-500 text-indigo-800'
+                        : 'bg-slate-50 border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    ROUND (±)
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Percentage Rate (%)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={newSundryRate}
+                    onChange={(e) => setNewSundryRate(e.target.value)}
+                    placeholder="e.g. 2.5"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl font-mono focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <span className="text-[10px] text-slate-400">Calculated on gross items</span>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Fixed Amount (Rs.)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={newSundryAmount}
+                    onChange={(e) => setNewSundryAmount(e.target.value)}
+                    placeholder="e.g. 1500"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl font-mono font-bold focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <span className="text-[10px] text-slate-400">Fixed lump-sum addition/deduction</span>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsBillSundryModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold cursor-pointer text-slate-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold cursor-pointer shadow-md flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Insert Sundry Row</span>
                 </button>
               </div>
             </form>
@@ -13731,7 +15762,7 @@ export default function App() {
 
             <div className="space-y-3 text-xs">
               <p className="text-slate-600 leading-relaxed">
-                Specify the destination directory on your local hard disk where ChequeDesk will store automated JSON and Excel backup snapshots.
+                Specify the destination directory on your local hard disk where Simple Accounting &amp; Cheque Management ERP will store automated JSON and Excel backup snapshots.
               </p>
 
               <div>
@@ -13866,7 +15897,7 @@ export default function App() {
                     type="email"
                     value={newStaffForm.email}
                     onChange={(e) => setNewStaffForm({ ...newStaffForm, email: e.target.value })}
-                    placeholder="e.g. suresh@rstraders.com"
+                    placeholder="e.g. suresh@simpleaccountingcheque.com"
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
                   />
                 </div>
@@ -13983,7 +16014,7 @@ export default function App() {
                     type="email"
                     value={editStaffForm.email}
                     onChange={(e) => setEditStaffForm({ ...editStaffForm, email: e.target.value })}
-                    placeholder="e.g. accountant@rstraders.com"
+                    placeholder="e.g. accountant@simpleaccountingcheque.com"
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
                   />
                 </div>
@@ -14521,12 +16552,22 @@ export default function App() {
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Date (BS - Nepali)</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-bold text-slate-700">Date (BS - Nepali)</label>
+                        {!isBackdateAllowed && (
+                          <span className="text-[9px] font-bold text-amber-700 bg-amber-100 px-1 py-0.2 rounded flex items-center gap-0.5" title="Locked by Developer Policy (Allow Back-dated / Future-dated Entries is OFF)">
+                            <Lock className="w-2.5 h-2.5" /> Locked
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="text"
                         required
+                        readOnly={!isBackdateAllowed}
+                        disabled={!isBackdateAllowed}
                         value={salesVoucherData.date_bs}
                         onChange={(e) => {
+                          if (!isBackdateAllowed) return;
                           const bs = e.target.value;
                           const ad = bsToAd(bs);
                           setSalesVoucherData({
@@ -14536,17 +16577,31 @@ export default function App() {
                           });
                         }}
                         placeholder="YYYY-MM-DD"
-                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded font-mono font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className={`w-full px-2.5 py-1.5 border rounded font-mono font-bold ${
+                          !isBackdateAllowed
+                            ? 'bg-slate-100 border-slate-300 text-slate-500 cursor-not-allowed select-none'
+                            : 'bg-slate-50 border-slate-300 text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500'
+                        }`}
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Date (AD - English)</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-bold text-slate-700">Date (AD - English)</label>
+                        {!isBackdateAllowed && (
+                          <span className="text-[9px] font-bold text-amber-700 bg-amber-100 px-1 py-0.2 rounded flex items-center gap-0.5" title="Locked by Developer Policy (Allow Back-dated / Future-dated Entries is OFF)">
+                            <Lock className="w-2.5 h-2.5" /> Today
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="date"
                         required
+                        readOnly={!isBackdateAllowed}
+                        disabled={!isBackdateAllowed}
                         value={salesVoucherData.date_ad}
                         onChange={(e) => {
+                          if (!isBackdateAllowed) return;
                           const ad = e.target.value;
                           const bs = adToBs(ad);
                           setSalesVoucherData({
@@ -14555,7 +16610,11 @@ export default function App() {
                             date_bs: bs || salesVoucherData.date_bs,
                           });
                         }}
-                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded font-mono text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className={`w-full px-2.5 py-1.5 border rounded font-mono ${
+                          !isBackdateAllowed
+                            ? 'bg-slate-100 border-slate-300 text-slate-500 cursor-not-allowed select-none'
+                            : 'bg-slate-50 border-slate-300 text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500'
+                        }`}
                       />
                     </div>
 
@@ -14572,15 +16631,18 @@ export default function App() {
                     </div>
 
                     <div className="col-span-2 sm:col-span-1">
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Sale Type</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-bold text-slate-700">Sale Type</label>
+                        <span className="text-[9px] font-semibold text-indigo-600 bg-indigo-50 px-1 rounded">Sticky</span>
+                      </div>
                       <select
                         value={salesVoucherData.sale_type}
-                        onChange={(e) => setSalesVoucherData({ ...salesVoucherData, sale_type: e.target.value })}
+                        onChange={(e) => updateSaleType(e.target.value)}
                         className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       >
                         <option value="VAT 13%">VAT 13%</option>
-                        <option value="L/GST-13% (Tax Invoice)">L/GST-13% (Tax Invoice)</option>
                         <option value="Exempted / Non-Taxable">Exempted / Non-Taxable</option>
+                        <option value="L/GST-13% (Tax Invoice)">L/GST-13% (Tax Invoice)</option>
                         <option value="Multi-Rate (Composite)">Multi-Rate (Composite)</option>
                       </select>
                     </div>
@@ -14590,16 +16652,27 @@ export default function App() {
                   <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
                     <div className="sm:col-span-8">
                       <div className="flex items-center justify-between mb-1">
-                        <label className="block text-[11px] font-bold text-slate-700">Party Account</label>
+                        <div className="flex items-center gap-2">
+                          <label className="block text-[11px] font-bold text-slate-700">Party Account</label>
+                          <button
+                            type="button"
+                            onClick={() => setIsAddPartyOpen(true)}
+                            className="px-1.5 py-0.5 text-[10px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded transition flex items-center gap-1 cursor-pointer"
+                            title="Instant Master Creation (Press F3 or Alt+C)"
+                          >
+                            <Plus className="w-2.5 h-2.5" />
+                            <span>+ Master [F3 / Alt+C]</span>
+                          </button>
+                        </div>
                         {(() => {
                           const bal = getPartyBalanceInfo(salesVoucherData.party_name);
                           return (
-                            <span className="text-[11px] font-mono flex items-center gap-1.5">
-                              <span className="text-slate-500">Cur. Bal:</span>
-                              <span className="font-bold text-slate-900">Rs. {formatNPR(bal.amount)}</span>
+                            <span className="text-[11px] font-mono flex items-center gap-1.5 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                              <span className="text-slate-500 font-sans text-[10px] uppercase font-bold">Cur. Bal:</span>
+                              <span className="font-extrabold text-slate-900">Rs. {formatNPR(bal.amount)}</span>
                               <span
-                                className={`px-1.5 py-0.2 rounded font-bold text-[10px] ${
-                                  bal.drCr === 'Dr' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
+                                className={`px-1.5 py-0.2 rounded font-black text-[10px] ${
+                                  bal.drCr === 'Dr' ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
                                 }`}
                               >
                                 {bal.drCr}
@@ -14614,7 +16687,13 @@ export default function App() {
                         list="busy-party-list"
                         value={salesVoucherData.party_name}
                         onChange={(e) => setSalesVoucherData({ ...salesVoucherData, party_name: e.target.value })}
-                        placeholder="Search or select Party Name / Sundry Debtor..."
+                        onKeyDown={(e) => {
+                          if (e.key === 'F3' || (e.altKey && (e.key === 'c' || e.key === 'C'))) {
+                            e.preventDefault();
+                            setIsAddPartyOpen(true);
+                          }
+                        }}
+                        placeholder="Search or select Party Name / Sundry Debtor... (Press F3 / Alt+C to Add New)"
                         className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                       <datalist id="busy-party-list">
@@ -14748,137 +16827,305 @@ export default function App() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200">
-                        {busySalesComputed.computedItems.map((item, idx) => (
-                          <tr key={item.id} className="hover:bg-slate-50/70">
-                            <td className="p-1.5 text-center font-mono font-bold text-slate-500 border-r border-slate-200">
-                              {idx + 1}
-                            </td>
-                            <td className="p-1 border-r border-slate-200">
-                              <input
-                                type="text"
-                                list="busy-item-catalog"
-                                value={item.item_description}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  setSalesVoucherData((prev) => ({
-                                    ...prev,
-                                    items: prev.items.map((it, i) =>
-                                      i === idx ? { ...it, item_description: val } : it
-                                    ),
-                                  }));
-                                }}
-                                placeholder="Type item name or code..."
-                                className="w-full px-2 py-1 bg-transparent border-0 focus:ring-1 focus:ring-indigo-500 rounded font-medium text-slate-900"
-                              />
-                            </td>
-                            <td className="p-1 border-r border-slate-200">
-                              <input
-                                type="number"
-                                min="0"
-                                step="any"
-                                value={item.qty}
-                                onChange={(e) => {
-                                  const val = e.target.value === '' ? '' : parseFloat(e.target.value);
-                                  setSalesVoucherData((prev) => ({
-                                    ...prev,
-                                    items: prev.items.map((it, i) => (i === idx ? { ...it, qty: val } : it)),
-                                  }));
-                                }}
-                                placeholder="0"
-                                className="w-full px-2 py-1 text-right font-mono font-bold text-slate-900 bg-transparent border-0 focus:ring-1 focus:ring-indigo-500 rounded"
-                              />
-                            </td>
-                            <td className="p-1 border-r border-slate-200">
-                              <select
-                                value={item.unit}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  setSalesVoucherData((prev) => ({
-                                    ...prev,
-                                    items: prev.items.map((it, i) => (i === idx ? { ...it, unit: val } : it)),
-                                  }));
-                                }}
-                                className="w-full px-1.5 py-1 text-center bg-transparent border-0 font-medium text-slate-800 focus:ring-1 focus:ring-indigo-500 rounded"
-                              >
-                                <option value="Case">Case</option>
-                                <option value="Pcs">Pcs</option>
-                                <option value="Box">Box</option>
-                                <option value="Bag">Bag</option>
-                                <option value="Kg">Kg</option>
-                                <option value="Ctn">Ctn</option>
-                                <option value="Bundle">Bundle</option>
-                                <option value="Mtr">Mtr</option>
-                                <option value="Nos">Nos</option>
-                              </select>
-                            </td>
-                            <td className="p-1 border-r border-slate-200">
-                              <input
-                                type="number"
-                                min="0"
-                                step="any"
-                                value={item.price}
-                                onChange={(e) => {
-                                  const val = e.target.value === '' ? '' : parseFloat(e.target.value);
-                                  setSalesVoucherData((prev) => ({
-                                    ...prev,
-                                    items: prev.items.map((it, i) => (i === idx ? { ...it, price: val } : it)),
-                                  }));
-                                }}
-                                placeholder="0.00"
-                                className="w-full px-2 py-1 text-right font-mono font-semibold text-slate-900 bg-transparent border-0 focus:ring-1 focus:ring-indigo-500 rounded"
-                              />
-                            </td>
-                            {/* DISCOUNT COLUMNS: STRICTLY CONDITIONAL */}
-                            {isSalesDiscountEnabled && (
-                              <>
-                                <td className="p-1 border-r border-slate-200">
+                        {busySalesComputed.computedItems.map((item, idx) => {
+                          const matchingMaster = itemMasters.find(
+                            (m) => m.name.toLowerCase().trim() === item.item_description.toLowerCase().trim()
+                          );
+                          const searchFilter = (item.item_description || '').toLowerCase().trim();
+                          const filteredMasters = itemMasters.filter(
+                            (m) =>
+                              m.name.toLowerCase().includes(searchFilter) ||
+                              m.category.toLowerCase().includes(searchFilter)
+                          );
+
+                          return (
+                            <tr key={item.id} className="hover:bg-slate-50/70 relative">
+                              <td className="p-1.5 text-center font-mono font-bold text-slate-500 border-r border-slate-200">
+                                {idx + 1}
+                              </td>
+                              <td className="p-1 border-r border-slate-200 relative">
+                                <div className="relative">
                                   <input
-                                    type="number"
-                                    min="0"
-                                    max="100"
-                                    step="any"
-                                    value={item.disc_pct}
+                                    type="text"
+                                    value={item.item_description}
+                                    onFocus={() => {
+                                      setActiveDropdownRowIdx(idx);
+                                      setActiveItemRowIdx(idx);
+                                    }}
                                     onChange={(e) => {
-                                      const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                                      const val = e.target.value;
+                                      setActiveDropdownRowIdx(idx);
+                                      setActiveItemRowIdx(idx);
                                       setSalesVoucherData((prev) => ({
                                         ...prev,
-                                        items: prev.items.map((it, i) => (i === idx ? { ...it, disc_pct: val } : it)),
+                                        items: prev.items.map((it, i) =>
+                                          i === idx ? { ...it, item_description: val } : it
+                                        ),
                                       }));
                                     }}
-                                    placeholder="0"
-                                    className="w-full px-2 py-1 text-right font-mono text-amber-700 bg-transparent border-0 focus:ring-1 focus:ring-indigo-500 rounded"
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'F3' || (e.altKey && (e.key === 'c' || e.key === 'C'))) {
+                                        e.preventDefault();
+                                        setActiveItemRowIdx(idx);
+                                        setIsAddItemMasterOpen(true);
+                                      } else if (e.key === 'Escape') {
+                                        setActiveDropdownRowIdx(null);
+                                      }
+                                    }}
+                                    placeholder="Type item name or press F3 / Alt+C to create master..."
+                                    className="w-full px-2 py-1 bg-transparent border-0 focus:ring-1 focus:ring-indigo-500 rounded font-medium text-slate-900"
                                   />
-                                </td>
-                                <td className="p-1.5 text-right font-mono text-slate-600 border-r border-slate-200">
-                                  {formatNPR(item.disc_amt || 0)}
-                                </td>
-                              </>
-                            )}
-                            <td className="p-1.5 text-right font-mono font-bold text-slate-900 border-r border-slate-200">
-                              {formatNPR(item.amount || 0)}
-                            </td>
-                            <td className="p-1 text-center">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (salesVoucherData.items.length <= 1) {
-                                    showToast('Voucher must contain at least 1 row.', 'warning');
-                                    return;
-                                  }
-                                  setSalesVoucherData((prev) => ({
-                                    ...prev,
-                                    items: prev.items.filter((_, i) => i !== idx),
-                                  }));
-                                }}
-                                className="text-slate-400 hover:text-rose-600 p-1 rounded cursor-pointer"
-                              >
-                                ✕
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+
+                                  {/* Floating Searchable Item Autocomplete Dropdown */}
+                                  {activeDropdownRowIdx === idx && (
+                                    <div
+                                      className="absolute left-0 top-full mt-1 w-96 bg-white rounded-xl shadow-2xl border border-slate-300 z-50 p-2 space-y-1.5 text-xs font-sans"
+                                      onMouseDown={(e) => e.preventDefault()} // Prevent blur before click
+                                    >
+                                      <div className="flex items-center justify-between pb-1 border-b border-slate-200 text-[10px] text-slate-500 font-semibold">
+                                        <span>Select Item Master ({filteredMasters.length} found)</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setActiveItemRowIdx(idx);
+                                            setIsAddItemMasterOpen(true);
+                                            setActiveDropdownRowIdx(null);
+                                          }}
+                                          className="text-indigo-600 font-bold hover:underline flex items-center gap-0.5 cursor-pointer"
+                                        >
+                                          <Plus className="w-3 h-3" />
+                                          <span>+ New Master [F3]</span>
+                                        </button>
+                                      </div>
+
+                                      <div className="max-h-52 overflow-y-auto divide-y divide-slate-100">
+                                        {filteredMasters.length > 0 ? (
+                                          filteredMasters.map((m) => (
+                                            <div
+                                              key={m.id}
+                                              onClick={() => {
+                                                const defaultUnit = item.unit || m.unit;
+                                                const defaultPrice =
+                                                  defaultUnit === m.alt_unit ? m.alt_price : m.price;
+                                                setSalesVoucherData((prev) => ({
+                                                  ...prev,
+                                                  items: prev.items.map((it, i) =>
+                                                    i === idx
+                                                      ? {
+                                                          ...it,
+                                                          item_description: m.name,
+                                                          unit: defaultUnit,
+                                                          price: it.price !== '' ? it.price : defaultPrice,
+                                                        }
+                                                      : it
+                                                  ),
+                                                }));
+                                                setActiveDropdownRowIdx(null);
+                                              }}
+                                              className="p-1.5 hover:bg-indigo-50/80 rounded-lg cursor-pointer transition flex items-center justify-between gap-2"
+                                            >
+                                              <div>
+                                                <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                                                  <span>{m.name}</span>
+                                                  <span className="px-1 py-0.2 rounded text-[9px] bg-slate-100 text-slate-600 font-normal">
+                                                    {m.category}
+                                                  </span>
+                                                </div>
+                                                <div className="text-[10px] text-slate-500 font-mono">
+                                                  {m.unit} @ Rs. {formatNPR(m.price)} | {m.alt_unit} @ Rs. {formatNPR(m.alt_price)}
+                                                </div>
+                                              </div>
+                                              <div className="text-right shrink-0">
+                                                <div className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                                  Stock: {m.stock_case.toFixed(1)} Case
+                                                </div>
+                                                <div className="text-[9px] font-mono text-slate-500">
+                                                  {m.stock_pcs.toLocaleString()} Pcs
+                                                </div>
+                                              </div>
+                                            </div>
+                                          ))
+                                        ) : (
+                                          <div className="p-3 text-center text-slate-500 space-y-1">
+                                            <p className="text-[11px]">No existing item matched "{item.item_description}".</p>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setNewItemMasterForm((prev) => ({
+                                                  ...prev,
+                                                  name: item.item_description,
+                                                }));
+                                                setActiveItemRowIdx(idx);
+                                                setIsAddItemMasterOpen(true);
+                                                setActiveDropdownRowIdx(null);
+                                              }}
+                                              className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[11px] font-bold cursor-pointer"
+                                            >
+                                              Create Master for "{item.item_description}" [F3]
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      <div className="pt-1 border-t border-slate-200 flex items-center justify-between text-[10px] text-slate-400">
+                                        <span>Click item to select</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => setActiveDropdownRowIdx(null)}
+                                          className="text-slate-500 hover:text-slate-700 font-bold"
+                                        >
+                                          Close ✕
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="p-1 border-r border-slate-200">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="any"
+                                  value={item.qty}
+                                  onChange={(e) => {
+                                    const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                                    setSalesVoucherData((prev) => ({
+                                      ...prev,
+                                      items: prev.items.map((it, i) => (i === idx ? { ...it, qty: val } : it)),
+                                    }));
+                                  }}
+                                  placeholder="0"
+                                  className="w-full px-2 py-1 text-right font-mono font-bold text-slate-900 bg-transparent border-0 focus:ring-1 focus:ring-indigo-500 rounded"
+                                />
+                              </td>
+                              <td className="p-1 border-r border-slate-200">
+                                <select
+                                  value={item.unit}
+                                  onChange={(e) => {
+                                    const newUnit = e.target.value;
+                                    setSalesVoucherData((prev) => ({
+                                      ...prev,
+                                      items: prev.items.map((it, i) => {
+                                        if (i !== idx) return it;
+                                        let updatedPrice = it.price;
+                                        // Auto-adjust unit price if changing between primary unit and alternate unit
+                                        if (matchingMaster) {
+                                          if (newUnit === matchingMaster.alt_unit && matchingMaster.alt_price > 0) {
+                                            updatedPrice = matchingMaster.alt_price;
+                                          } else if (newUnit === matchingMaster.unit && matchingMaster.price > 0) {
+                                            updatedPrice = matchingMaster.price;
+                                          }
+                                        }
+                                        return { ...it, unit: newUnit, price: updatedPrice };
+                                      }),
+                                    }));
+                                  }}
+                                  className="w-full px-1.5 py-1 text-center bg-transparent border-0 font-medium text-slate-800 focus:ring-1 focus:ring-indigo-500 rounded"
+                                >
+                                  <option value="Case">Case</option>
+                                  <option value="Pcs">Pcs</option>
+                                  <option value="Box">Box</option>
+                                  <option value="Bag">Bag</option>
+                                  <option value="Kg">Kg</option>
+                                  <option value="Ctn">Ctn</option>
+                                  <option value="Bundle">Bundle</option>
+                                  <option value="Mtr">Mtr</option>
+                                  <option value="Nos">Nos</option>
+                                </select>
+                              </td>
+                              <td className="p-1 border-r border-slate-200">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="any"
+                                  value={item.price}
+                                  onChange={(e) => {
+                                    const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                                    setSalesVoucherData((prev) => ({
+                                      ...prev,
+                                      items: prev.items.map((it, i) => (i === idx ? { ...it, price: val } : it)),
+                                    }));
+                                  }}
+                                  placeholder="0.00"
+                                  className="w-full px-2 py-1 text-right font-mono font-semibold text-slate-900 bg-transparent border-0 focus:ring-1 focus:ring-indigo-500 rounded"
+                                />
+                              </td>
+                              {/* DISCOUNT COLUMNS: STRICTLY CONDITIONAL */}
+                              {isSalesDiscountEnabled && (
+                                <>
+                                  <td className="p-1 border-r border-slate-200">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="100"
+                                      step="any"
+                                      value={item.disc_pct}
+                                      onChange={(e) => {
+                                        const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                                        setSalesVoucherData((prev) => ({
+                                          ...prev,
+                                          items: prev.items.map((it, i) => (i === idx ? { ...it, disc_pct: val } : it)),
+                                        }));
+                                      }}
+                                      placeholder="0"
+                                      className="w-full px-2 py-1 text-right font-mono text-amber-700 bg-transparent border-0 focus:ring-1 focus:ring-indigo-500 rounded"
+                                    />
+                                  </td>
+                                  <td className="p-1.5 text-right font-mono text-slate-600 border-r border-slate-200">
+                                    {formatNPR(item.disc_amt || 0)}
+                                  </td>
+                                </>
+                              )}
+                              <td className="p-1.5 text-right font-mono font-bold text-slate-900 border-r border-slate-200">
+                                {formatNPR(item.amount || 0)}
+                              </td>
+                              <td className="p-1 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (salesVoucherData.items.length <= 1) {
+                                      showToast('Voucher must contain at least 1 row.', 'warning');
+                                      return;
+                                    }
+                                    setSalesVoucherData((prev) => ({
+                                      ...prev,
+                                      items: prev.items.filter((_, i) => i !== idx),
+                                    }));
+                                  }}
+                                  className="text-slate-400 hover:text-rose-600 p-1 rounded cursor-pointer"
+                                  title="Remove Line"
+                                >
+                                  ✕
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
+                  </div>
+
+                  {/* Real-time Current Stock Status Strip directly below item grid */}
+                  <div className="bg-slate-900 text-white px-3.5 py-2 flex flex-wrap items-center justify-between gap-2 text-xs font-mono border-t border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-400 font-sans text-[11px] font-semibold flex items-center gap-1.5">
+                        <Package className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Real-Time Inventory Status:</span>
+                      </span>
+                      {focusedOrActiveItemStock.name ? (
+                        <span className="font-bold text-emerald-400">
+                          {focusedOrActiveItemStock.name} &rarr; (Cur. Stock = {focusedOrActiveItemStock.stockCase.toFixed(2)} Case, Pcs. {focusedOrActiveItemStock.stockPcs.toLocaleString('en-US', { minimumFractionDigits: 2 })})
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 italic font-sans text-[11px]">
+                          Select or focus any item row above to view real-time current stock (Cur. Stock = XX.XX Case, Pcs. XXXX.XX)
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-slate-300 font-sans bg-slate-800 px-2 py-0.5 rounded flex items-center gap-1">
+                      <kbd className="px-1 py-0.2 bg-slate-700 rounded text-[9px] font-mono">F3</kbd> or <kbd className="px-1 py-0.2 bg-slate-700 rounded text-[9px] font-mono">Alt+C</kbd>
+                      <span>to Add Item Master</span>
+                    </div>
                   </div>
 
                   {/* Add Row Button & Alt. Qty / Total Qty Summary Bar */}
@@ -14894,7 +17141,7 @@ export default function App() {
                               id: `item-${Date.now()}-${prev.items.length + 1}`,
                               item_description: '',
                               qty: '',
-                              unit: 'Pcs',
+                              unit: 'Case',
                               price: '',
                               disc_pct: '',
                               disc_amt: 0,
@@ -14910,17 +17157,25 @@ export default function App() {
                     </button>
 
                     {/* Alt. Qty / Total Qty Summary Bar directly below grid */}
-                    <div className="flex flex-wrap items-center gap-4 text-xs font-mono">
+                    <div className="flex flex-wrap items-center gap-3.5 text-xs font-mono">
                       <div>
                         <span className="text-slate-500">Total Qty: </span>
                         <strong className="text-slate-900 font-bold">{busySalesComputed.totalQty} Units</strong>
                       </div>
                       <div>
-                        <span className="text-slate-500">Alt. Qty: </span>
-                        <strong className="text-indigo-700 font-bold">{busySalesComputed.altQty} Cases / Boxes</strong>
+                        <span className="text-slate-500">Case Qty: </span>
+                        <strong className="text-indigo-700 font-bold">{busySalesComputed.totalCaseQty} Case</strong>
                       </div>
                       <div>
-                        <span className="text-slate-500">Items Count: </span>
+                        <span className="text-slate-500">Pcs Qty: </span>
+                        <strong className="text-slate-900 font-bold">{busySalesComputed.totalPcsQty} Pcs</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Alt. Qty: </span>
+                        <strong className="text-purple-700 font-bold">{busySalesComputed.altQty} Cases / Boxes</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Lines: </span>
                         <strong className="text-slate-900 font-bold">{busySalesComputed.validItemsCount} Lines</strong>
                       </div>
                       <div className="bg-slate-200 px-2.5 py-1 rounded">
@@ -14936,102 +17191,140 @@ export default function App() {
                   {/* Left Table: Bill Sundry Grid */}
                   <div className="lg:col-span-7 bg-white rounded-lg border border-slate-300 shadow-2xs overflow-hidden">
                     <div className="p-2.5 bg-slate-100 border-b border-slate-300 font-bold text-slate-700 text-xs flex items-center justify-between">
-                      <span>Bill Sundry (Tax, Freight, Discounts &amp; Adjustments)</span>
+                      <div className="flex items-center gap-2">
+                        <span>Bill Sundry (Freight, Discounts &amp; Adjustments)</span>
+                        <span className="text-[10px] text-slate-400 font-normal">
+                          ({salesVoucherData.billSundries.length} active)
+                        </span>
+                      </div>
                       <button
                         type="button"
-                        onClick={() => {
-                          setSalesVoucherData((prev) => ({
-                            ...prev,
-                            billSundries: [
-                              ...prev.billSundries,
-                              {
-                                id: `bs-${Date.now()}`,
-                                name: 'Other Charges / Sundry',
-                                rate_pct: '',
-                                amount: 500,
-                                type: 'additive',
-                              },
-                            ],
-                          }));
-                        }}
-                        className="text-[11px] text-indigo-700 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
+                        onClick={() => setIsBillSundryModalOpen(true)}
+                        className="px-2.5 py-1 bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 rounded font-bold text-[11px] shadow-2xs transition flex items-center gap-1 cursor-pointer"
                       >
                         <Plus className="w-3 h-3" />
-                        <span>Add Sundry</span>
+                        <span>+ Add Bill Sundry</span>
                       </button>
                     </div>
 
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs">
-                        <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 text-[11px]">
-                          <tr>
-                            <th className="p-2 text-center w-10">S.N.</th>
-                            <th className="p-2">Bill Sundry Name</th>
-                            <th className="p-2 text-right w-20">@ (%)</th>
-                            <th className="p-2 text-right w-28">Amount (Rs.)</th>
-                            <th className="p-2 text-center w-8">✕</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {busySalesComputed.computedSundries.map((bs, sIdx) => (
-                            <tr key={bs.id} className="hover:bg-slate-50/70">
-                              <td className="p-2 text-center font-mono font-bold text-slate-400">{sIdx + 1}</td>
-                              <td className="p-1.5">
-                                <input
-                                  type="text"
-                                  value={bs.name}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    setSalesVoucherData((prev) => ({
-                                      ...prev,
-                                      billSundries: prev.billSundries.map((s, idx) =>
-                                        idx === sIdx ? { ...s, name: val } : s
-                                      ),
-                                    }));
-                                  }}
-                                  className="w-full px-2 py-1 bg-transparent border-0 font-medium text-slate-800 focus:ring-1 focus:ring-indigo-500 rounded"
-                                />
-                              </td>
-                              <td className="p-1.5">
-                                <input
-                                  type="number"
-                                  step="any"
-                                  value={bs.rate_pct}
-                                  onChange={(e) => {
-                                    const val = e.target.value === '' ? '' : parseFloat(e.target.value);
-                                    setSalesVoucherData((prev) => ({
-                                      ...prev,
-                                      billSundries: prev.billSundries.map((s, idx) =>
-                                        idx === sIdx ? { ...s, rate_pct: val } : s
-                                      ),
-                                    }));
-                                  }}
-                                  placeholder="—"
-                                  className="w-full px-1 py-1 text-right font-mono text-slate-700 bg-transparent border-0 focus:ring-1 focus:ring-indigo-500 rounded"
-                                />
-                              </td>
-                              <td className="p-1.5 text-right font-mono font-bold text-slate-900">
-                                {bs.name.toLowerCase().includes('trade discount') && '- '}
-                                {formatNPR(bs.computedAmount || 0)}
-                              </td>
-                              <td className="p-1 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSalesVoucherData((prev) => ({
-                                      ...prev,
-                                      billSundries: prev.billSundries.filter((_, idx) => idx !== sIdx),
-                                    }));
-                                  }}
-                                  className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
-                                >
-                                  ✕
-                                </button>
-                              </td>
+                      {salesVoucherData.billSundries.length === 0 ? (
+                        <div className="p-6 text-center text-slate-400 space-y-2">
+                          <p className="text-xs">No bill sundries applied. Clean bill by default.</p>
+                          <button
+                            type="button"
+                            onClick={() => setIsBillSundryModalOpen(true)}
+                            className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg text-xs transition cursor-pointer"
+                          >
+                            + Add Freight, Discount, or Round-Off
+                          </button>
+                        </div>
+                      ) : (
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 text-[11px]">
+                            <tr>
+                              <th className="p-2 text-center w-8">S.N.</th>
+                              <th className="p-2">Bill Sundry Name</th>
+                              <th className="p-2 text-center w-14">Type</th>
+                              <th className="p-2 text-right w-16">@ (%)</th>
+                              <th className="p-2 text-right w-24">Fixed (Rs.)</th>
+                              <th className="p-2 text-right w-24">Total (Rs.)</th>
+                              <th className="p-2 text-center w-8">✕</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {busySalesComputed.computedSundries.map((bs, sIdx) => (
+                              <tr key={bs.id} className="hover:bg-slate-50/70">
+                                <td className="p-2 text-center font-mono font-bold text-slate-400">{sIdx + 1}</td>
+                                <td className="p-1">
+                                  <input
+                                    type="text"
+                                    value={bs.name}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setSalesVoucherData((prev) => ({
+                                        ...prev,
+                                        billSundries: prev.billSundries.map((s, idx) =>
+                                          idx === sIdx ? { ...s, name: val } : s
+                                        ),
+                                      }));
+                                    }}
+                                    className="w-full px-2 py-1 bg-transparent border-0 font-medium text-slate-800 focus:ring-1 focus:ring-indigo-500 rounded"
+                                  />
+                                </td>
+                                <td className="p-1 text-center">
+                                  <span
+                                    className={`px-1.5 py-0.2 rounded font-bold text-[9px] ${
+                                      bs.type === 'subtractive'
+                                        ? 'bg-amber-100 text-amber-800'
+                                        : bs.type === 'round_off'
+                                        ? 'bg-slate-100 text-slate-700'
+                                        : 'bg-emerald-100 text-emerald-800'
+                                    }`}
+                                  >
+                                    {bs.type === 'subtractive' ? 'LESS (-)' : bs.type === 'round_off' ? 'ADJ (±)' : 'ADD (+)'}
+                                  </span>
+                                </td>
+                                <td className="p-1">
+                                  <input
+                                    type="number"
+                                    step="any"
+                                    value={bs.rate_pct}
+                                    onChange={(e) => {
+                                      const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                                      setSalesVoucherData((prev) => ({
+                                        ...prev,
+                                        billSundries: prev.billSundries.map((s, idx) =>
+                                          idx === sIdx ? { ...s, rate_pct: val } : s
+                                        ),
+                                      }));
+                                    }}
+                                    placeholder="—"
+                                    className="w-full px-1 py-1 text-right font-mono text-slate-700 bg-transparent border-0 focus:ring-1 focus:ring-indigo-500 rounded"
+                                  />
+                                </td>
+                                <td className="p-1">
+                                  <input
+                                    type="number"
+                                    step="any"
+                                    value={bs.amount}
+                                    onChange={(e) => {
+                                      const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                                      setSalesVoucherData((prev) => ({
+                                        ...prev,
+                                        billSundries: prev.billSundries.map((s, idx) =>
+                                          idx === sIdx ? { ...s, amount: val } : s
+                                        ),
+                                      }));
+                                    }}
+                                    placeholder="0"
+                                    className="w-full px-1 py-1 text-right font-mono font-semibold text-slate-800 bg-transparent border-0 focus:ring-1 focus:ring-indigo-500 rounded"
+                                  />
+                                </td>
+                                <td className="p-1.5 text-right font-mono font-bold text-slate-900">
+                                  {bs.type === 'subtractive' && '- '}
+                                  {formatNPR(bs.computedAmount || 0)}
+                                </td>
+                                <td className="p-1 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSalesVoucherData((prev) => ({
+                                        ...prev,
+                                        billSundries: prev.billSundries.filter((_, idx) => idx !== sIdx),
+                                      }));
+                                    }}
+                                    className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
+                                    title="Remove Sundry"
+                                  >
+                                    ✕
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
                     </div>
                   </div>
 
@@ -15391,7 +17684,7 @@ export default function App() {
                     <Info className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                     <span>Keyboard shortcuts: [Enter] Advance &bull; [Shift+Enter] Previous &bull; [Esc] Cancel</span>
                   </div>
-                  <span className="font-mono font-bold text-indigo-700">ChequeDesk Ledger Engine</span>
+                  <span className="font-mono font-bold text-indigo-700">Simple Accounting ERP Engine</span>
                 </div>
 
                 {/* Form Buttons */}
@@ -15991,18 +18284,65 @@ export default function App() {
       {/* 24G. IRD NEPAL COMPLIANT TAX INVOICE PRINT PREVIEW MODAL */}
       {busySalesModal.type === 'print_preview' && (
         <div className="fixed inset-0 z-50 bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl max-w-3xl w-full p-6 shadow-2xl space-y-4 border border-slate-300 my-8">
+          <div className="bg-white rounded-xl max-w-4xl w-full p-6 shadow-2xl space-y-4 border border-slate-300 my-8">
             {/* Top Toolbar */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200 no-print">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 no-print">
               <div className="flex items-center gap-2">
-                <Printer className="w-5 h-5 text-indigo-600" />
-                <span className="font-bold text-sm text-slate-900">Tax Invoice Print Preview (कर बिजक)</span>
+                <Printer className="w-5 h-5 text-indigo-600 shrink-0" />
+                <div>
+                  <span className="font-bold text-sm text-slate-900 block">Tax Invoice Print Preview</span>
+                  <span className="text-[10px] text-slate-400">15 A4 &amp; 15 A5 Pre-configured Templates</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <label className="text-xs font-semibold text-slate-600">Layout:</label>
+                  <select
+                    value={invoiceDesignSettings.selectedTemplateId}
+                    onChange={(e) => {
+                      const tpl = INVOICE_TEMPLATES.find((t) => t.id === e.target.value);
+                      if (tpl) {
+                        setInvoiceDesignSettings((prev) => ({
+                          ...prev,
+                          selectedTemplateId: tpl.id,
+                          paperSize: tpl.size,
+                          themeColor: tpl.accentColor,
+                        }));
+                      }
+                    }}
+                    className="px-2.5 py-1 text-xs border border-slate-300 rounded-lg bg-white font-bold text-slate-800 focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <optgroup label="A4 Layouts (15 Full-Sheet)">
+                      {INVOICE_TEMPLATES.filter((t) => t.size === 'A4').map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name} ({t.tag})
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="A5 Layouts (15 Half-Sheet)">
+                      {INVOICE_TEMPLATES.filter((t) => t.size === 'A5').map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name} ({t.tag})
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+                  <span
+                    className={`text-[10px] font-mono px-2 py-0.5 rounded font-black border ${
+                      invoiceDesignSettings.paperSize === 'A4'
+                        ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    }`}
+                  >
+                    {invoiceDesignSettings.paperSize}
+                  </span>
+                </div>
+
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>Print / Save PDF [Ctrl+P]</span>
@@ -16017,57 +18357,85 @@ export default function App() {
               </div>
             </div>
 
-            {/* Printable Tax Invoice Document (Nepal IRD Standard) */}
-            <div className="p-6 border border-slate-300 rounded bg-white text-slate-900 text-xs font-sans space-y-4">
+            {/* Printable Tax Invoice Document (Governed by Selected Template & Settings) */}
+            <div
+              className={`p-6 border border-slate-300 rounded bg-white text-slate-900 text-xs font-sans space-y-4 mx-auto ${
+                invoiceDesignSettings.paperSize === 'A5' ? 'max-w-xl' : 'max-w-3xl'
+              }`}
+            >
               {/* Company Header */}
-              <div className="text-center space-y-1 border-b border-slate-300 pb-3">
-                <h1 className="text-xl font-bold uppercase tracking-wider text-slate-900">{activeCompanyName}</h1>
-                <p className="text-[11px] text-slate-600">Kathmandu, Nepal • Tel: +977-1-4428910</p>
-                <p className="text-[11px] font-mono font-bold text-slate-800">PAN / VAT No: 601298453</p>
-                <div className="inline-block bg-slate-100 border border-slate-300 px-3 py-0.5 rounded text-xs font-bold uppercase mt-1">
-                  TAX INVOICE (कर बिजक)
+              <div
+                className="flex items-start justify-between border-b pb-3"
+                style={{ borderColor: invoiceDesignSettings.themeColor }}
+              >
+                <div className="space-y-1">
+                  {invoiceDesignSettings.showLogo && (
+                    <div
+                      className="w-10 h-10 rounded-xl text-white flex items-center justify-center font-black text-sm mb-1.5 shadow-xs"
+                      style={{ backgroundColor: invoiceDesignSettings.themeColor }}
+                    >
+                      {activeCompanyName.substring(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                  <h1 className="text-lg font-black uppercase tracking-tight text-slate-900">{activeCompanyName}</h1>
+                  <p className="text-[11px] text-slate-600">Kathmandu, Nepal &bull; Tel: +977-1-4428910</p>
+                  <p className="text-[11px] font-mono font-bold text-slate-800">PAN / VAT No: 601298453</p>
+                </div>
+
+                <div className="text-right space-y-1">
+                  <div
+                    className="inline-block px-3 py-1 rounded text-white font-extrabold text-xs tracking-wider"
+                    style={{ backgroundColor: invoiceDesignSettings.themeColor }}
+                  >
+                    {invoiceDesignSettings.headerTitle || 'TAX INVOICE (कर बिजक)'}
+                  </div>
+                  {invoiceDesignSettings.subHeader && (
+                    <p className="text-[10px] text-slate-500 italic mt-0.5">{invoiceDesignSettings.subHeader}</p>
+                  )}
+                  <div className="text-xs font-mono space-y-0.5 pt-1">
+                    <div>
+                      <span className="text-slate-500">Invoice No: </span>
+                      <strong className="font-mono font-bold text-slate-900">
+                        {busySalesModal.data?.voucher_number || salesVoucherData.voucher_number || '1'}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Date (BS): </span>
+                      <strong className="font-mono">{busySalesModal.data?.date_bs || salesVoucherData.date_bs} BS</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Date (AD): </span>
+                      <span className="font-mono">{busySalesModal.data?.date_ad || salesVoucherData.date_ad} AD</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* Invoice & Buyer Metadata Grid */}
-              <div className="grid grid-cols-2 gap-4 text-xs">
-                <div className="space-y-1">
+              <div className="grid grid-cols-2 gap-4 p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Buyer / Consignee:</span>
+                  <strong className="text-slate-900 block font-bold text-xs">
+                    {busySalesModal.data?.party_name || salesVoucherData.party_name || 'Himalayan Traders Pvt. Ltd.'}
+                  </strong>
+                  <span className="text-slate-600 block text-[11px]">Kathmandu, Nepal</span>
+                  <span className="text-slate-600 block font-mono text-[11px]">Buyer PAN: 302918291</span>
+                </div>
+
+                <div className="space-y-0.5 text-right font-mono text-xs">
                   <div>
-                    <span className="text-slate-500">Buyer Name: </span>
-                    <strong className="text-slate-900 font-bold">{busySalesModal.data?.party_name || salesVoucherData.party_name}</strong>
+                    <span className="text-slate-500">Sale Type: </span>
+                    <strong>{busySalesModal.data?.sale_type || salesVoucherData.sale_type || 'VAT 13%'}</strong>
                   </div>
                   <div>
-                    <span className="text-slate-500">Buyer Address: </span>
-                    <span>Kathmandu, Nepal</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">Buyer PAN: </span>
-                    <span className="font-mono font-bold">302918291</span>
+                    <span className="text-slate-500">Mat. Centre: </span>
+                    <span>{busySalesModal.data?.mat_centre || salesVoucherData.mat_centre || 'Main Store'}</span>
                   </div>
                   <div>
                     <span className="text-slate-500">Vehicle No: </span>
-                    <span className="font-mono font-bold">{busySalesModal.data?.transport_info?.vehicle_no || salesVoucherData.vehicle_no || '—'}</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1 text-right">
-                  <div>
-                    <span className="text-slate-500">Invoice No: </span>
-                    <strong className="font-mono font-bold text-slate-900">
-                      {busySalesModal.data?.voucher_number || salesVoucherData.voucher_number}
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">Invoice Date (BS): </span>
-                    <strong className="font-mono">{busySalesModal.data?.date_bs || salesVoucherData.date_bs} BS</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">Invoice Date (AD): </span>
-                    <span className="font-mono">{busySalesModal.data?.date_ad || salesVoucherData.date_ad} AD</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">Payment Terms: </span>
-                    <span>Credit (30 Days)</span>
+                    <span className="font-mono font-bold">
+                      {busySalesModal.data?.transport_info?.vehicle_no || salesVoucherData.vehicle_no || '—'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -16092,7 +18460,7 @@ export default function App() {
                         {item.item_description || `General Trading Goods #${idx + 1}`}
                       </td>
                       <td className="p-2 text-right font-mono border-r border-slate-300">{item.qty || 1}</td>
-                      <td className="p-2 text-center border-r border-slate-300">{item.unit || 'Pcs'}</td>
+                      <td className="p-2 text-center border-r border-slate-300">{item.unit || 'Case'}</td>
                       <td className="p-2 text-right font-mono border-r border-slate-300">
                         {formatNPR(Number(item.price) || 0)}
                       </td>
@@ -16105,8 +18473,19 @@ export default function App() {
               </table>
 
               {/* Totals Summary */}
-              <div className="flex justify-end">
-                <div className="w-64 space-y-1 text-xs font-mono">
+              <div className="flex justify-between items-start pt-2">
+                <div className="max-w-xs text-[11px] text-slate-600 space-y-1">
+                  {invoiceDesignSettings.bankDetails && (
+                    <p>
+                      <strong>Bank Details:</strong> {invoiceDesignSettings.bankDetails}
+                    </p>
+                  )}
+                  <p className="italic">
+                    <strong>In Words:</strong> {numberToWords(busySalesComputed.netAmount)} Rupees Only
+                  </p>
+                </div>
+
+                <div className="w-64 space-y-1 text-xs font-mono text-right">
                   <div className="flex justify-between">
                     <span className="text-slate-600">Subtotal:</span>
                     <span className="font-bold">Rs. {formatNPR(busySalesComputed.grossSubtotal)}</span>
@@ -16127,20 +18506,28 @@ export default function App() {
                       <span>+ Rs. {formatNPR(busySalesComputed.freightCharges)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between pt-1 border-t border-slate-300 text-sm font-bold text-slate-900">
+                  <div
+                    className="flex justify-between pt-1 border-t-2 text-sm font-bold text-slate-900"
+                    style={{ borderColor: invoiceDesignSettings.themeColor }}
+                  >
                     <span>Grand Total:</span>
                     <span>Rs. {formatNPR(busySalesComputed.netAmount)}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Amount in words */}
-              <div className="p-2.5 bg-slate-50 rounded border border-slate-200 text-xs italic">
-                <strong>In Words:</strong> {numberToWords(busySalesComputed.netAmount)} Rupees Only
-              </div>
+              {/* Terms & Conditions */}
+              {invoiceDesignSettings.termsAndConditions && (
+                <div className="p-2.5 bg-slate-50 rounded border border-slate-200 text-[10px] text-slate-600 whitespace-pre-line leading-relaxed">
+                  <strong className="block text-[11px] text-slate-800 font-bold mb-0.5">
+                    Terms &amp; Conditions:
+                  </strong>
+                  {invoiceDesignSettings.termsAndConditions}
+                </div>
+              )}
 
               {/* Signatures */}
-              <div className="grid grid-cols-3 gap-4 pt-12 text-center text-xs">
+              <div className="grid grid-cols-3 gap-4 pt-10 text-center text-xs">
                 <div className="border-t border-slate-300 pt-1">Prepared By</div>
                 <div className="border-t border-slate-300 pt-1">Checked By</div>
                 <div className="border-t border-slate-300 pt-1">Receiver's Signature</div>

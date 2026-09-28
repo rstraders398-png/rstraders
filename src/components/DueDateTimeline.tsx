@@ -38,7 +38,7 @@ export const DueDateTimeline: React.FC<DueDateTimelineProps> = ({
   cheques,
   parties,
   banks,
-  companyName = "rstraders's Company",
+  companyName = 'Simple Accounting & Cheque Management ERP',
   onRecordPayment,
   onViewDetails,
   onEditCheque,

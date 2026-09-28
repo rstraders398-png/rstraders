@@ -57,7 +57,7 @@ export function exportTableToPDF(options: ExportTableOptions) {
     columnStyles = {},
   } = options;
 
-  const activeCompany = companyName || "rstraders's Company";
+  const activeCompany = companyName || 'Simple Accounting & Cheque Management ERP';
   const doc = new jsPDF({ orientation, unit: 'pt', format: 'a4' });
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
@@ -165,7 +165,7 @@ export function exportGroupedTableToPDF(options: GroupedExportTableOptions) {
     orientation = 'landscape',
   } = options;
 
-  const activeCompany = companyName || "rstraders's Company";
+  const activeCompany = companyName || 'Simple Accounting & Cheque Management ERP';
   const doc = new jsPDF({ orientation, unit: 'pt', format: 'a4' });
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
@@ -311,7 +311,7 @@ export function exportTableToExcel(options: ExportTableOptions) {
     footers,
   } = options;
 
-  const activeCompany = companyName || "rstraders's Company";
+  const activeCompany = companyName || 'Simple Accounting & Cheque Management ERP';
   const genDate = `${getCurrentBsDate()} BS (${getCurrentAdDate()} AD)`;
 
   const sheetData: (string | number)[][] = [
@@ -375,7 +375,7 @@ export function exportGroupedTableToExcel(options: GroupedExportTableOptions) {
     grandTotalFooter,
   } = options;
 
-  const activeCompany = companyName || "rstraders's Company";
+  const activeCompany = companyName || 'Simple Accounting & Cheque Management ERP';
   const genDate = `${getCurrentBsDate()} BS (${getCurrentAdDate()} AD)`;
 
   const sheetData: (string | number)[][] = [

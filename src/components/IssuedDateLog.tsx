@@ -43,7 +43,7 @@ export const IssuedDateLog: React.FC<IssuedDateLogProps> = ({
   cheques,
   parties,
   banks,
-  companyName = "rstraders's Company",
+  companyName = 'Simple Accounting & Cheque Management ERP',
   onRecordPayment,
   onViewDetails,
   onEditCheque,

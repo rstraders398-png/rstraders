@@ -37,7 +37,7 @@ export const PartiesView: React.FC<PartiesViewProps> = ({
   parties,
   cheques,
   companyId,
-  companyName = "rstraders's Company",
+  companyName = 'Simple Accounting & Cheque Management ERP',
   onRecordPayment,
   onViewDetails,
 }) => {

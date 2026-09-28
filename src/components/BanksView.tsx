@@ -35,7 +35,7 @@ export const BanksView: React.FC<BanksViewProps> = ({
   banks,
   cheques,
   companyId,
-  companyName = "rstraders's Company",
+  companyName = 'Simple Accounting & Cheque Management ERP',
   onRecordPayment,
   onViewDetails,
 }) => {
