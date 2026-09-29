@@ -245,7 +245,7 @@ export const BackupSettingsView: React.FC<BackupSettingsViewProps> = ({
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Tally / Busy ERP-grade local offline resilience, automatic cloud sync, and multi-destination data vault.
+                  Enterprise-grade local offline resilience, automatic cloud sync, and multi-destination data vault.
                 </p>
               </div>
             </div>
@@ -413,16 +413,16 @@ export const BackupSettingsView: React.FC<BackupSettingsViewProps> = ({
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                  <span>Offline-First Engine (Tally / Busy Accounting Parity)</span>
+                  <span>Offline-First Engine (Enterprise Accounting Architecture)</span>
                 </h3>
                 <span className="text-xs px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg font-bold">
                   Active
                 </span>
               </div>
               <p className="text-xs text-slate-600 leading-relaxed">
-                ChequeDesk functions identically to traditional enterprise accounting suites (like Tally ERP, Busy, or Marg).
-                Every write operation is saved <strong>instantly to local IndexedDB/SQLite storage</strong>.
-                If your internet connection drops or you are operating in remote areas without connectivity, ChequeDesk continues running 100% offline.
+                Simple Accounting &amp; Cheque Management ERP functions as a modern standalone enterprise desktop suite.
+                Every write operation is saved <strong>instantly to local IndexedDB and localStorage</strong>.
+                If your internet connection drops or you are operating in remote areas without connectivity, the ERP continues running 100% offline.
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
@@ -446,11 +446,11 @@ export const BackupSettingsView: React.FC<BackupSettingsViewProps> = ({
                 </div>
               </div>
 
-              {/* Tally/Busy Style Keyboard Shortcuts for Fast Desk Entry */}
+              {/* Standard Enterprise Keyboard Shortcuts for Fast Desk Entry */}
               <div className="pt-4 border-t border-slate-100">
                 <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2.5 flex items-center gap-2">
                   <Laptop className="w-4 h-4 text-slate-500" />
-                  <span>Desktop Quick Key Shortcuts (Tally / Busy Compatible)</span>
+                  <span>Desktop Quick Key Shortcuts (ERP Standard)</span>
                 </h4>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                   <div className="p-2 bg-slate-100 rounded-lg flex items-center justify-between">
@@ -699,7 +699,7 @@ export const BackupSettingsView: React.FC<BackupSettingsViewProps> = ({
                   <Lock className="w-4 h-4" />
                   <span>Encrypted (.bak)</span>
                 </div>
-                <p className="text-[10px] text-slate-500 mt-1">Tally/Busy binary restore format</p>
+                <p className="text-[10px] text-slate-500 mt-1">Standard binary restore format</p>
               </button>
 
               <button

@@ -1,11 +1,11 @@
 import { Bank, Cheque, Party, PaymentLog, BackupConfig, BackupHistoryItem } from '../types';
 
 const DB_NAME = 'chequedesk_offline_v2';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export interface SyncQueueItem {
   id: string;
-  entity: 'cheque' | 'party' | 'bank' | 'payment_log';
+  entity: 'cheque' | 'party' | 'bank' | 'payment_log' | 'voucher';
   action: 'create' | 'update' | 'delete';
   docId: string;
   companyId: string;
@@ -74,6 +74,16 @@ function openDB(): Promise<IDBDatabase> {
         logsStore.createIndex('company_id', 'company_id', { unique: false });
         logsStore.createIndex('cheque_id', 'cheque_id', { unique: false });
         logsStore.createIndex('created_at', 'created_at', { unique: false });
+      }
+
+      // Vouchers store (Offline Accounting Vouchers)
+      if (!db.objectStoreNames.contains('vouchers')) {
+        const vouchersStore = db.createObjectStore('vouchers', { keyPath: 'id' });
+        vouchersStore.createIndex('company_id', 'company_id', { unique: false });
+        vouchersStore.createIndex('voucher_type', 'voucher_type', { unique: false });
+        vouchersStore.createIndex('voucher_number', 'voucher_number', { unique: false });
+        vouchersStore.createIndex('date_bs', 'date_bs', { unique: false });
+        vouchersStore.createIndex('created_at', 'created_at', { unique: false });
       }
 
       // Pending Sync Queue (for mutations created while offline)
@@ -405,6 +415,74 @@ export async function deleteLocalPaymentLog(id: string, companyId: string = 'def
   }
 }
 
+// ==========================================
+// 5. ACCOUNTING VOUCHERS (Offline Local Storage)
+// ==========================================
+export async function getLocalVouchers(companyId?: string): Promise<any[]> {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('vouchers', 'readonly');
+      const store = tx.objectStore('vouchers');
+      const request = store.getAll();
+
+      request.onsuccess = () => {
+        let items: any[] = request.result || [];
+        if (companyId) {
+          items = items.filter((v) => !v.company_id || v.company_id === companyId);
+        }
+        items.sort(
+          (a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()
+        );
+        resolve(items);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  } catch (err) {
+    console.warn('[OfflineDB] Could not read local vouchers from IndexedDB:', err);
+    return [];
+  }
+}
+
+export async function saveLocalVoucher(voucher: any, enqueue = false): Promise<void> {
+  try {
+    await executeTransaction('vouchers', 'readwrite', (store) => store.put(voucher));
+    if (enqueue) {
+      await enqueueSyncMutation({
+        id: `sync_vch_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        entity: 'voucher',
+        action: 'create',
+        docId: voucher.id,
+        companyId: voucher.company_id || 'default-company-101',
+        data: voucher,
+        timestamp: new Date().toISOString(),
+        attempts: 0,
+      });
+    }
+  } catch (err) {
+    console.error('[OfflineDB] Error saving local voucher:', err);
+  }
+}
+
+export async function deleteLocalVoucher(id: string, companyId: string = 'default-company-101', enqueue = false): Promise<void> {
+  try {
+    await executeTransaction('vouchers', 'readwrite', (store) => store.delete(id));
+    if (enqueue) {
+      await enqueueSyncMutation({
+        id: `sync_del_vch_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        entity: 'voucher',
+        action: 'delete',
+        docId: id,
+        companyId,
+        timestamp: new Date().toISOString(),
+        attempts: 0,
+      });
+    }
+  } catch (err) {
+    console.error('[OfflineDB] Error deleting local voucher:', err);
+  }
+}
+
 export interface SyncItemEnqueueInput {
   entity_type: string;
   operation: 'create' | 'update' | 'delete';
@@ -413,10 +491,11 @@ export interface SyncItemEnqueueInput {
 }
 
 export async function enqueueSyncItem(input: SyncItemEnqueueInput): Promise<void> {
-  let entity: 'cheque' | 'party' | 'bank' | 'payment_log' = 'cheque';
+  let entity: 'cheque' | 'party' | 'bank' | 'payment_log' | 'voucher' = 'cheque';
   if (input.entity_type === 'parties') entity = 'party';
   else if (input.entity_type === 'banks') entity = 'bank';
   else if (input.entity_type === 'payment_logs') entity = 'payment_log';
+  else if (input.entity_type === 'vouchers') entity = 'voucher';
 
   const docId = input.data?.id || input.data?.cheque_id || `doc_${Date.now()}`;
   await enqueueSyncMutation({
@@ -433,7 +512,7 @@ export async function enqueueSyncItem(input: SyncItemEnqueueInput): Promise<void
 
 // Bulk store entities received from cloud or restore
 export async function bulkUpsertLocal<T extends { id: string }>(
-  storeName: 'cheques' | 'parties' | 'banks' | 'payment_logs',
+  storeName: 'cheques' | 'parties' | 'banks' | 'payment_logs' | 'vouchers',
   items: T[]
 ): Promise<void> {
   if (!items || items.length === 0) return;

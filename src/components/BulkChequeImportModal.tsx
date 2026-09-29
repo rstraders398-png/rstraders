@@ -212,7 +212,7 @@ export const BulkChequeImportModal: React.FC<BulkChequeImportModalProps> = ({
                 Import Cheques from External Software
               </h2>
               <p className="text-xs text-slate-500">
-                Supports Excel (.xlsx, .xls) and CSV exports from Tally, Busy, Swastik, or Excel
+                Supports Excel (.xlsx, .xls) and CSV spreadsheet exports
               </p>
             </div>
           </div>

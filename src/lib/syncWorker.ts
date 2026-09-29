@@ -236,6 +236,13 @@ class SyncWorkerManager {
       } else if (action === 'delete') {
         await deleteDoc(ref);
       }
+    } else if (entity === 'voucher') {
+      const ref = doc(db, 'vouchers', docId);
+      if (action === 'create' || action === 'update') {
+        await setDoc(ref, data, { merge: true });
+      } else if (action === 'delete') {
+        await deleteDoc(ref);
+      }
     }
   }
 
@@ -283,6 +290,21 @@ class SyncWorkerManager {
       });
       if (cloudLogs.length > 0) {
         await bulkUpsertLocal('payment_logs', cloudLogs);
+      }
+
+      // Pull vouchers
+      try {
+        const vouchersQuery = query(collection(db, 'vouchers'), where('company_id', '==', companyId));
+        const vouchersSnap = await getDocs(vouchersQuery);
+        const cloudVouchers: any[] = [];
+        vouchersSnap.forEach((d) => {
+          cloudVouchers.push({ id: d.id, ...d.data() });
+        });
+        if (cloudVouchers.length > 0) {
+          await bulkUpsertLocal('vouchers', cloudVouchers);
+        }
+      } catch (vchErr) {
+        // collection might not exist yet, safe to ignore
       }
     } catch (err) {
       console.warn('[SyncWorker] Could not pull cloud data:', err);

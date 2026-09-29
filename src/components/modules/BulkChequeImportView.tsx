@@ -78,7 +78,7 @@ export const BulkChequeImportView: React.FC<BulkChequeImportViewProps> = ({
           <div>
             <h1 className="text-xl font-bold tracking-tight">Bulk Cheque Import Wizard</h1>
             <p className="text-xs text-slate-300 mt-1">
-              Mass ingestion pipeline for importing hundreds of cheque records directly from Tally, Busy, or CSV files.
+              Mass ingestion pipeline for importing hundreds of cheque records directly from spreadsheets and CSV files.
             </p>
           </div>
         </div>

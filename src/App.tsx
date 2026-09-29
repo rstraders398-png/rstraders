@@ -76,6 +76,8 @@ import {
   BookOpen,
   CheckSquare,
   Globe,
+  Filter,
+  ArrowUpDown,
 } from 'lucide-react';
 import {
   Cheque,
@@ -104,7 +106,14 @@ import {
   updateBank,
   deleteBank,
 } from './lib/chequeService';
-import { getLocalCheques, getLocalPaymentLogs } from './lib/offlineDb';
+import {
+  getLocalCheques,
+  getLocalPaymentLogs,
+  getLocalVouchers,
+  saveLocalVoucher,
+  deleteLocalVoucher,
+  bulkUpsertLocal,
+} from './lib/offlineDb';
 import {
   subscribeToCompanies,
   deleteCompany,
@@ -320,24 +329,24 @@ export const INVOICE_TEMPLATES: InvoiceTemplate[] = [
   // 15 A4 Layouts
   { id: 'a4-classic', name: 'Classic IRD VAT Invoice', size: 'A4', tag: 'Standard IRD', category: 'General Trade', accentColor: '#4f46e5', description: 'IRD Nepal standard compliant double-bordered tax invoice with bilingual headers & 3-stage signature verification' },
   { id: 'a4-modern', name: 'Modern Slate Minimalist', size: 'A4', tag: 'Clean & Sleek', category: 'Corporate', accentColor: '#0f172a', description: 'High contrast slate gray accents, generous whitespace, clean line items, and bold net totals' },
-  { id: 'a4-busy', name: 'Busy Accounting Replica', size: 'A4', tag: 'Busy ERP', category: 'Distribution', accentColor: '#1e3a8a', description: 'Exact Busy Software layout with grid cell borders, Series [Main] indicator, and Transport/Delivery block' },
-  { id: 'a4-tally', name: 'Tally Prime Two-Column', size: 'A4', tag: 'Tally Style', category: 'Accounting', accentColor: '#047857', description: 'Two-column consignee/buyer ledger block with statutory declaration footer and IRD compliance notes' },
+  { id: 'a4-standard', name: 'Standard Enterprise Grid', size: 'A4', tag: 'Enterprise ERP', category: 'Distribution', accentColor: '#1e3a8a', description: 'Comprehensive ERP enterprise layout with grid cell borders, Series [Main] indicator, and Transport/Delivery block' },
+  { id: 'a4-twocolumn', name: 'Classic Professional Two-Column', size: 'A4', tag: 'Two-Column ERP', category: 'Accounting', accentColor: '#047857', description: 'Two-column consignee/buyer ledger block with statutory declaration footer and IRD compliance notes' },
   { id: 'a4-charcoal', name: 'Executive Charcoal', size: 'A4', tag: 'Premium Dark', category: 'Enterprise', accentColor: '#18181b', description: 'Full-width charcoal dark header ribbon with high-contrast monochrome line items and executive branding' },
   { id: 'a4-wholesale', name: 'Wholesale & Distribution', size: 'A4', tag: 'High Density', category: 'Wholesale', accentColor: '#0369a1', description: 'Optimized for high volume item entries, package carton counts, and dispatch consignment tracking' },
   { id: 'a4-retail', name: 'Retail Supermarket POS', size: 'A4', tag: 'POS & Counter', category: 'Retail', accentColor: '#b45309', description: 'Multi-rate VAT breakdown table, cashier counter identifier, barcode placeholder, and rapid item packing' },
-  { id: 'a4-hardware', name: 'Hardware & Construction', size: 'A4', tag: 'Heavy Goods', category: 'Construction', accentColor: '#c2410c', description: 'Reinforced borders, driver name, vehicle dispatch details, and bag/piece physical tally record' },
+  { id: 'a4-hardware', name: 'Hardware & Construction', size: 'A4', tag: 'Heavy Goods', category: 'Construction', accentColor: '#c2410c', description: 'Reinforced borders, driver name, vehicle dispatch details, and bag/piece physical count record' },
   { id: 'a4-pharma', name: 'Pharmaceuticals & Health', size: 'A4', tag: 'DDA Compliant', category: 'Pharma', accentColor: '#0e7490', description: 'Drug administration license, batch tracking, expiry date verification, and licensed pharmacist seal' },
   { id: 'a4-auto', name: 'Automobile & Spare Parts', size: 'A4', tag: 'Automotive', category: 'Automotive', accentColor: '#4338ca', description: 'Chassis number, engine reference, vehicle registration, part catalogue numbers, and mechanic sign-off' },
   { id: 'a4-tech', name: 'Tech & Electronics Warranty', size: 'A4', tag: 'Electronics', category: 'Technology', accentColor: '#6d28d9', description: 'IMEI/Serial column, warranty certificate box, manufacturer service terms, and support hotline' },
   { id: 'a4-export', name: 'Export & Commercial', size: 'A4', tag: 'Cross-Border', category: 'Export', accentColor: '#1d4ed8', description: 'Port of loading, country of origin (Nepal), HS codes, consignee address, and letter of credit reference' },
-  { id: 'a4-beverages', name: 'FMCG Beverages & Spirits', size: 'A4', tag: 'Case / Pcs Dual', category: 'Beverages', accentColor: '#991b1b', description: 'Dual Case & Bottle/Pcs tally breakdown with excise clearance badge and returnable crate tally' },
+  { id: 'a4-beverages', name: 'FMCG Beverages & Spirits', size: 'A4', tag: 'Case / Pcs Dual', category: 'Beverages', accentColor: '#991b1b', description: 'Dual Case & Bottle/Pcs breakdown with excise clearance badge and returnable crate count' },
   { id: 'a4-consulting', name: 'Professional Services', size: 'A4', tag: 'Services', category: 'Consulting', accentColor: '#374151', description: 'Hourly/Milestone deliverables, scope reference, and bank wire remittance / SWIFT instructions' },
   { id: 'a4-indigo', name: 'Vibrant Indigo Enterprise', size: 'A4', tag: 'Contemporary', category: 'Modern', accentColor: '#4338ca', description: 'Polished indigo brand elements, QR payment badge, and rounded card totals with bank details' },
 
   // 15 A5 Layouts
   { id: 'a5-counter', name: 'A5 Quick Counter Cash Memo', size: 'A5', tag: 'Fast Checkout', category: 'Retail', accentColor: '#059669', description: 'Compact half-page receipt designed for fast counter sales and continuous thermal/laser cut' },
-  { id: 'a5-busy', name: 'A5 Busy Accounting Half-Sheet', size: 'A5', tag: 'Continuous Feed', category: 'Distribution', accentColor: '#1e40af', description: 'Continuous dot-matrix / half-page laser format inspired by Busy Accounting compact invoices' },
-  { id: 'a5-tally', name: 'A5 Tally Slip Compact', size: 'A5', tag: 'Tally Compact', category: 'Accounting', accentColor: '#065f46', description: 'Compact two-column ledger voucher format with clean debit/credit details and half-page efficiency' },
+  { id: 'a5-standard', name: 'A5 Enterprise Half-Sheet', size: 'A5', tag: 'Continuous Feed', category: 'Distribution', accentColor: '#1e40af', description: 'Continuous dot-matrix / half-page laser format for compact enterprise invoices' },
+  { id: 'a5-voucher', name: 'A5 Compact Voucher Slip', size: 'A5', tag: 'Voucher Slip', category: 'Accounting', accentColor: '#065f46', description: 'Compact two-column ledger voucher format with clean debit/credit details and half-page efficiency' },
   { id: 'a5-clean', name: 'A5 Modern Neat Memo', size: 'A5', tag: 'Clean Half', category: 'Modern', accentColor: '#334155', description: 'Streamlined half-page invoice with uncluttered lines, clean typography, and bold payable total' },
   { id: 'a5-liquor', name: 'A5 Liquor & Beverage Chalan', size: 'A5', tag: 'Beverage Memo', category: 'Beverages', accentColor: '#7f1d1d', description: 'Dedicated Case vs Pcs dispatch memo for bar, restaurant and wine distributor deliveries' },
   { id: 'a5-grocery', name: 'A5 Grocery & Provisions Mini', size: 'A5', tag: 'Provisions', category: 'Grocery', accentColor: '#15803d', description: 'Condensed rows maximizing item capacity on half-sheet paper for provisions and mini-marts' },
@@ -375,7 +384,7 @@ export const DEFAULT_INVOICE_DESIGN_SETTINGS: CompanyInvoiceDesignSettings = {
 };
 
 // ==========================================
-// ACCOUNTING & TRANSACTIONS VOUCHER TYPES (BUSY/TALLY STYLE)
+// ACCOUNTING & TRANSACTIONS VOUCHER TYPES (STANDARD ERP VOUCHERS)
 // ==========================================
 export type VoucherType =
   | 'payment'
@@ -387,7 +396,7 @@ export type VoucherType =
   | 'notes'
   | 'stock';
 
-export interface BusySalesVoucherItem {
+export interface StandardSalesVoucherItem {
   id: string;
   item_description: string;
   qty: number | '';
@@ -398,7 +407,7 @@ export interface BusySalesVoucherItem {
   amount: number;
 }
 
-export interface BusySalesBillSundry {
+export interface StandardSalesBillSundry {
   id: string;
   name: string;
   rate_pct?: number | '';
@@ -406,7 +415,7 @@ export interface BusySalesBillSundry {
   type: 'additive' | 'subtractive' | 'round_off';
 }
 
-export interface BusySalesTransportInfo {
+export interface StandardSalesTransportInfo {
   driver_name: string;
   driver_phone: string;
   vehicle_no: string;
@@ -455,14 +464,14 @@ export interface AccountingVoucher {
   reference_no?: string;
   narration: string;
   created_at: string;
-  // Busy Sales Voucher replica extensions:
+  // Sales Voucher extensions:
   series?: string;
   sale_type?: string;
   party_name?: string;
   mat_centre?: string;
-  items?: BusySalesVoucherItem[];
-  bill_sundries?: BusySalesBillSundry[];
-  transport_info?: BusySalesTransportInfo;
+  items?: StandardSalesVoucherItem[];
+  bill_sundries?: StandardSalesBillSundry[];
+  transport_info?: StandardSalesTransportInfo;
   is_held?: boolean;
   // Journal Multi-entry extension:
   journal_entries?: JournalEntryRow[];
@@ -540,7 +549,7 @@ export const VOUCHER_CATEGORIES: VoucherCategoryConfig[] = [
     label: 'Sales / Purchase Invoice',
     icon: FileText,
     hotkeyPlaceholder: '[F8]',
-    description: 'Busy Software exact replica commercial sales billing with item grid, bill sundry & transport',
+    description: 'Commercial sales tax invoice billing with item grid, bill sundry & transport dispatch details',
     defaultDebit: 'Customer / Debtor A/C',
     defaultCredit: 'Sales Account',
   },
@@ -1465,7 +1474,7 @@ export const MASTER_FEATURE_REGISTRY: MasterFeatureItem[] = [
   {
     id: 'accounting_transactions',
     name: 'Transactions Tree Navigation Hub',
-    description: 'Busy/Tally-style nested collapsible tree navigation with keyboard arrow selection and Enter-key voucher traversal',
+    description: 'Professional nested collapsible tree navigation with keyboard arrow selection and Enter-key voucher traversal',
     category: 'Accounting & Auditing',
     icon: Receipt,
     defaultEnabled: true,
@@ -1601,7 +1610,7 @@ export const MASTER_FEATURE_REGISTRY: MasterFeatureItem[] = [
   {
     id: 'voucher_sales',
     name: 'Sales / Purchase Invoice [F8]',
-    description: 'Exact Busy Accounting sales voucher replica: series, BS/AD date sync, item grid, bill sundry & transport',
+    description: 'Standard ERP commercial sales tax voucher: series, BS/AD date sync, item grid, bill sundry & transport',
     category: 'Accounting & Auditing',
     icon: FileText,
     defaultEnabled: true,
@@ -1633,7 +1642,7 @@ export const MASTER_FEATURE_REGISTRY: MasterFeatureItem[] = [
   {
     id: 'sales_discount',
     name: 'Enable Sales Discount on Vouchers',
-    description: 'Company-level toggle to show or hide discount % and discount amount columns in Busy Sales Voucher',
+    description: 'Company-level toggle to show or hide discount % and discount amount columns in Sales Voucher',
     category: 'Accounting & Auditing',
     icon: Tag,
     defaultEnabled: true,
@@ -2404,6 +2413,11 @@ export default function App() {
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [isSyncingCloud, setIsSyncingCloud] = useState(false);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
+
+  // Progressive Web App (PWA) Desktop Installation & Offline State
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any>(null);
+  const [isStandaloneApp, setIsStandaloneApp] = useState<boolean>(false);
+  const [showPWAInstallGuide, setShowPWAInstallGuide] = useState<boolean>(false);
   const [googleDriveSyncedAt, setGoogleDriveSyncedAt] = useState<string | null>(() => {
     return localStorage.getItem('chequedesk_gdrive_sync') || null;
   });
@@ -2501,10 +2515,12 @@ export default function App() {
   const [paymentModalDateBs, setPaymentModalDateBs] = useState<string>(getCurrentBsDate());
   const [paymentModalDateAd, setPaymentModalDateAd] = useState<string>(getCurrentAdDate());
 
-  // Transactions & Vouchers State (Busy / Tally Style)
+  // Transactions & Vouchers State (Standard ERP Architecture - Offline-First)
   const [vouchers, setVouchers] = useState<AccountingVoucher[]>(() => {
     try {
-      const saved = localStorage.getItem('chequedesk_vouchers');
+      const saved =
+        (typeof window !== 'undefined' && activeCompanyId && localStorage.getItem(`chequedesk_vouchers_${activeCompanyId}`)) ||
+        (typeof window !== 'undefined' && localStorage.getItem('chequedesk_vouchers'));
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -2516,8 +2532,12 @@ export default function App() {
   useEffect(() => {
     try {
       localStorage.setItem('chequedesk_vouchers', JSON.stringify(vouchers));
+      if (activeCompanyId) {
+        localStorage.setItem(`chequedesk_vouchers_${activeCompanyId}`, JSON.stringify(vouchers));
+      }
+      bulkUpsertLocal('vouchers', vouchers as any).catch(() => {});
     } catch {}
-  }, [vouchers]);
+  }, [vouchers, activeCompanyId]);
 
   // Collapsible Tree Navigation States (Strict 3-Level Multi-Accordion, Default All Collapsed)
   const [isAccountingAuditingExpanded, setIsAccountingAuditingExpanded] = useState<boolean>(false);
@@ -2641,7 +2661,7 @@ export default function App() {
   });
 
   // ==========================================
-  // EXACT BUSY ACCOUNTING SALES VOUCHER STATE
+  // STANDARD ERP SALES TAX INVOICE STATE
   // ==========================================
   const [lastSelectedSaleType, setLastSelectedSaleType] = useState<string>(() => {
     try {
@@ -2670,9 +2690,9 @@ export default function App() {
     gr_rr_no: string;
     showTransport: boolean;
     // Item Entry Grid Rows
-    items: BusySalesVoucherItem[];
+    items: StandardSalesVoucherItem[];
     // Bill Sundry Rows
-    billSundries: BusySalesBillSundry[];
+    billSundries: StandardSalesBillSundry[];
     isHeld: boolean;
   }>(() => {
     const stickyType = typeof window !== 'undefined' ? (localStorage.getItem('chequedesk_last_sale_type') || 'VAT 13%') : 'VAT 13%';
@@ -2754,8 +2774,8 @@ export default function App() {
   const [newSundryAmount, setNewSundryAmount] = useState<string>('');
   const [newSundryNature, setNewSundryNature] = useState<'additive' | 'subtractive' | 'round_off'>('additive');
 
-  // Busy Footer Buttons Dialog States
-  const [busySalesModal, setBusySalesModal] = useState<{
+  // Sales Voucher Auxiliary Dialog States
+  const [salesAuxModal, setSalesAuxModal] = useState<{
     type: 'none' | 'vch_detail' | 'master_detail' | 'party_dashboard' | 'update_discount' | 'check_scheme' | 'save_success' | 'print_preview';
     data?: any;
   }>({ type: 'none' });
@@ -3034,6 +3054,74 @@ export default function App() {
     features: { ...DEFAULT_MASTER_FEATURES },
   });
 
+  // Developer Console Client Registry Filter, Sort & Quick Renew State
+  const [devConsoleFilterTab, setDevConsoleFilterTab] = useState<'ALL' | 'ACTIVE' | 'EXPIRING_SOON' | 'EXPIRED'>('ALL');
+  const [devConsoleSearch, setDevConsoleSearch] = useState('');
+  const [devConsoleSort, setDevConsoleSort] = useState<'EXPIRY_ASC' | 'EXPIRY_DESC' | 'NAME_ASC' | 'CODE_ASC'>('EXPIRY_ASC');
+  const [quickRenewCompany, setQuickRenewCompany] = useState<Company | null>(null);
+  const [quickRenewDuration, setQuickRenewDuration] = useState<'1m' | '3m' | '6m' | '1y' | 'custom'>('1y');
+  const [quickRenewCustomBs, setQuickRenewCustomBs] = useState('');
+  const [quickRenewCustomAd, setQuickRenewCustomAd] = useState('');
+
+  const openQuickRenewModal = (comp: Company) => {
+    setQuickRenewCompany(comp);
+    setQuickRenewDuration('1y');
+    const synced = syncBsAdDates(comp.expiry_date_bs, comp.expiry_date_ad || (comp as any).subscription_expiry);
+    const oneYear = addDurationToAdDate(synced.adDate, '1y');
+    setQuickRenewCustomAd(oneYear.adDate);
+    setQuickRenewCustomBs(oneYear.bsDate);
+  };
+
+  const handleExecuteQuickRenew = async (
+    targetComp: Company,
+    duration: '1m' | '3m' | '6m' | '1y' | 'custom',
+    customBs?: string,
+    customAd?: string
+  ) => {
+    try {
+      let nextAd = '';
+      let nextBs = '';
+
+      if (duration === 'custom') {
+        const synced = syncBsAdDates(customBs, customAd);
+        nextAd = synced.adDate;
+        nextBs = synced.bsDate;
+      } else {
+        const currentSynced = syncBsAdDates(
+          targetComp.expiry_date_bs,
+          targetComp.expiry_date_ad || (targetComp as any).subscription_expiry
+        );
+        const res = addDurationToAdDate(currentSynced.adDate, duration);
+        nextAd = res.adDate;
+        nextBs = res.bsDate;
+      }
+
+      const todayAd = getCurrentAdDate();
+
+      const updatedData: Partial<Company> = {
+        expiry_date_ad: nextAd,
+        expiry_date_bs: nextBs,
+        sales_date: todayAd, // Update last renewal date to today
+        subscription_status: 'Active',
+        is_active: true,
+      };
+
+      await updateCompany(targetComp.id, updatedData);
+
+      setCompanies((prev) =>
+        prev.map((c) => (c.id === targetComp.id ? { ...c, ...updatedData } : c))
+      );
+
+      showToast(
+        `License for "${targetComp.name}" extended to ${nextBs} BS (${nextAd} AD)!`,
+        'success'
+      );
+      setQuickRenewCompany(null);
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to extend license', 'error');
+    }
+  };
+
   const showToast = (text: string, type: 'success' | 'info' | 'error' | 'warning' = 'success') => {
     setToastMessage({ text, type });
     setTimeout(() => setToastMessage(null), 3500);
@@ -3097,17 +3185,87 @@ export default function App() {
     }
   };
 
+  // Pure PWA Desktop App Installation & Service Worker Handler
+  useEffect(() => {
+    // 1. Detect standalone desktop mode
+    const isStandalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as unknown as { standalone?: boolean }).standalone === true;
+    setIsStandaloneApp(isStandalone);
+
+    // 2. Register Service Worker directly for full offline functionality
+    if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+      navigator.serviceWorker
+        .register('/sw.js')
+        .then((reg) => {
+          reg.onupdatefound = () => {
+            const installingWorker = reg.installing;
+            if (installingWorker) {
+              installingWorker.onstatechange = () => {
+                if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  console.log('[PWA] Service worker updated and active.');
+                }
+              };
+            }
+          };
+        })
+        .catch((err) => {
+          console.warn('[PWA] Service worker registration note:', err);
+        });
+    }
+
+    // 3. Listen to beforeinstallprompt for desktop installation
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredInstallPrompt(e);
+    };
+
+    const handleAppInstalled = () => {
+      setIsStandaloneApp(true);
+      setDeferredInstallPrompt(null);
+      showToast('Simple Accounting & Cheque Management ERP desktop application installed successfully!', 'success');
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const handleDesktopAppInstall = async () => {
+    if (deferredInstallPrompt) {
+      try {
+        await deferredInstallPrompt.prompt();
+        const choice = await deferredInstallPrompt.userChoice;
+        if (choice.outcome === 'accepted') {
+          setIsStandaloneApp(true);
+          setDeferredInstallPrompt(null);
+          showToast('Desktop installation initiated!', 'success');
+        }
+      } catch (err) {
+        console.warn('Install error:', err);
+        setShowPWAInstallGuide(true);
+      }
+    } else {
+      setShowPWAInstallGuide(true);
+    }
+  };
+
   // Offline LocalStorage Mirroring: Save state on change
   useEffect(() => {
     if (!activeCompanyId) return;
     try {
-      if (cheques.length > 0 || parties.length > 0 || banks.length > 0) {
+      if (cheques.length > 0 || parties.length > 0 || banks.length > 0 || vouchers.length > 0) {
         localStorage.setItem(
           `chequedesk_offline_${activeCompanyId}`,
           JSON.stringify({
             cheques,
             parties,
             banks,
+            vouchers,
             updatedAt: new Date().toISOString(),
           })
         );
@@ -3115,9 +3273,9 @@ export default function App() {
     } catch {
       // Ignore localStorage quota errors
     }
-  }, [activeCompanyId, cheques, parties, banks]);
+  }, [activeCompanyId, cheques, parties, banks, vouchers]);
 
-  // Offline LocalStorage Fallback: Load on initial switch or offline start
+  // Offline LocalStorage Fallback & IndexedDB Restoration: Load on initial switch or offline start
   useEffect(() => {
     if (!activeCompanyId) return;
     try {
@@ -3133,7 +3291,17 @@ export default function App() {
         if (parsed.banks?.length && banks.length === 0) {
           setBanks(parsed.banks);
         }
+        if (parsed.vouchers?.length && vouchers.length === 0) {
+          setVouchers(parsed.vouchers);
+        }
       }
+
+      // Also restore from IndexedDB
+      getLocalVouchers(activeCompanyId).then((idbVouchers) => {
+        if (idbVouchers && idbVouchers.length > 0) {
+          setVouchers((prev) => (prev.length <= 1 ? idbVouchers : prev));
+        }
+      }).catch(() => {});
     } catch {
       // Ignore
     }
@@ -4280,7 +4448,7 @@ export default function App() {
     });
   }, [cheques, statusFilter, sourceFilter, bankFilter, searchTerm, parties, banks]);
 
-  // Flat visible items list for keyboard arrow navigation (Busy / Tally Tree)
+  // Flat visible items list for keyboard arrow navigation (Hierarchical Tree)
   interface FlatTreeItem {
     id: string;
     label: string;
@@ -4347,7 +4515,7 @@ export default function App() {
   }, [activeFeatures, isAccountingAuditingExpanded, isTransactionsExpanded, expandedVoucherTypes]);
 
   // ==========================================
-  // BUSY ACCOUNTING SALES VOUCHER LOGIC & COMPUTATIONS
+  // COMMERCIAL SALES TAX INVOICE LOGIC & COMPUTATIONS
   // ==========================================
   const isSalesDiscountEnabled = useMemo(() => {
     const comp = companies.find((c) => c.id === activeCompanyId);
@@ -4439,7 +4607,7 @@ export default function App() {
       if (v.account_debit === partyName || v.party_name === partyName) net += (v.amount || 0);
       if (v.account_credit === partyName) net -= (v.amount || 0);
     });
-    if (net === 0) net = 42500; // Classic Busy default opening debtor balance
+    if (net === 0) net = 42500; // Default opening debtor balance
     return {
       amount: Math.abs(net),
       drCr: net >= 0 ? 'Dr' : 'Cr',
@@ -4471,7 +4639,7 @@ export default function App() {
   }, [activeItemRowIdx, salesVoucherData.items, itemMasters]);
 
   // Dynamic calculations for Items & Bill Sundry tables
-  const busySalesComputed = useMemo(() => {
+  const salesVoucherComputed = useMemo(() => {
     const rawItems = salesVoucherData.items || [];
     let grossSubtotal = 0;
     let totalQty = 0;
@@ -4577,14 +4745,14 @@ export default function App() {
     };
   }, [salesVoucherData.items, salesVoucherData.billSundries, isSalesDiscountEnabled]);
 
-  // Save Busy Sales Voucher
-  const handleSaveBusySalesVoucher = () => {
+  // Save Sales Voucher
+  const handleSaveSalesVoucher = () => {
     if (!salesVoucherData.party_name.trim()) {
       showToast('Please select a Party Account before saving voucher.', 'warning');
       return;
     }
 
-    const validItems = busySalesComputed.computedItems.filter(
+    const validItems = salesVoucherComputed.computedItems.filter(
       (item) => item.item_description.trim() && (Number(item.qty) || 0) > 0
     );
 
@@ -4618,7 +4786,7 @@ export default function App() {
       date_ad: finalDateAd,
       account_debit: salesVoucherData.party_name,
       account_credit: 'Sales Revenue Account',
-      amount: busySalesComputed.netAmount,
+      amount: salesVoucherComputed.netAmount,
       payment_mode: 'Bank',
       reference_no: salesVoucherData.series,
       narration: salesVoucherData.narration,
@@ -4628,7 +4796,7 @@ export default function App() {
       party_name: salesVoucherData.party_name,
       mat_centre: salesVoucherData.mat_centre,
       items: validItems,
-      bill_sundries: busySalesComputed.computedSundries.map((s) => ({
+      bill_sundries: salesVoucherComputed.computedSundries.map((s) => ({
         id: s.id,
         name: s.name,
         rate_pct: s.rate_pct,
@@ -4654,40 +4822,42 @@ export default function App() {
       return [savedVoucher, ...prev];
     });
 
-    setBusySalesModal({
+    saveLocalVoucher({ ...savedVoucher, company_id: activeCompanyId }, !isOnline).catch(() => {});
+
+    setSalesAuxModal({
       type: 'save_success',
       data: savedVoucher,
     });
-    showToast(`Sales Voucher #${vchNum} saved successfully! Amount: Rs. ${formatNPR(busySalesComputed.netAmount)}`, 'success');
+    showToast(`Sales Voucher #${vchNum} saved successfully! Amount: Rs. ${formatNPR(salesVoucherComputed.netAmount)}`, 'success');
   };
 
-  // Keyboard navigation inside Busy Sales Voucher
-  const handleBusySalesKeyDown = (e: React.KeyboardEvent) => {
+  // Keyboard navigation inside Sales Voucher
+  const handleSalesVoucherKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'F2') {
       e.preventDefault();
-      handleSaveBusySalesVoucher();
+      handleSaveSalesVoucher();
     } else if (e.key === 'Escape') {
       e.preventDefault();
       setActiveVoucherModal((prev) => ({ ...prev, isOpen: false }));
     } else if (e.altKey && (e.key === 'd' || e.key === 'D')) {
       e.preventDefault();
-      setBusySalesModal({ type: 'vch_detail' });
+      setSalesAuxModal({ type: 'vch_detail' });
     } else if (e.altKey && (e.key === 'm' || e.key === 'M')) {
       e.preventDefault();
-      setBusySalesModal({ type: 'master_detail' });
+      setSalesAuxModal({ type: 'master_detail' });
     } else if (e.altKey && (e.key === 'b' || e.key === 'B')) {
       e.preventDefault();
-      setBusySalesModal({ type: 'party_dashboard' });
+      setSalesAuxModal({ type: 'party_dashboard' });
     } else if (e.altKey && (e.key === 'h' || e.key === 'H')) {
       e.preventDefault();
       setSalesVoucherData((prev) => ({ ...prev, isHeld: !prev.isHeld }));
       showToast(!salesVoucherData.isHeld ? 'Voucher placed on HOLD [Draft]' : 'Voucher taken off hold', 'info');
     } else if (e.altKey && (e.key === 'u' || e.key === 'U')) {
       e.preventDefault();
-      setBusySalesModal({ type: 'update_discount' });
+      setSalesAuxModal({ type: 'update_discount' });
     } else if (e.altKey && (e.key === 's' || e.key === 'S')) {
       e.preventDefault();
-      setBusySalesModal({ type: 'check_scheme' });
+      setSalesAuxModal({ type: 'check_scheme' });
     }
   };
 
@@ -4697,7 +4867,7 @@ export default function App() {
     const todayAd = bsToAd(todayBs);
     const catConfig = VOUCHER_CATEGORIES.find((c) => c.key === vType);
 
-    // DEDICATED BUSY SOFTWARE REPLICA HANDLER FOR SALES VOUCHER
+    // DEDICATED COMMERCIAL SALES VOUCHER HANDLER
     if (vType === 'sales' || vType === 'invoice') {
       const typeSales = vouchers.filter((v) => v.voucher_type === 'sales' || v.voucher_type === 'invoice');
       if (action === 'add') {
@@ -4986,7 +5156,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleTreeNavigationKeyDown);
   }, [visibleTreeItems, treeFocusedId, isTransactionsExpanded, expandedVoucherTypes, activeVoucherModal.isOpen]);
 
-  // Busy/Tally Style Form Enter-Key Field Traversal
+  // Professional Form Enter-Key Field Traversal
   const handleVoucherFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
     if (e.key === 'Escape') {
       e.preventDefault();
@@ -5051,25 +5221,23 @@ export default function App() {
     const catConfig = VOUCHER_CATEGORIES.find((c) => c.key === activeVoucherModal.type);
 
     if (activeVoucherModal.action === 'modify' && activeVoucherModal.voucherToEdit) {
+      const updatedV: AccountingVoucher = {
+        ...activeVoucherModal.voucherToEdit,
+        voucher_number: voucherFormData.voucher_number,
+        date_bs: voucherFormData.date_bs,
+        date_ad: voucherFormData.date_ad,
+        payment_mode: voucherFormData.payment_mode,
+        account_debit: voucherFormData.account_debit,
+        account_credit: voucherFormData.account_credit,
+        amount: numAmount,
+        cheque_number: voucherFormData.cheque_number,
+        reference_no: voucherFormData.reference_no,
+        narration: voucherFormData.narration,
+      };
       setVouchers((prev) =>
-        prev.map((v) =>
-          v.id === activeVoucherModal.voucherToEdit!.id
-            ? {
-                ...v,
-                voucher_number: voucherFormData.voucher_number,
-                date_bs: voucherFormData.date_bs,
-                date_ad: voucherFormData.date_ad,
-                payment_mode: voucherFormData.payment_mode,
-                account_debit: voucherFormData.account_debit,
-                account_credit: voucherFormData.account_credit,
-                amount: numAmount,
-                cheque_number: voucherFormData.cheque_number,
-                reference_no: voucherFormData.reference_no,
-                narration: voucherFormData.narration,
-              }
-            : v
-        )
+        prev.map((v) => (v.id === activeVoucherModal.voucherToEdit!.id ? updatedV : v))
       );
+      saveLocalVoucher({ ...updatedV, company_id: activeCompanyId }, !isOnline).catch(() => {});
       setToastMessage({
         text: `${catConfig?.label || 'Voucher'} #${voucherFormData.voucher_number} updated successfully`,
         type: 'success',
@@ -5093,6 +5261,7 @@ export default function App() {
         created_at: new Date().toISOString(),
       };
       setVouchers((prev) => [newV, ...prev]);
+      saveLocalVoucher({ ...newV, company_id: activeCompanyId }, !isOnline).catch(() => {});
       setToastMessage({
         text: `${catConfig?.label || 'Voucher'} #${voucherFormData.voucher_number} posted to ledger [Enter]`,
         type: 'success',
@@ -5104,6 +5273,7 @@ export default function App() {
   // Delete Voucher
   const handleDeleteVoucher = (voucherId: string) => {
     setVouchers((prev) => prev.filter((v) => v.id !== voucherId));
+    deleteLocalVoucher(voucherId, activeCompanyId, !isOnline).catch(() => {});
     setToastMessage({ text: 'Voucher removed from ledger', type: 'info' });
   };
 
@@ -7662,7 +7832,7 @@ export default function App() {
       const diffMs = expiryDateObj.getTime() - now.getTime();
       const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
       const isExpired = diffDays < 0;
-      const isExpiringSoon = diffDays >= 0 && diffDays <= 60;
+      const isExpiringSoon = diffDays >= 0 && diffDays <= 7;
       
       const regDateAd = comp.created_at ? comp.created_at.slice(0, 10) : '2024-01-01';
       let regDateBs = '';
@@ -7679,7 +7849,7 @@ export default function App() {
       if (!renewalDateBs) renewalDateBs = regDateBs;
 
       const isSuspended = comp.is_active === false || comp.subscription_status === 'Suspended';
-      const statusLabel = isExpired ? 'Expired' : isSuspended ? 'Suspended' : 'Active';
+      const statusLabel = isExpired ? 'Expired' : isExpiringSoon ? 'Expiring Soon' : isSuspended ? 'Suspended' : 'Active';
 
       return {
         expiryBs: synced.bsDate,
@@ -7696,6 +7866,59 @@ export default function App() {
         statusLabel,
       };
     };
+
+    const partyCounts = {
+      all: companies.length,
+      active: companies.filter((c) => {
+        const lic = getCompanyLicenseDetails(c);
+        return !lic.isExpired && !lic.isExpiringSoon && !lic.isSuspended;
+      }).length,
+      expiringSoon: companies.filter((c) => {
+        const lic = getCompanyLicenseDetails(c);
+        return lic.isExpiringSoon && !lic.isExpired;
+      }).length,
+      expired: companies.filter((c) => {
+        const lic = getCompanyLicenseDetails(c);
+        return lic.isExpired;
+      }).length,
+    };
+
+    let filteredAndSortedCompanies = companies.filter((c) => {
+      const lic = getCompanyLicenseDetails(c);
+      if (devConsoleFilterTab === 'ACTIVE' && (lic.isExpired || lic.isExpiringSoon || lic.isSuspended)) return false;
+      if (devConsoleFilterTab === 'EXPIRING_SOON' && (!lic.isExpiringSoon || lic.isExpired)) return false;
+      if (devConsoleFilterTab === 'EXPIRED' && !lic.isExpired) return false;
+
+      if (devConsoleSearch.trim()) {
+        const q = devConsoleSearch.toLowerCase().trim();
+        const matchName = c.name?.toLowerCase().includes(q);
+        const matchCode = c.company_code?.toLowerCase().includes(q);
+        const matchOwner = c.owner_name?.toLowerCase().includes(q);
+        const matchEmail = c.contact_email?.toLowerCase().includes(q);
+        const matchPhone = c.contact_phone?.toLowerCase().includes(q);
+        if (!matchName && !matchCode && !matchOwner && !matchEmail && !matchPhone) return false;
+      }
+      return true;
+    });
+
+    filteredAndSortedCompanies = [...filteredAndSortedCompanies].sort((a, b) => {
+      const licA = getCompanyLicenseDetails(a);
+      const licB = getCompanyLicenseDetails(b);
+
+      if (devConsoleSort === 'EXPIRY_ASC') {
+        return licA.diffDays - licB.diffDays;
+      }
+      if (devConsoleSort === 'EXPIRY_DESC') {
+        return licB.diffDays - licA.diffDays;
+      }
+      if (devConsoleSort === 'NAME_ASC') {
+        return (a.name || '').localeCompare(b.name || '');
+      }
+      if (devConsoleSort === 'CODE_ASC') {
+        return (a.company_code || '').localeCompare(b.company_code || '');
+      }
+      return 0;
+    });
 
     return (
       <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col">
@@ -7788,18 +8011,137 @@ export default function App() {
 
           {/* Companies Table Card */}
           <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl overflow-hidden shadow-xl">
-            <div className="p-4 border-b border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
-                <h2 className="text-sm font-bold text-white">Client Company Registry &amp; Permission Matrix</h2>
-                <p className="text-xs text-slate-400">Configure feature permissions, manage licenses, track renewals &amp; expiries, and access tenant workspaces</p>
+            {/* Top Toolbar: Title, Search, Sort & Filter Tabs */}
+            <div className="p-4 sm:p-5 border-b border-slate-700 space-y-4">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                    <span>Client Company &amp; Party Registry</span>
+                    <span className="text-xs font-mono bg-slate-900 px-2.5 py-0.5 rounded-lg text-indigo-400 border border-slate-700 font-semibold">
+                      Showing {filteredAndSortedCompanies.length} of {companies.length} Tenants
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Monitor subscription expiries, manage instant renewals, configure permissions, and access client workspaces
+                  </p>
+                </div>
+
+                {/* Search & Sort Controls */}
+                <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-auto">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={devConsoleSearch}
+                      onChange={(e) => setDevConsoleSearch(e.target.value)}
+                      placeholder="Search company, code, owner..."
+                      className="pl-8 pr-7 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-48 sm:w-60 shadow-xs"
+                    />
+                    {devConsoleSearch && (
+                      <button
+                        onClick={() => setDevConsoleSearch('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 shadow-xs">
+                    <ArrowUpDown className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Sort:</span>
+                    <select
+                      value={devConsoleSort}
+                      onChange={(e) => setDevConsoleSort(e.target.value as any)}
+                      className="bg-transparent text-xs text-slate-200 font-semibold focus:outline-none cursor-pointer"
+                    >
+                      <option value="EXPIRY_ASC" className="bg-slate-900 text-white">Nearest Expiry First</option>
+                      <option value="EXPIRY_DESC" className="bg-slate-900 text-white">Furthest Expiry First</option>
+                      <option value="NAME_ASC" className="bg-slate-900 text-white">Company Name (A-Z)</option>
+                      <option value="CODE_ASC" className="bg-slate-900 text-white">Company Code</option>
+                    </select>
+                  </div>
+                </div>
               </div>
-              <span className="text-xs font-mono bg-slate-900 px-2.5 py-1 rounded-lg text-indigo-400 border border-slate-700 self-start sm:self-auto">
-                {companies.length} Registered Tenants
-              </span>
+
+              {/* Filter Tabs */}
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-750">
+                <button
+                  type="button"
+                  onClick={() => setDevConsoleFilterTab('ALL')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
+                    devConsoleFilterTab === 'ALL'
+                      ? 'bg-indigo-600 text-white border-indigo-500 shadow-md'
+                      : 'bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-white border-slate-700'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>All Parties</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                    devConsoleFilterTab === 'ALL' ? 'bg-indigo-800 text-white' : 'bg-slate-800 text-slate-300'
+                  }`}>
+                    {partyCounts.all}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDevConsoleFilterTab('ACTIVE')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
+                    devConsoleFilterTab === 'ACTIVE'
+                      ? 'bg-emerald-600 text-white border-emerald-500 shadow-md'
+                      : 'bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-white border-slate-700'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span>Active</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                    devConsoleFilterTab === 'ACTIVE' ? 'bg-emerald-800 text-white' : 'bg-slate-800 text-emerald-400'
+                  }`}>
+                    {partyCounts.active}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDevConsoleFilterTab('EXPIRING_SOON')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
+                    devConsoleFilterTab === 'EXPIRING_SOON'
+                      ? 'bg-amber-600 text-white border-amber-500 shadow-md'
+                      : 'bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-white border-slate-700'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                  <span>Expiring Soon (&le; 7 Days)</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                    devConsoleFilterTab === 'EXPIRING_SOON' ? 'bg-amber-800 text-white' : 'bg-slate-800 text-amber-400'
+                  }`}>
+                    {partyCounts.expiringSoon}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDevConsoleFilterTab('EXPIRED')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
+                    devConsoleFilterTab === 'EXPIRED'
+                      ? 'bg-rose-600 text-white border-rose-500 shadow-md'
+                      : 'bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-white border-slate-700'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-rose-500" />
+                  <span>Expired</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                    devConsoleFilterTab === 'EXPIRED' ? 'bg-rose-800 text-white' : 'bg-slate-800 text-rose-400'
+                  }`}>
+                    {partyCounts.expired}
+                  </span>
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-300 min-w-[1250px]">
+              <table className="w-full text-left text-xs text-slate-300 min-w-[1300px]">
                 <thead className="bg-slate-900/90 border-b border-slate-700 text-slate-400 font-bold uppercase text-[10px] tracking-wider">
                   <tr>
                     <th className="py-3 px-4">Company &amp; Owner</th>
@@ -7807,21 +8149,36 @@ export default function App() {
                     <th className="py-3 px-4">Plan Tier</th>
                     <th className="py-3 px-4">Registration Date</th>
                     <th className="py-3 px-4">Last Renewal Date</th>
-                    <th className="py-3 px-4">License Expiry Date</th>
+                    <th className="py-3 px-4">License Expiry &amp; Remaining Days</th>
                     <th className="py-3 px-4">License Status</th>
                     <th className="py-3 px-4">Feature Matrix</th>
                     <th className="py-3 px-4 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700/60">
-                  {companies.length === 0 ? (
+                  {filteredAndSortedCompanies.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-8 text-center text-slate-500">
-                        No companies registered yet. Click &quot;Add Company&quot; to create one.
+                      <td colSpan={9} className="py-12 text-center text-slate-400 space-y-2">
+                        <div className="text-sm font-semibold">No companies match the current filter or search.</div>
+                        <p className="text-xs text-slate-500">
+                          Try switching tabs or resetting the search query to view registered tenants.
+                        </p>
+                        {devConsoleFilterTab !== 'ALL' || devConsoleSearch ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDevConsoleFilterTab('ALL');
+                              setDevConsoleSearch('');
+                            }}
+                            className="mt-2 px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                          >
+                            Reset Filters
+                          </button>
+                        ) : null}
                       </td>
                     </tr>
                   ) : (
-                    companies.map((comp, idx) => {
+                    filteredAndSortedCompanies.map((comp, idx) => {
                       const f = comp.features || {};
                       const lic = getCompanyLicenseDetails(comp);
 
@@ -7905,31 +8262,32 @@ export default function App() {
                             </div>
                           </td>
 
-                          {/* 6. License Expiry Date */}
+                          {/* 6. License Expiry & Remaining Days */}
                           <td className="py-3.5 px-4 whitespace-nowrap">
-                            <div className="space-y-1">
-                              <div className="font-mono text-white font-bold text-xs flex items-center gap-1">
-                                <Clock className="w-3 h-3 text-indigo-400 shrink-0" />
+                            <div className="space-y-1.5">
+                              <div className="font-mono text-white font-bold text-xs flex items-center gap-1.5">
+                                <Clock className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                                 <span>{lic.expiryBs} BS</span>
+                                <span className="text-[10px] text-slate-400 font-normal">({lic.expiryAd} AD)</span>
                               </div>
-                              <div className="font-mono text-slate-400 text-[11px] pl-4">
-                                {lic.expiryAd} AD
+                              <div>
+                                {lic.isExpired ? (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-black bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-xs">
+                                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                                    <span>Expired ({Math.abs(lic.diffDays)} {Math.abs(lic.diffDays) === 1 ? 'Day' : 'Days'} Ago)</span>
+                                  </span>
+                                ) : lic.isExpiringSoon ? (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs">
+                                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                                    <span>Expiring Soon ({lic.diffDays} {lic.diffDays === 1 ? 'Day' : 'Days'} Left)</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-xs">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                                    <span>Active ({lic.diffDays} Days Remaining)</span>
+                                  </span>
+                                )}
                               </div>
-                              <span
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
-                                  lic.isExpired
-                                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
-                                    : lic.isExpiringSoon
-                                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                                    : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                                }`}
-                              >
-                                <span>
-                                  {lic.isExpired
-                                    ? `Overdue by ${Math.abs(lic.diffDays)} days`
-                                    : `${lic.diffDays} days remaining`}
-                                </span>
-                              </span>
                             </div>
                           </td>
 
@@ -7940,6 +8298,8 @@ export default function App() {
                                 lic.isExpired
                                   ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
                                   : lic.isSuspended
+                                  ? 'bg-slate-800 text-slate-400 border-slate-700'
+                                  : lic.isExpiringSoon
                                   ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                                   : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                               }`}
@@ -7949,11 +8309,13 @@ export default function App() {
                                   lic.isExpired
                                     ? 'bg-rose-500 animate-ping'
                                     : lic.isSuspended
+                                    ? 'bg-slate-500'
+                                    : lic.isExpiringSoon
                                     ? 'bg-amber-400'
                                     : 'bg-emerald-400'
                                 }`}
                               />
-                              <span>{lic.isExpired ? 'Expired' : lic.isSuspended ? 'Suspended' : 'Active'}</span>
+                              <span>{lic.isExpired ? 'Expired' : lic.isSuspended ? 'Suspended' : lic.isExpiringSoon ? 'Expiring Soon' : 'Active'}</span>
                             </span>
                           </td>
 
@@ -7991,6 +8353,16 @@ export default function App() {
                           {/* 9. Actions */}
                           <td className="py-3.5 px-4 text-center whitespace-nowrap">
                             <div className="flex items-center justify-center gap-1.5">
+                              {/* One-Click Quick Renew Action */}
+                              <button
+                                onClick={() => openQuickRenewModal(comp)}
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-xs"
+                                title="One-Click Renew / Extend License (+1 Month, +1 Year, Custom)"
+                              >
+                                <RefreshCw className="w-3.5 h-3.5" />
+                                <span>Renew</span>
+                              </button>
+
                               <button
                                 onClick={() => openEditCompanyModal(comp)}
                                 className="px-2.5 py-1 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 rounded-lg text-xs font-semibold transition flex items-center gap-1 cursor-pointer shadow-xs"
@@ -8278,309 +8650,347 @@ export default function App() {
 
         {/* MODAL 1: EDIT COMPANY & MANAGE FEATURES MODAL */}
         {editingCompany && (
-          <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 my-8">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-700">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 rounded-xl">
+          <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-hidden">
+            <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-7xl max-h-[92vh] shadow-2xl flex flex-col overflow-hidden">
+              {/* Fixed Header */}
+              <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-700 shrink-0 bg-slate-850">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 rounded-xl">
                     <Sliders className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-white">Feature Controls & License Management</h3>
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <span>Feature Controls &amp; Sales Matrix</span>
+                      <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded text-xs font-mono">
+                        {editingCompany.company_code}
+                      </span>
+                    </h3>
                     <p className="text-xs text-slate-400">
-                      Configuring company: <strong className="text-white">{editingCompany.name}</strong> (Code: <span className="font-mono text-indigo-400">{editingCompany.company_code}</span>)
+                      Configuring client company: <strong className="text-white">{editingCompany.name}</strong> &bull; Strict Sales Matrix Enforced
                     </p>
                   </div>
                 </div>
-                <button onClick={() => setEditingCompany(null)} className="text-slate-400 hover:text-white p-1">
+                <button
+                  onClick={() => setEditingCompany(null)}
+                  className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/60 transition cursor-pointer"
+                >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <form onSubmit={handleSaveCompanyChanges} className="space-y-5 text-xs">
-                {/* 1. Identity & Credentials Section */}
-                <div className="space-y-3 bg-slate-900/60 p-4 rounded-xl border border-slate-700/60">
-                  <div className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
-                    <Building2 className="w-3.5 h-3.5" />
-                    <span>Company Credentials & Identity</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-slate-300 font-semibold mb-1">Company Name</label>
-                      <input
-                        required
-                        value={companyEditForm.name}
-                        onChange={(e) => setCompanyEditForm({ ...companyEditForm, name: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-300 font-semibold mb-1">Company Code</label>
-                      <input
-                        required
-                        value={companyEditForm.company_code}
-                        onChange={(e) => setCompanyEditForm({ ...companyEditForm, company_code: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-300 font-semibold mb-1">Client Password</label>
-                      <input
-                        required
-                        value={companyEditForm.admin_password}
-                        onChange={(e) => setCompanyEditForm({ ...companyEditForm, admin_password: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-300 font-semibold mb-1">Owner / Primary Contact</label>
-                      <input
-                        value={companyEditForm.owner_name}
-                        onChange={(e) => setCompanyEditForm({ ...companyEditForm, owner_name: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-300 font-semibold mb-1">Contact Email</label>
-                      <input
-                        type="email"
-                        value={companyEditForm.contact_email}
-                        onChange={(e) => setCompanyEditForm({ ...companyEditForm, contact_email: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-300 font-semibold mb-1">Contact Phone</label>
-                      <input
-                        value={companyEditForm.contact_phone}
-                        onChange={(e) => setCompanyEditForm({ ...companyEditForm, contact_phone: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2. License & Validity Section */}
-                <div className="space-y-3 bg-slate-900/60 p-4 rounded-xl border border-slate-700/60">
-                  <div className="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
-                    <Shield className="w-3.5 h-3.5" />
-                    <span>License & Validity Management</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="sm:col-span-1">
-                      <label className="block text-slate-300 font-semibold mb-1">Subscription Plan</label>
-                      <select
-                        value={companyEditForm.subscription_plan}
-                        onChange={(e) =>
-                          setCompanyEditForm({
-                            ...companyEditForm,
-                            subscription_plan: e.target.value as any,
-                          })
-                        }
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-                      >
-                        <option value="Basic">Basic (Standard Ledger)</option>
-                        <option value="Standard">Standard (Reconciliation + Backup)</option>
-                        <option value="Enterprise">Enterprise (Full Suite)</option>
-                      </select>
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <DeveloperExpiryDatePicker
-                        bsDate={companyEditForm.expiry_date_bs}
-                        adDate={companyEditForm.expiry_date_ad}
-                        onChange={(bsDate, adDate) =>
-                          setCompanyEditForm({
-                            ...companyEditForm,
-                            expiry_date_bs: bsDate,
-                            expiry_date_ad: adDate,
-                          })
-                        }
-                        label="License Expiry & Renewal Date (Bidirectional BS &harr; AD)"
-                        idPrefix="edit-company-expiry"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Account Active / Inactive Toggle */}
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-800">
-                    <div>
-                      <div className="text-white font-semibold">Account Active Status</div>
-                      <div className="text-[11px] text-slate-400">Enable or suspend tenant login authorization</div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setCompanyEditForm({ ...companyEditForm, is_active: !companyEditForm.is_active })}
-                      className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-2 cursor-pointer transition ${
-                        companyEditForm.is_active
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                          : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                      }`}
-                    >
-                      <span className={`w-2 h-2 rounded-full ${companyEditForm.is_active ? 'bg-emerald-400' : 'bg-rose-400'}`} />
-                      <span>{companyEditForm.is_active ? 'Active (Authorized)' : 'Inactive (Suspended)'}</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* 3. Dynamic Auto-Registering Sales Matrix */}
-                <div className="space-y-4 bg-slate-900/60 p-4 rounded-xl border border-slate-700/60">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                    <div>
-                      <div className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                        <Sliders className="w-3.5 h-3.5" />
-                        <span>Developer Sales Matrix (Feature Permissions)</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        Auto-registers all sidebar items &amp; modules &bull; STRICT ENFORCEMENT: Client only gets checked features
-                      </p>
-                    </div>
-                    {/* Quick Presets */}
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const allOn: Record<string, boolean> = {};
-                          MASTER_FEATURE_REGISTRY.forEach((f) => {
-                            allOn[f.id] = true;
-                          });
-                          setCompanyEditForm({
-                            ...companyEditForm,
-                            features: { ...companyEditForm.features, ...allOn },
-                          });
-                        }}
-                        className="px-2.5 py-1 bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/50 rounded-lg text-[10px] font-bold cursor-pointer transition flex items-center gap-1"
-                        title="Enable all modules for Enterprise tier"
-                      >
-                        <Check className="w-3 h-3" />
-                        <span>Select All (ON)</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const allOff: Record<string, boolean> = {};
-                          MASTER_FEATURE_REGISTRY.forEach((f) => {
-                            allOff[f.id] = false;
-                          });
-                          setCompanyEditForm({
-                            ...companyEditForm,
-                            features: { ...companyEditForm.features, ...allOff },
-                          });
-                        }}
-                        className="px-2.5 py-1 bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-700/50 rounded-lg text-[10px] font-bold cursor-pointer transition flex items-center gap-1"
-                        title="Disable all optional modules"
-                      >
-                        <Lock className="w-3 h-3" />
-                        <span>Disable All (OFF)</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Dynamic Category Iteration */}
-                  {Array.from(new Set(MASTER_FEATURE_REGISTRY.map((f) => f.category))).map((category) => {
-                    const categoryFeatures = MASTER_FEATURE_REGISTRY.filter((f) => f.category === category);
-                    const activeCount = categoryFeatures.filter((f) => companyEditForm.features[f.id] !== false).length;
-                    return (
-                      <div key={category} className="space-y-2 pt-2 border-t border-slate-800/80">
-                        <div className="flex items-center justify-between text-[11px] font-bold text-slate-300">
-                          <span className="flex items-center gap-1.5 uppercase tracking-wider text-[10px] text-indigo-400">
-                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                            {category}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-semibold bg-slate-800 px-2 py-0.5 rounded-md">
-                            {activeCount} / {categoryFeatures.length} Active
-                          </span>
+              {/* Scrollable Form Content */}
+              <form onSubmit={handleSaveCompanyChanges} className="flex flex-col flex-1 overflow-hidden text-xs">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 max-h-[78vh] space-y-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Left Column: Credentials & License Validity */}
+                    <div className="lg:col-span-5 xl:col-span-5 space-y-5">
+                      {/* 1. Identity & Credentials Section */}
+                      <div className="space-y-3 bg-slate-900/60 p-4 rounded-xl border border-slate-700/60">
+                        <div className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+                          <Building2 className="w-3.5 h-3.5" />
+                          <span>Company Credentials &amp; Identity</span>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-2">
-                          {categoryFeatures.map((feat) => {
-                            const isEnabled = companyEditForm.features[feat.id] !== false;
-                            const Icon = feat.icon;
-                            return (
-                              <div
-                                key={feat.id}
-                                onClick={() =>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="sm:col-span-2">
+                            <label className="block text-slate-300 font-semibold mb-1">Company Name</label>
+                            <input
+                              required
+                              value={companyEditForm.name}
+                              onChange={(e) => setCompanyEditForm({ ...companyEditForm, name: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-slate-300 font-semibold mb-1">Company Code</label>
+                            <input
+                              required
+                              value={companyEditForm.company_code}
+                              onChange={(e) => setCompanyEditForm({ ...companyEditForm, company_code: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-slate-300 font-semibold mb-1">Client Password</label>
+                            <input
+                              required
+                              value={companyEditForm.admin_password}
+                              onChange={(e) => setCompanyEditForm({ ...companyEditForm, admin_password: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="block text-slate-300 font-semibold mb-1">Owner / Primary Contact</label>
+                            <input
+                              value={companyEditForm.owner_name}
+                              onChange={(e) => setCompanyEditForm({ ...companyEditForm, owner_name: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-slate-300 font-semibold mb-1">Contact Email</label>
+                            <input
+                              type="email"
+                              value={companyEditForm.contact_email}
+                              onChange={(e) => setCompanyEditForm({ ...companyEditForm, contact_email: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-slate-300 font-semibold mb-1">Contact Phone</label>
+                            <input
+                              value={companyEditForm.contact_phone}
+                              onChange={(e) => setCompanyEditForm({ ...companyEditForm, contact_phone: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 2. License & Validity Section */}
+                      <div className="space-y-3 bg-slate-900/60 p-4 rounded-xl border border-slate-700/60">
+                        <div className="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <Shield className="w-3.5 h-3.5" />
+                            <span>License &amp; Validity Management</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-normal">Active &bull; BS / AD Sync</span>
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-300 font-semibold mb-1">Subscription Plan</label>
+                          <select
+                            value={companyEditForm.subscription_plan}
+                            onChange={(e) =>
+                              setCompanyEditForm({
+                                ...companyEditForm,
+                                subscription_plan: e.target.value as any,
+                              })
+                            }
+                            className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                          >
+                            <option value="Basic">Basic (Standard Ledger)</option>
+                            <option value="Standard">Standard (Reconciliation + Backup)</option>
+                            <option value="Enterprise">Enterprise (Full Suite)</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <DeveloperExpiryDatePicker
+                            bsDate={companyEditForm.expiry_date_bs}
+                            adDate={companyEditForm.expiry_date_ad}
+                            onChange={(bsDate, adDate) =>
+                              setCompanyEditForm({
+                                ...companyEditForm,
+                                expiry_date_bs: bsDate,
+                                expiry_date_ad: adDate,
+                              })
+                            }
+                            label="License Expiry & Renewal Date (Bidirectional BS &harr; AD)"
+                            idPrefix="edit-company-expiry"
+                          />
+                        </div>
+
+                        {/* Quick Extension Shortcuts inside Edit Modal */}
+                        <div className="pt-2 border-t border-slate-800">
+                          <div className="text-[11px] font-semibold text-slate-400 mb-1.5">Quick Date Extension Presets:</div>
+                          <div className="grid grid-cols-4 gap-1.5">
+                            {[
+                              { label: '+1 Mo', duration: '1m' },
+                              { label: '+3 Mo', duration: '3m' },
+                              { label: '+6 Mo', duration: '6m' },
+                              { label: '+1 Yr', duration: '1y' },
+                            ].map((btn) => (
+                              <button
+                                key={btn.duration}
+                                type="button"
+                                onClick={() => {
+                                  const res = addDurationToAdDate(companyEditForm.expiry_date_ad, btn.duration as any);
                                   setCompanyEditForm({
                                     ...companyEditForm,
-                                    features: {
-                                      ...companyEditForm.features,
-                                      [feat.id]: !isEnabled,
-                                    },
-                                  })
-                                }
-                                className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between gap-3 ${
-                                  isEnabled
-                                    ? 'bg-slate-800/90 border-emerald-500/40 shadow-xs'
-                                    : 'bg-slate-900/40 border-slate-800 opacity-60'
-                                }`}
+                                    expiry_date_ad: res.adDate,
+                                    expiry_date_bs: res.bsDate,
+                                  });
+                                  showToast(`Expiry preset applied: ${res.bsDate} BS (${res.adDate} AD)`, 'info');
+                                }}
+                                className="py-1 px-1.5 bg-slate-800 hover:bg-indigo-900/60 hover:text-indigo-300 border border-slate-700 hover:border-indigo-600 rounded-lg text-[10px] font-bold text-slate-300 transition cursor-pointer text-center"
                               >
-                                <div className="flex items-center gap-3">
-                                  <div
-                                    className={`p-2 rounded-lg shrink-0 ${
-                                      isEnabled
-                                        ? 'bg-emerald-600 text-white shadow-xs'
-                                        : 'bg-slate-800 text-slate-500'
-                                    }`}
-                                  >
-                                    <Icon className="w-4 h-4" />
-                                  </div>
-                                  <div>
-                                    <div className="font-bold text-xs text-white flex items-center gap-2">
-                                      <span>{feat.name}</span>
-                                      <span
-                                        className={`px-1.5 py-0.2 rounded text-[9px] font-bold flex items-center gap-1 ${
-                                          isEnabled
-                                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                                            : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                                        }`}
-                                      >
-                                        {isEnabled ? (
-                                          <>
-                                            <Check className="w-2.5 h-2.5" />
-                                            <span>Active</span>
-                                          </>
-                                        ) : (
-                                          <>
-                                            <Lock className="w-2.5 h-2.5" />
-                                            <span>Disabled</span>
-                                          </>
-                                        )}
-                                      </span>
-                                    </div>
-                                    <p className="text-[11px] text-slate-400 leading-snug">{feat.description}</p>
-                                  </div>
-                                </div>
-                                <div
-                                  className={`w-10 h-5 flex items-center rounded-full p-0.5 transition duration-200 shrink-0 ${
-                                    isEnabled ? 'bg-emerald-600' : 'bg-slate-700'
-                                  }`}
-                                >
-                                  <div
-                                    className={`bg-white w-4 h-4 rounded-full shadow-md transform transition duration-200 ${
-                                      isEnabled ? 'translate-x-5' : 'translate-x-0'
-                                    }`}
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })}
+                                {btn.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Account Active / Inactive Toggle */}
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+                          <div>
+                            <div className="text-white font-semibold">Account Active Status</div>
+                            <div className="text-[11px] text-slate-400">Enable or suspend tenant login authorization</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setCompanyEditForm({ ...companyEditForm, is_active: !companyEditForm.is_active })}
+                            className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-2 cursor-pointer transition ${
+                              companyEditForm.is_active
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                            }`}
+                          >
+                            <span className={`w-2 h-2 rounded-full ${companyEditForm.is_active ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                            <span>{companyEditForm.is_active ? 'Active (Authorized)' : 'Inactive (Suspended)'}</span>
+                          </button>
                         </div>
                       </div>
-                    );
-                  })}
+                    </div>
+
+                    {/* Right Column: Dynamic Auto-Registering Sales Matrix */}
+                    <div className="lg:col-span-7 xl:col-span-7 space-y-4 bg-slate-900/60 p-4 sm:p-5 rounded-xl border border-slate-700/60">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                        <div>
+                          <div className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                            <Sliders className="w-3.5 h-3.5" />
+                            <span>Developer Sales Matrix (Feature Permissions)</span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            Auto-registers modules &bull; STRICT ENFORCEMENT: Client only gets checked features
+                          </p>
+                        </div>
+                        {/* Quick Presets */}
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const allOn: Record<string, boolean> = {};
+                              MASTER_FEATURE_REGISTRY.forEach((f) => {
+                                allOn[f.id] = true;
+                              });
+                              setCompanyEditForm({
+                                ...companyEditForm,
+                                features: { ...companyEditForm.features, ...allOn },
+                              });
+                            }}
+                            className="px-2.5 py-1 bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/50 rounded-lg text-[10px] font-bold cursor-pointer transition flex items-center gap-1"
+                            title="Enable all modules for Enterprise tier"
+                          >
+                            <Check className="w-3 h-3" />
+                            <span>Select All (ON)</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const allOff: Record<string, boolean> = {};
+                              MASTER_FEATURE_REGISTRY.forEach((f) => {
+                                allOff[f.id] = false;
+                              });
+                              setCompanyEditForm({
+                                ...companyEditForm,
+                                features: { ...companyEditForm.features, ...allOff },
+                              });
+                            }}
+                            className="px-2.5 py-1 bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-700/50 rounded-lg text-[10px] font-bold cursor-pointer transition flex items-center gap-1"
+                            title="Disable all optional modules"
+                          >
+                            <Lock className="w-3 h-3" />
+                            <span>Disable All (OFF)</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Dynamic Category Iteration in 2-Column Cards */}
+                      {Array.from(new Set(MASTER_FEATURE_REGISTRY.map((f) => f.category))).map((category) => {
+                        const categoryFeatures = MASTER_FEATURE_REGISTRY.filter((f) => f.category === category);
+                        const activeCount = categoryFeatures.filter((f) => companyEditForm.features[f.id] !== false).length;
+                        return (
+                          <div key={category} className="space-y-2 pt-2 border-t border-slate-800/80">
+                            <div className="flex items-center justify-between text-[11px] font-bold text-slate-300">
+                              <span className="flex items-center gap-1.5 uppercase tracking-wider text-[10px] text-indigo-400">
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                                {category}
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-semibold bg-slate-800 px-2 py-0.5 rounded-md">
+                                {activeCount} / {categoryFeatures.length} Active
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                              {categoryFeatures.map((feat) => {
+                                const isEnabled = companyEditForm.features[feat.id] !== false;
+                                const Icon = feat.icon;
+                                return (
+                                  <div
+                                    key={feat.id}
+                                    onClick={() =>
+                                      setCompanyEditForm({
+                                        ...companyEditForm,
+                                        features: {
+                                          ...companyEditForm.features,
+                                          [feat.id]: !isEnabled,
+                                        },
+                                      })
+                                    }
+                                    className={`p-2.5 rounded-xl border transition cursor-pointer flex items-center justify-between gap-2.5 ${
+                                      isEnabled
+                                        ? 'bg-slate-800/90 border-emerald-500/40 shadow-xs'
+                                        : 'bg-slate-900/40 border-slate-800 opacity-60'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <div
+                                        className={`p-2 rounded-lg shrink-0 ${
+                                          isEnabled
+                                            ? 'bg-emerald-600 text-white shadow-xs'
+                                            : 'bg-slate-800 text-slate-500'
+                                        }`}
+                                      >
+                                        <Icon className="w-4 h-4" />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <div className="font-bold text-xs text-white flex items-center gap-1.5">
+                                          <span className="truncate">{feat.name}</span>
+                                          <span
+                                            className={`px-1 py-0.2 rounded text-[8px] font-bold shrink-0 ${
+                                              isEnabled
+                                                ? 'bg-emerald-500/20 text-emerald-300'
+                                                : 'bg-rose-500/10 text-rose-400'
+                                            }`}
+                                          >
+                                            {isEnabled ? 'ON' : 'OFF'}
+                                          </span>
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 truncate">{feat.description}</p>
+                                      </div>
+                                    </div>
+                                    <div
+                                      className={`w-9 h-5 flex items-center rounded-full p-0.5 transition duration-200 shrink-0 ${
+                                        isEnabled ? 'bg-emerald-600' : 'bg-slate-700'
+                                      }`}
+                                    >
+                                      <div
+                                        className={`bg-white w-4 h-4 rounded-full shadow-md transform transition duration-200 ${
+                                          isEnabled ? 'translate-x-4' : 'translate-x-0'
+                                        }`}
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
 
-                {/* Modal Footer */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-700">
+                {/* Fixed Modal Footer */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 sm:p-5 border-t border-slate-700 shrink-0 bg-slate-850">
                   <button
                     type="button"
                     onClick={() => {
                       handleAccessCompany(editingCompany);
                       setEditingCompany(null);
                     }}
-                    className="w-full sm:w-auto px-4 py-2 bg-indigo-900/60 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 rounded-xl font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="w-full sm:w-auto px-4 py-2 bg-indigo-900/60 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 rounded-xl font-bold flex items-center justify-center gap-1.5 cursor-pointer text-xs"
                   >
                     <Eye className="w-4 h-4" />
                     <span>Access Workspace Now</span>
@@ -8590,16 +9000,16 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => setEditingCompany(null)}
-                      className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold cursor-pointer"
+                      className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold cursor-pointer text-xs transition"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold cursor-pointer shadow-md flex items-center gap-1.5"
+                      className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold cursor-pointer shadow-md flex items-center gap-1.5 text-xs transition"
                     >
                       <Check className="w-4 h-4" />
-                      <span>Save Changes & Permissions</span>
+                      <span>Save Changes &amp; Permissions</span>
                     </button>
                   </div>
                 </div>
@@ -8610,303 +9020,336 @@ export default function App() {
 
         {/* MODAL 2: ADD COMPANY WITH FULL FEATURE & CREDENTIAL CONTROLS */}
         {isAddCompanyOpen && (
-          <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 my-8">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-700">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 bg-indigo-600 text-white rounded-xl shadow-md">
+          <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-hidden">
+            <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-7xl max-h-[92vh] shadow-2xl flex flex-col overflow-hidden">
+              {/* Fixed Header */}
+              <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-700 shrink-0 bg-slate-850">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-indigo-600 text-white rounded-xl shadow-md">
                     <Building2 className="w-5 h-5" />
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-white">Register New Client Company</h3>
-                    <p className="text-xs text-slate-400">Configure credentials, subscription validity, and granted feature toggles</p>
+                    <p className="text-xs text-slate-400">Configure credentials, subscription validity, and initial Sales Matrix permissions</p>
                   </div>
                 </div>
-                <button onClick={() => setIsAddCompanyOpen(false)} className="text-slate-400 hover:text-white p-1">
+                <button
+                  onClick={() => setIsAddCompanyOpen(false)}
+                  className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/60 transition cursor-pointer"
+                >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <form onSubmit={handleCreateCompany} className="space-y-5 text-xs">
-                {/* 1. Identity & Credentials */}
-                <div className="space-y-3 bg-slate-900/60 p-4 rounded-xl border border-slate-700/60">
-                  <div className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
-                    <Building2 className="w-3.5 h-3.5" />
-                    <span>Company Credentials & Identity</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-slate-300 font-semibold mb-1">Company Name</label>
-                      <input
-                        required
-                        placeholder="e.g. Kathmandu Trading Pvt. Ltd."
-                        value={newCompanyForm.name}
-                        onChange={(e) => setNewCompanyForm({ ...newCompanyForm, name: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-300 font-semibold mb-1">Company Code</label>
-                      <input
-                        required
-                        placeholder="e.g. 1002"
-                        value={newCompanyForm.company_code}
-                        onChange={(e) => setNewCompanyForm({ ...newCompanyForm, company_code: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-slate-300 font-semibold">Client Access Password</label>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const gen = `Pass@${Math.floor(100 + Math.random() * 900)}`;
-                            setNewCompanyForm((prev) => ({ ...prev, admin_password: gen }));
-                          }}
-                          className="text-[10px] text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
-                        >
-                          Generate New
-                        </button>
-                      </div>
-                      <input
-                        required
-                        placeholder="e.g. Pass@123"
-                        value={newCompanyForm.admin_password}
-                        onChange={(e) => setNewCompanyForm({ ...newCompanyForm, admin_password: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                      <p className="text-[10px] text-slate-400 mt-1">Tenant logs in with Code + &quot;admin&quot; (or owner email) + this password.</p>
-                    </div>
-                    <div>
-                      <label className="block text-slate-300 font-semibold mb-1">Owner / Primary Contact</label>
-                      <input
-                        placeholder="e.g. Binod Sharma"
-                        value={newCompanyForm.owner_name}
-                        onChange={(e) => setNewCompanyForm({ ...newCompanyForm, owner_name: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-300 font-semibold mb-1">Contact Email</label>
-                      <input
-                        type="email"
-                        placeholder="e.g. admin@kathmandutrading.com"
-                        value={newCompanyForm.contact_email}
-                        onChange={(e) => setNewCompanyForm({ ...newCompanyForm, contact_email: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-300 font-semibold mb-1">Contact Phone</label>
-                      <input
-                        placeholder="e.g. 9841234567"
-                        value={newCompanyForm.contact_phone}
-                        onChange={(e) => setNewCompanyForm({ ...newCompanyForm, contact_phone: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2. License & Validity */}
-                <div className="space-y-3 bg-slate-900/60 p-4 rounded-xl border border-slate-700/60">
-                  <div className="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
-                    <Shield className="w-3.5 h-3.5" />
-                    <span>License & Validity Management</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="sm:col-span-1">
-                      <label className="block text-slate-300 font-semibold mb-1">Subscription Plan</label>
-                      <select
-                        value={newCompanyForm.subscription_plan}
-                        onChange={(e) =>
-                          setNewCompanyForm({
-                            ...newCompanyForm,
-                            subscription_plan: e.target.value as any,
-                          })
-                        }
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-                      >
-                        <option value="Basic">Basic (Standard Ledger)</option>
-                        <option value="Standard">Standard (Reconciliation + Backup)</option>
-                        <option value="Enterprise">Enterprise (Full Suite)</option>
-                      </select>
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <DeveloperExpiryDatePicker
-                        bsDate={newCompanyForm.expiry_date_bs}
-                        adDate={newCompanyForm.expiry_date_ad}
-                        onChange={(bsDate, adDate) =>
-                          setNewCompanyForm({
-                            ...newCompanyForm,
-                            expiry_date_bs: bsDate,
-                            expiry_date_ad: adDate,
-                          })
-                        }
-                        label="Initial License Expiry (Bidirectional BS &harr; AD)"
-                        idPrefix="new-company-expiry"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3. Dynamic Auto-Registering Sales Matrix */}
-                <div className="space-y-4 bg-slate-900/60 p-4 rounded-xl border border-slate-700/60">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                    <div>
-                      <div className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                        <Sliders className="w-3.5 h-3.5" />
-                        <span>Developer Sales Matrix (Initial Feature Grants)</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        Auto-registers all sidebar items &amp; modules &bull; STRICT ENFORCEMENT: Client only gets checked features
-                      </p>
-                    </div>
-                    {/* Quick Presets */}
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const allOn: Record<string, boolean> = {};
-                          MASTER_FEATURE_REGISTRY.forEach((f) => {
-                            allOn[f.id] = true;
-                          });
-                          setNewCompanyForm({
-                            ...newCompanyForm,
-                            features: { ...newCompanyForm.features, ...allOn },
-                          });
-                        }}
-                        className="px-2.5 py-1 bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/50 rounded-lg text-[10px] font-bold cursor-pointer transition flex items-center gap-1"
-                        title="Enable all modules for Enterprise tier"
-                      >
-                        <Check className="w-3 h-3" />
-                        <span>Select All (ON)</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const allOff: Record<string, boolean> = {};
-                          MASTER_FEATURE_REGISTRY.forEach((f) => {
-                            allOff[f.id] = false;
-                          });
-                          setNewCompanyForm({
-                            ...newCompanyForm,
-                            features: { ...newCompanyForm.features, ...allOff },
-                          });
-                        }}
-                        className="px-2.5 py-1 bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-700/50 rounded-lg text-[10px] font-bold cursor-pointer transition flex items-center gap-1"
-                        title="Disable all optional modules"
-                      >
-                        <Lock className="w-3 h-3" />
-                        <span>Disable All (OFF)</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Dynamic Category Iteration */}
-                  {Array.from(new Set(MASTER_FEATURE_REGISTRY.map((f) => f.category))).map((category) => {
-                    const categoryFeatures = MASTER_FEATURE_REGISTRY.filter((f) => f.category === category);
-                    const activeCount = categoryFeatures.filter((f) => newCompanyForm.features[f.id] !== false).length;
-                    return (
-                      <div key={category} className="space-y-2 pt-2 border-t border-slate-800/80">
-                        <div className="flex items-center justify-between text-[11px] font-bold text-slate-300">
-                          <span className="flex items-center gap-1.5 uppercase tracking-wider text-[10px] text-indigo-400">
-                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                            {category}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-semibold bg-slate-800 px-2 py-0.5 rounded-md">
-                            {activeCount} / {categoryFeatures.length} Active
-                          </span>
+              {/* Scrollable Form Content */}
+              <form onSubmit={handleCreateCompany} className="flex flex-col flex-1 overflow-hidden text-xs">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 max-h-[78vh] space-y-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Left Column: Credentials & License Validity */}
+                    <div className="lg:col-span-5 xl:col-span-5 space-y-5">
+                      {/* 1. Identity & Credentials */}
+                      <div className="space-y-3 bg-slate-900/60 p-4 rounded-xl border border-slate-700/60">
+                        <div className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+                          <Building2 className="w-3.5 h-3.5" />
+                          <span>Company Credentials &amp; Identity</span>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-2">
-                          {categoryFeatures.map((feat) => {
-                            const isEnabled = newCompanyForm.features[feat.id] !== false;
-                            const Icon = feat.icon;
-                            return (
-                              <div
-                                key={feat.id}
-                                onClick={() =>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="sm:col-span-2">
+                            <label className="block text-slate-300 font-semibold mb-1">Company Name</label>
+                            <input
+                              required
+                              placeholder="e.g. Kathmandu Trading Pvt. Ltd."
+                              value={newCompanyForm.name}
+                              onChange={(e) => setNewCompanyForm({ ...newCompanyForm, name: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-slate-300 font-semibold mb-1">Company Code</label>
+                            <input
+                              required
+                              placeholder="e.g. 1002"
+                              value={newCompanyForm.company_code}
+                              onChange={(e) => setNewCompanyForm({ ...newCompanyForm, company_code: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="block text-slate-300 font-semibold">Client Password</label>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const gen = `Pass@${Math.floor(100 + Math.random() * 900)}`;
+                                  setNewCompanyForm((prev) => ({ ...prev, admin_password: gen }));
+                                }}
+                                className="text-[10px] text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
+                              >
+                                Generate
+                              </button>
+                            </div>
+                            <input
+                              required
+                              placeholder="e.g. Pass@123"
+                              value={newCompanyForm.admin_password}
+                              onChange={(e) => setNewCompanyForm({ ...newCompanyForm, admin_password: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="block text-slate-300 font-semibold mb-1">Owner / Primary Contact</label>
+                            <input
+                              placeholder="e.g. Binod Sharma"
+                              value={newCompanyForm.owner_name}
+                              onChange={(e) => setNewCompanyForm({ ...newCompanyForm, owner_name: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-slate-300 font-semibold mb-1">Contact Email</label>
+                            <input
+                              type="email"
+                              placeholder="e.g. admin@kathmandutrading.com"
+                              value={newCompanyForm.contact_email}
+                              onChange={(e) => setNewCompanyForm({ ...newCompanyForm, contact_email: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-slate-300 font-semibold mb-1">Contact Phone</label>
+                            <input
+                              placeholder="e.g. 9841234567"
+                              value={newCompanyForm.contact_phone}
+                              onChange={(e) => setNewCompanyForm({ ...newCompanyForm, contact_phone: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 2. License & Validity */}
+                      <div className="space-y-3 bg-slate-900/60 p-4 rounded-xl border border-slate-700/60">
+                        <div className="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <Shield className="w-3.5 h-3.5" />
+                            <span>License &amp; Validity Management</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-normal">Active &bull; BS / AD Sync</span>
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-300 font-semibold mb-1">Subscription Plan</label>
+                          <select
+                            value={newCompanyForm.subscription_plan}
+                            onChange={(e) =>
+                              setNewCompanyForm({
+                                ...newCompanyForm,
+                                subscription_plan: e.target.value as any,
+                              })
+                            }
+                            className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                          >
+                            <option value="Basic">Basic (Standard Ledger)</option>
+                            <option value="Standard">Standard (Reconciliation + Backup)</option>
+                            <option value="Enterprise">Enterprise (Full Suite)</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <DeveloperExpiryDatePicker
+                            bsDate={newCompanyForm.expiry_date_bs}
+                            adDate={newCompanyForm.expiry_date_ad}
+                            onChange={(bsDate, adDate) =>
+                              setNewCompanyForm({
+                                ...newCompanyForm,
+                                expiry_date_bs: bsDate,
+                                expiry_date_ad: adDate,
+                              })
+                            }
+                            label="Initial License Expiry (Bidirectional BS &harr; AD)"
+                            idPrefix="new-company-expiry"
+                          />
+                        </div>
+
+                        {/* Quick Presets for New Company Expiry */}
+                        <div className="pt-2 border-t border-slate-800">
+                          <div className="text-[11px] font-semibold text-slate-400 mb-1.5">Quick Validity Presets:</div>
+                          <div className="grid grid-cols-4 gap-1.5">
+                            {[
+                              { label: '+1 Mo', duration: '1m' },
+                              { label: '+3 Mo', duration: '3m' },
+                              { label: '+6 Mo', duration: '6m' },
+                              { label: '+1 Yr', duration: '1y' },
+                            ].map((btn) => (
+                              <button
+                                key={btn.duration}
+                                type="button"
+                                onClick={() => {
+                                  const res = addDurationToAdDate(getCurrentAdDate(), btn.duration as any);
                                   setNewCompanyForm({
                                     ...newCompanyForm,
-                                    features: {
-                                      ...newCompanyForm.features,
-                                      [feat.id]: !isEnabled,
-                                    },
-                                  })
-                                }
-                                className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between gap-3 ${
-                                  isEnabled
-                                    ? 'bg-slate-800/90 border-emerald-500/40 shadow-xs'
-                                    : 'bg-slate-900/40 border-slate-800 opacity-60'
-                                }`}
+                                    expiry_date_ad: res.adDate,
+                                    expiry_date_bs: res.bsDate,
+                                  });
+                                  showToast(`Initial expiry set to ${res.bsDate} BS (${res.adDate} AD)`, 'info');
+                                }}
+                                className="py-1 px-1.5 bg-slate-800 hover:bg-indigo-900/60 hover:text-indigo-300 border border-slate-700 hover:border-indigo-600 rounded-lg text-[10px] font-bold text-slate-300 transition cursor-pointer text-center"
                               >
-                                <div className="flex items-center gap-3">
-                                  <div
-                                    className={`p-2 rounded-lg shrink-0 ${
-                                      isEnabled
-                                        ? 'bg-emerald-600 text-white shadow-xs'
-                                        : 'bg-slate-800 text-slate-500'
-                                    }`}
-                                  >
-                                    <Icon className="w-4 h-4" />
-                                  </div>
-                                  <div>
-                                    <div className="font-bold text-xs text-white flex items-center gap-2">
-                                      <span>{feat.name}</span>
-                                      <span
-                                        className={`px-1.5 py-0.2 rounded text-[9px] font-bold flex items-center gap-1 ${
-                                          isEnabled
-                                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                                            : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                                        }`}
-                                      >
-                                        {isEnabled ? (
-                                          <>
-                                            <Check className="w-2.5 h-2.5" />
-                                            <span>Active</span>
-                                          </>
-                                        ) : (
-                                          <>
-                                            <Lock className="w-2.5 h-2.5" />
-                                            <span>Disabled</span>
-                                          </>
-                                        )}
-                                      </span>
-                                    </div>
-                                    <p className="text-[11px] text-slate-400 leading-snug">{feat.description}</p>
-                                  </div>
-                                </div>
-                                <div
-                                  className={`w-10 h-5 flex items-center rounded-full p-0.5 transition duration-200 shrink-0 ${
-                                    isEnabled ? 'bg-emerald-600' : 'bg-slate-700'
-                                  }`}
-                                >
-                                  <div
-                                    className={`bg-white w-4 h-4 rounded-full shadow-md transform transition duration-200 ${
-                                      isEnabled ? 'translate-x-5' : 'translate-x-0'
-                                    }`}
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })}
+                                {btn.label}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       </div>
-                    );
-                  })}
+                    </div>
+
+                    {/* Right Column: Dynamic Auto-Registering Sales Matrix */}
+                    <div className="lg:col-span-7 xl:col-span-7 space-y-4 bg-slate-900/60 p-4 sm:p-5 rounded-xl border border-slate-700/60">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                        <div>
+                          <div className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                            <Sliders className="w-3.5 h-3.5" />
+                            <span>Developer Sales Matrix (Initial Feature Grants)</span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            Auto-registers modules &bull; STRICT ENFORCEMENT: Client only gets checked features
+                          </p>
+                        </div>
+                        {/* Quick Presets */}
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const allOn: Record<string, boolean> = {};
+                              MASTER_FEATURE_REGISTRY.forEach((f) => {
+                                allOn[f.id] = true;
+                              });
+                              setNewCompanyForm({
+                                ...newCompanyForm,
+                                features: { ...newCompanyForm.features, ...allOn },
+                              });
+                            }}
+                            className="px-2.5 py-1 bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/50 rounded-lg text-[10px] font-bold cursor-pointer transition flex items-center gap-1"
+                            title="Enable all modules for Enterprise tier"
+                          >
+                            <Check className="w-3 h-3" />
+                            <span>Select All (ON)</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const allOff: Record<string, boolean> = {};
+                              MASTER_FEATURE_REGISTRY.forEach((f) => {
+                                allOff[f.id] = false;
+                              });
+                              setNewCompanyForm({
+                                ...newCompanyForm,
+                                features: { ...newCompanyForm.features, ...allOff },
+                              });
+                            }}
+                            className="px-2.5 py-1 bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-700/50 rounded-lg text-[10px] font-bold cursor-pointer transition flex items-center gap-1"
+                            title="Disable all optional modules"
+                          >
+                            <Lock className="w-3 h-3" />
+                            <span>Disable All (OFF)</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Dynamic Category Iteration in 2-Column Cards */}
+                      {Array.from(new Set(MASTER_FEATURE_REGISTRY.map((f) => f.category))).map((category) => {
+                        const categoryFeatures = MASTER_FEATURE_REGISTRY.filter((f) => f.category === category);
+                        const activeCount = categoryFeatures.filter((f) => newCompanyForm.features[f.id] !== false).length;
+                        return (
+                          <div key={category} className="space-y-2 pt-2 border-t border-slate-800/80">
+                            <div className="flex items-center justify-between text-[11px] font-bold text-slate-300">
+                              <span className="flex items-center gap-1.5 uppercase tracking-wider text-[10px] text-indigo-400">
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                                {category}
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-semibold bg-slate-800 px-2 py-0.5 rounded-md">
+                                {activeCount} / {categoryFeatures.length} Active
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                              {categoryFeatures.map((feat) => {
+                                const isEnabled = newCompanyForm.features[feat.id] !== false;
+                                const Icon = feat.icon;
+                                return (
+                                  <div
+                                    key={feat.id}
+                                    onClick={() =>
+                                      setNewCompanyForm({
+                                        ...newCompanyForm,
+                                        features: {
+                                          ...newCompanyForm.features,
+                                          [feat.id]: !isEnabled,
+                                        },
+                                      })
+                                    }
+                                    className={`p-2.5 rounded-xl border transition cursor-pointer flex items-center justify-between gap-2.5 ${
+                                      isEnabled
+                                        ? 'bg-slate-800/90 border-emerald-500/40 shadow-xs'
+                                        : 'bg-slate-900/40 border-slate-800 opacity-60'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <div
+                                        className={`p-2 rounded-lg shrink-0 ${
+                                          isEnabled
+                                            ? 'bg-emerald-600 text-white shadow-xs'
+                                            : 'bg-slate-800 text-slate-500'
+                                        }`}
+                                      >
+                                        <Icon className="w-4 h-4" />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <div className="font-bold text-xs text-white flex items-center gap-1.5">
+                                          <span className="truncate">{feat.name}</span>
+                                          <span
+                                            className={`px-1 py-0.2 rounded text-[8px] font-bold shrink-0 ${
+                                              isEnabled
+                                                ? 'bg-emerald-500/20 text-emerald-300'
+                                                : 'bg-rose-500/10 text-rose-400'
+                                            }`}
+                                          >
+                                            {isEnabled ? 'ON' : 'OFF'}
+                                          </span>
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 truncate">{feat.description}</p>
+                                      </div>
+                                    </div>
+                                    <div
+                                      className={`w-9 h-5 flex items-center rounded-full p-0.5 transition duration-200 shrink-0 ${
+                                        isEnabled ? 'bg-emerald-600' : 'bg-slate-700'
+                                      }`}
+                                    >
+                                      <div
+                                        className={`bg-white w-4 h-4 rounded-full shadow-md transform transition duration-200 ${
+                                          isEnabled ? 'translate-x-4' : 'translate-x-0'
+                                        }`}
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex justify-end gap-2 pt-3 border-t border-slate-700">
+                {/* Fixed Modal Footer */}
+                <div className="flex justify-end gap-2.5 p-4 sm:p-5 border-t border-slate-700 shrink-0 bg-slate-850">
                   <button
                     type="button"
                     disabled={isSubmittingCompany}
                     onClick={() => setIsAddCompanyOpen(false)}
-                    className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition"
                   >
                     Cancel
                   </button>
@@ -8914,7 +9357,7 @@ export default function App() {
                     type="submit"
                     id="btn-register-company-submit"
                     disabled={isSubmittingCompany}
-                    className={`px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md flex items-center gap-1.5 transition ${
+                    className={`px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 transition ${
                       isSubmittingCompany ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
                     }`}
                   >
@@ -8935,11 +9378,240 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {/* MODAL 3: ONE-CLICK QUICK RENEW / EXTEND LICENSE MODAL */}
+        {quickRenewCompany && (() => {
+          const lic = getCompanyLicenseDetails(quickRenewCompany);
+          const currentExpiryAd = lic.expiryAd;
+          const currentExpiryBs = lic.expiryBs;
+
+          // Quick previews for the 4 preset buttons
+          const preview1m = addDurationToAdDate(currentExpiryAd, '1m');
+          const preview3m = addDurationToAdDate(currentExpiryAd, '3m');
+          const preview6m = addDurationToAdDate(currentExpiryAd, '6m');
+          const preview1y = addDurationToAdDate(currentExpiryAd, '1y');
+
+          return (
+            <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+              <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-5 my-8">
+                {/* Header */}
+                <div className="flex items-center justify-between pb-3 border-b border-slate-700">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2.5 bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-xl">
+                      <RefreshCw className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-white flex items-center gap-2">
+                        <span>Renew / Extend Software License</span>
+                        <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded text-xs font-mono">
+                          {quickRenewCompany.company_code}
+                        </span>
+                      </h3>
+                      <p className="text-xs text-slate-400">
+                        Party: <strong className="text-white">{quickRenewCompany.name}</strong> &bull; Instant renewal &amp; validity update
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setQuickRenewCompany(null)}
+                    className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-700 transition cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Current Expiry & Status Card */}
+                <div className="bg-slate-900/70 border border-slate-700/70 rounded-xl p-4 space-y-2.5">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                    <span>Current Subscription Status</span>
+                    <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px]">
+                      Tier: {quickRenewCompany.subscription_plan || 'Enterprise'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Current Expiry (BS / AD):</span>
+                      <div className="font-mono text-white font-bold text-sm flex items-center gap-1.5 mt-0.5">
+                        <Clock className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>{currentExpiryBs} BS</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-mono pl-5 block">
+                        ({currentExpiryAd} AD)
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Status:</span>
+                      <div className="mt-0.5">
+                        {lic.isExpired ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                            <span>Expired ({Math.abs(lic.diffDays)} {Math.abs(lic.diffDays) === 1 ? 'Day' : 'Days'} Ago)</span>
+                          </span>
+                        ) : lic.isExpiringSoon ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                            <span>Expiring Soon ({lic.diffDays} Days Left)</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                            <span>Active ({lic.diffDays} Days Remaining)</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Instant 1-Click Extension Presets */}
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-200">1-Click Quick Extension Presets</span>
+                    <span className="text-[10px] text-slate-400">Click to preview and select extension</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    {[
+                      { id: '1m', label: '+1 Month', sub: '30 Days', preview: preview1m },
+                      { id: '3m', label: '+3 Months', sub: '90 Days', preview: preview3m },
+                      { id: '6m', label: '+6 Months', sub: '180 Days', preview: preview6m },
+                      { id: '1y', label: '+1 Year', sub: '365 Days', badge: 'Recommended', preview: preview1y },
+                    ].map((item) => {
+                      const isSelected = quickRenewDuration === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => {
+                            setQuickRenewDuration(item.id as any);
+                            setQuickRenewCustomAd(item.preview.adDate);
+                            setQuickRenewCustomBs(item.preview.bsDate);
+                          }}
+                          className={`p-3 rounded-xl border text-center transition cursor-pointer flex flex-col items-center relative ${
+                            isSelected
+                              ? 'bg-emerald-950/80 border-emerald-500 text-white shadow-md ring-1 ring-emerald-500'
+                              : 'bg-slate-900/60 hover:bg-slate-900 border-slate-700 text-slate-300'
+                          }`}
+                        >
+                          {item.badge && (
+                            <span className="absolute -top-2 px-1.5 py-0.2 bg-emerald-500 text-slate-950 rounded-full text-[8px] font-black uppercase tracking-wider">
+                              {item.badge}
+                            </span>
+                          )}
+                          <span className="text-xs font-bold">{item.label}</span>
+                          <span className="text-[10px] text-slate-400 font-mono mt-0.5">{item.sub}</span>
+                          <span className="text-[9px] text-emerald-400 font-mono mt-1 font-semibold">
+                            {item.preview.bsDate} BS
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Custom Date Option Toggle & Picker */}
+                <div className="space-y-3 bg-slate-900/40 p-4 rounded-xl border border-slate-700/60">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-300">Or Pick a Custom Expiry Date</span>
+                    <button
+                      type="button"
+                      onClick={() => setQuickRenewDuration('custom')}
+                      className={`text-xs px-2.5 py-1 rounded-lg border font-bold transition cursor-pointer ${
+                        quickRenewDuration === 'custom'
+                          ? 'bg-indigo-600 text-white border-indigo-500'
+                          : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      Custom Date Mode
+                    </button>
+                  </div>
+
+                  {quickRenewDuration === 'custom' && (
+                    <div className="pt-2 border-t border-slate-800">
+                      <DeveloperExpiryDatePicker
+                        bsDate={quickRenewCustomBs}
+                        adDate={quickRenewCustomAd}
+                        onChange={(bsDate, adDate) => {
+                          setQuickRenewCustomBs(bsDate);
+                          setQuickRenewCustomAd(adDate);
+                        }}
+                        label="New Extended License Expiry Date"
+                        idPrefix="quick-renew-custom"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Extension Preview Summary Box */}
+                <div className="p-3 bg-emerald-950/40 border border-emerald-800/40 rounded-xl flex items-center justify-between text-xs">
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block">New Effective Expiry Date:</span>
+                    <div className="font-mono text-emerald-200 font-bold flex items-center gap-2">
+                      <span>
+                        {quickRenewDuration === 'custom'
+                          ? quickRenewCustomBs || 'Pick Date'
+                          : quickRenewDuration === '1m'
+                          ? preview1m.bsDate
+                          : quickRenewDuration === '3m'
+                          ? preview3m.bsDate
+                          : quickRenewDuration === '6m'
+                          ? preview6m.bsDate
+                          : preview1y.bsDate} BS
+                      </span>
+                      <span className="text-emerald-400/70 text-[11px] font-normal">
+                        ({quickRenewDuration === 'custom'
+                          ? quickRenewCustomAd || 'Pick Date'
+                          : quickRenewDuration === '1m'
+                          ? preview1m.adDate
+                          : quickRenewDuration === '3m'
+                          ? preview3m.adDate
+                          : quickRenewDuration === '6m'
+                          ? preview6m.adDate
+                          : preview1y.adDate} AD)
+                      </span>
+                    </div>
+                  </div>
+                  <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded text-[10px] font-bold">
+                    Instant Activation
+                  </span>
+                </div>
+
+                {/* Modal Footer */}
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-700">
+                  <button
+                    type="button"
+                    onClick={() => setQuickRenewCompany(null)}
+                    className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-bold cursor-pointer transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleExecuteQuickRenew(
+                        quickRenewCompany,
+                        quickRenewDuration,
+                        quickRenewCustomBs,
+                        quickRenewCustomAd
+                      )
+                    }
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold cursor-pointer shadow-md flex items-center gap-1.5 transition"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Confirm &amp; Extend License</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     );
   }
 
-  // Transactions nested collapsible tree renderer for sidebar (Busy / Tally Style)
+  // Transactions nested collapsible tree renderer for sidebar (Standard ERP Tree)
   const renderTransactionsSidebarTree = (isMobile: boolean = false) => {
     if (activeFeatures.accounting_transactions === false) return null;
 
@@ -9440,20 +10112,20 @@ export default function App() {
                   {isOnline ? (
                     <div
                       className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-full font-bold text-[10px] shadow-2xs"
-                      title="All entries are automatically synchronized with Cloud Firestore"
+                      title="Online - Real-time cloud sync active with automatic offline failover"
                     >
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                       <Wifi className="w-3 h-3 text-emerald-600" />
-                      <span>Status: Online (Auto-Synced)</span>
+                      <span>Online</span>
                     </div>
                   ) : (
                     <div
                       className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-300 rounded-full font-bold text-[10px] shadow-2xs"
-                      title="Offline-first desktop architecture active. Entries saved locally."
+                      title="Offline Mode - Entries saved securely in local browser database (IndexedDB / localStorage)"
                     >
                       <span className="w-2 h-2 rounded-full bg-amber-500" />
                       <WifiOff className="w-3 h-3 text-amber-600" />
-                      <span>Status: Offline (Local Mode)</span>
+                      <span>Offline Mode</span>
                     </div>
                   )}
 
@@ -9477,14 +10149,35 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* PROMINENT PWA DESKTOP APP INSTALLATION BUTTON (EXACT USER REQUIREMENT) */}
+              <button
+                type="button"
+                onClick={handleDesktopAppInstall}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-800 bg-linear-to-r from-emerald-50 via-teal-50 to-emerald-100 hover:from-emerald-100 hover:to-teal-200 border border-emerald-300 hover:border-emerald-400 rounded-xl transition cursor-pointer shadow-xs active:scale-95"
+                title="Download Desktop App (Offline) - Install as standalone Windows/Mac app"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-700" />
+                <span className="hidden sm:inline">Download Desktop App (Offline)</span>
+                <span className="sm:hidden">Desktop App</span>
+                {isStandaloneApp ? (
+                  <span className="px-1.5 py-0.2 text-[9px] font-bold bg-emerald-600 text-white rounded-md">
+                    Active
+                  </span>
+                ) : (
+                  <span className="px-1.5 py-0.2 text-[9px] font-bold bg-emerald-200 text-emerald-900 rounded-md">
+                    Offline
+                  </span>
+                )}
+              </button>
+
               {activeFeatures.import_cheques && (
                 <button
                   onClick={() => setIsImportModalOpen(true)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-xl transition cursor-pointer shadow-2xs"
-                  title="Import Cheques from External Software"
+                  title="Import Cheques from Spreadsheets"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5 text-purple-600" />
-                  <span className="hidden sm:inline">Import External Cheques</span>
+                  <span className="hidden sm:inline">Import Cheques</span>
                   <span className="sm:hidden">Import</span>
                 </button>
               )}
@@ -9908,7 +10601,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Busy / Tally Style Transactions & Gateway of Vouchers */}
+                  {/* Standard ERP Transactions & Gateway of Vouchers */}
                   {activeFeatures.accounting_transactions !== false && (
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 space-y-4">
                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
@@ -9920,7 +10613,7 @@ export default function App() {
                             <div className="flex items-center gap-2">
                               <h3 className="text-base font-bold text-slate-900">Transactions & Voucher Management</h3>
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                Busy / Tally Architecture
+                                Standard ERP Architecture
                               </span>
                             </div>
                             <p className="text-xs text-slate-500 mt-0.5">
@@ -14089,7 +14782,7 @@ export default function App() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                          {busySalesComputed.computedItems.map((item, idx) => (
+                          {salesVoucherComputed.computedItems.map((item, idx) => (
                             <tr key={item.id}>
                               <td className="p-2 text-center font-mono border-r border-slate-200">{idx + 1}</td>
                               <td className="p-2 border-r border-slate-200 font-medium">{item.item_description || `Trading Line #${idx + 1}`}</td>
@@ -14106,20 +14799,20 @@ export default function App() {
                       <div className="flex justify-between items-start pt-2">
                         <div className="max-w-xs text-[11px] text-slate-600 space-y-1">
                           <p><strong>Bank Details:</strong> {invoiceDesignSettings.bankDetails}</p>
-                          <p className="italic"><strong>In Words:</strong> {numberToWords(busySalesComputed.netAmount)} Rupees Only</p>
+                          <p className="italic"><strong>In Words:</strong> {numberToWords(salesVoucherComputed.netAmount)} Rupees Only</p>
                         </div>
                         <div className="w-60 space-y-1 font-mono text-xs text-right">
-                          <div className="flex justify-between"><span className="text-slate-500">Gross Total:</span><span>Rs. {formatNPR(busySalesComputed.grossSubtotal)}</span></div>
-                          {busySalesComputed.tradeDiscount > 0 && (
-                            <div className="flex justify-between text-amber-700"><span>Less Discount:</span><span>- Rs. {formatNPR(busySalesComputed.tradeDiscount)}</span></div>
+                          <div className="flex justify-between"><span className="text-slate-500">Gross Total:</span><span>Rs. {formatNPR(salesVoucherComputed.grossSubtotal)}</span></div>
+                          {salesVoucherComputed.tradeDiscount > 0 && (
+                            <div className="flex justify-between text-amber-700"><span>Less Discount:</span><span>- Rs. {formatNPR(salesVoucherComputed.tradeDiscount)}</span></div>
                           )}
-                          <div className="flex justify-between"><span className="text-slate-500">VAT (13%):</span><span>+ Rs. {formatNPR(busySalesComputed.vatAmount)}</span></div>
-                          {busySalesComputed.freightCharges > 0 && (
-                            <div className="flex justify-between"><span className="text-slate-500">Freight:</span><span>+ Rs. {formatNPR(busySalesComputed.freightCharges)}</span></div>
+                          <div className="flex justify-between"><span className="text-slate-500">VAT (13%):</span><span>+ Rs. {formatNPR(salesVoucherComputed.vatAmount)}</span></div>
+                          {salesVoucherComputed.freightCharges > 0 && (
+                            <div className="flex justify-between"><span className="text-slate-500">Freight:</span><span>+ Rs. {formatNPR(salesVoucherComputed.freightCharges)}</span></div>
                           )}
                           <div className="flex justify-between pt-1 border-t-2 font-bold text-sm text-slate-900" style={{ borderColor: invoiceDesignSettings.themeColor }}>
                             <span>Net Payable:</span>
-                            <span>Rs. {formatNPR(busySalesComputed.netAmount)}</span>
+                            <span>Rs. {formatNPR(salesVoucherComputed.netAmount)}</span>
                           </div>
                         </div>
                       </div>
@@ -15463,7 +16156,7 @@ export default function App() {
                   return;
                 }
 
-                const newSundry: BusySalesBillSundry = {
+                const newSundry: StandardSalesBillSundry = {
                   id: `sundry-${Date.now()}`,
                   name,
                   rate_pct: rate,
@@ -16227,7 +16920,7 @@ export default function App() {
         </div>
       )}
 
-      {/* 23. Busy/Tally Style Voucher Action Modal (Add, Modify, List) */}
+      {/* 23. Standard ERP Voucher Action Modal (Add, Modify, List) */}
       {activeVoucherModal.isOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           {activeVoucherModal.action === 'list' ? (
@@ -16410,7 +17103,7 @@ export default function App() {
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => setBusySalesModal({ type: 'print_preview', data: v })}
+                                    onClick={() => setSalesAuxModal({ type: 'print_preview', data: v })}
                                     className="p-1 text-slate-500 hover:text-indigo-600 rounded transition cursor-pointer"
                                     title="Print Tax Invoice"
                                   >
@@ -16491,18 +17184,18 @@ export default function App() {
             </div>
           ) : activeVoucherModal.type === 'sales' ? (
             /* ========================================================================= */
-            /* EXACT BUSY SOFTWARE SALES VOUCHER REPLICA SCREEN                          */
+            /* COMMERCIAL SALES TAX VOUCHER ENTRY SCREEN                                */
             /* ========================================================================= */
             <div
               tabIndex={0}
-              onKeyDown={handleBusySalesKeyDown}
+              onKeyDown={handleSalesVoucherKeyDown}
               className="bg-slate-100 text-slate-800 rounded-xl shadow-2xl border border-slate-300 w-full max-w-6xl max-h-[96vh] flex flex-col overflow-hidden my-4 focus:outline-none"
             >
-              {/* 1. BUSY ERP TITLE / SYSTEM BAR */}
+              {/* 1. ERP SALES VOUCHER TITLE / SYSTEM BAR */}
               <div className="bg-slate-900 text-white px-4 py-2.5 flex items-center justify-between border-b border-slate-800 shrink-0">
                 <div className="flex items-center gap-2.5">
                   <div className="w-6 h-6 rounded bg-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-xs">
-                    B
+                    <FileText className="w-3.5 h-3.5" />
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-sm tracking-wide">Sales Voucher</span>
@@ -16684,7 +17377,7 @@ export default function App() {
                       <input
                         type="text"
                         required
-                        list="busy-party-list"
+                        list="erp-party-list"
                         value={salesVoucherData.party_name}
                         onChange={(e) => setSalesVoucherData({ ...salesVoucherData, party_name: e.target.value })}
                         onKeyDown={(e) => {
@@ -16696,7 +17389,7 @@ export default function App() {
                         placeholder="Search or select Party Name / Sundry Debtor... (Press F3 / Alt+C to Add New)"
                         className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
-                      <datalist id="busy-party-list">
+                      <datalist id="erp-party-list">
                         {parties.map((p) => (
                           <option key={p.id} value={p.name} />
                         ))}
@@ -16827,7 +17520,7 @@ export default function App() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200">
-                        {busySalesComputed.computedItems.map((item, idx) => {
+                        {salesVoucherComputed.computedItems.map((item, idx) => {
                           const matchingMaster = itemMasters.find(
                             (m) => m.name.toLowerCase().trim() === item.item_description.toLowerCase().trim()
                           );
@@ -17160,27 +17853,27 @@ export default function App() {
                     <div className="flex flex-wrap items-center gap-3.5 text-xs font-mono">
                       <div>
                         <span className="text-slate-500">Total Qty: </span>
-                        <strong className="text-slate-900 font-bold">{busySalesComputed.totalQty} Units</strong>
+                        <strong className="text-slate-900 font-bold">{salesVoucherComputed.totalQty} Units</strong>
                       </div>
                       <div>
                         <span className="text-slate-500">Case Qty: </span>
-                        <strong className="text-indigo-700 font-bold">{busySalesComputed.totalCaseQty} Case</strong>
+                        <strong className="text-indigo-700 font-bold">{salesVoucherComputed.totalCaseQty} Case</strong>
                       </div>
                       <div>
                         <span className="text-slate-500">Pcs Qty: </span>
-                        <strong className="text-slate-900 font-bold">{busySalesComputed.totalPcsQty} Pcs</strong>
+                        <strong className="text-slate-900 font-bold">{salesVoucherComputed.totalPcsQty} Pcs</strong>
                       </div>
                       <div>
                         <span className="text-slate-500">Alt. Qty: </span>
-                        <strong className="text-purple-700 font-bold">{busySalesComputed.altQty} Cases / Boxes</strong>
+                        <strong className="text-purple-700 font-bold">{salesVoucherComputed.altQty} Cases / Boxes</strong>
                       </div>
                       <div>
                         <span className="text-slate-500">Lines: </span>
-                        <strong className="text-slate-900 font-bold">{busySalesComputed.validItemsCount} Lines</strong>
+                        <strong className="text-slate-900 font-bold">{salesVoucherComputed.validItemsCount} Lines</strong>
                       </div>
                       <div className="bg-slate-200 px-2.5 py-1 rounded">
                         <span className="text-slate-600 font-sans">Subtotal: </span>
-                        <strong className="text-slate-900 font-bold">Rs. {formatNPR(busySalesComputed.grossSubtotal)}</strong>
+                        <strong className="text-slate-900 font-bold">Rs. {formatNPR(salesVoucherComputed.grossSubtotal)}</strong>
                       </div>
                     </div>
                   </div>
@@ -17233,7 +17926,7 @@ export default function App() {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
-                            {busySalesComputed.computedSundries.map((bs, sIdx) => (
+                            {salesVoucherComputed.computedSundries.map((bs, sIdx) => (
                               <tr key={bs.id} className="hover:bg-slate-50/70">
                                 <td className="p-2 text-center font-mono font-bold text-slate-400">{sIdx + 1}</td>
                                 <td className="p-1">
@@ -17337,66 +18030,66 @@ export default function App() {
                     <div className="space-y-1.5 text-xs font-mono">
                       <div className="flex justify-between items-center text-slate-600">
                         <span>Items Gross Subtotal:</span>
-                        <span className="font-bold text-slate-900">Rs. {formatNPR(busySalesComputed.grossSubtotal)}</span>
+                        <span className="font-bold text-slate-900">Rs. {formatNPR(salesVoucherComputed.grossSubtotal)}</span>
                       </div>
-                      {busySalesComputed.tradeDiscount > 0 && (
+                      {salesVoucherComputed.tradeDiscount > 0 && (
                         <div className="flex justify-between items-center text-amber-700">
                           <span>Less: Trade Discount:</span>
-                          <span className="font-bold">- Rs. {formatNPR(busySalesComputed.tradeDiscount)}</span>
+                          <span className="font-bold">- Rs. {formatNPR(salesVoucherComputed.tradeDiscount)}</span>
                         </div>
                       )}
                       <div className="flex justify-between items-center text-slate-700">
                         <span>Add: VAT (13%):</span>
-                        <span className="font-bold text-slate-900">+ Rs. {formatNPR(busySalesComputed.vatAmount)}</span>
+                        <span className="font-bold text-slate-900">+ Rs. {formatNPR(salesVoucherComputed.vatAmount)}</span>
                       </div>
-                      {busySalesComputed.freightCharges > 0 && (
+                      {salesVoucherComputed.freightCharges > 0 && (
                         <div className="flex justify-between items-center text-slate-700">
                           <span>Add: Freight / Delivery:</span>
-                          <span className="font-bold text-slate-900">+ Rs. {formatNPR(busySalesComputed.freightCharges)}</span>
+                          <span className="font-bold text-slate-900">+ Rs. {formatNPR(salesVoucherComputed.freightCharges)}</span>
                         </div>
                       )}
                       <div className="flex justify-between items-center text-slate-500 text-[11px]">
                         <span>Round Off Adjustment:</span>
-                        <span>{busySalesComputed.roundOffVal >= 0 ? '+' : ''}{busySalesComputed.roundOffVal.toFixed(2)}</span>
+                        <span>{salesVoucherComputed.roundOffVal >= 0 ? '+' : ''}{salesVoucherComputed.roundOffVal.toFixed(2)}</span>
                       </div>
                     </div>
 
-                    {/* Prominent Busy Net Amount Box */}
+                    {/* Prominent Net Amount Box */}
                     <div className="p-3 bg-slate-900 text-white rounded-lg shadow-inner space-y-1 mt-2">
                       <div className="text-[11px] text-slate-300 font-semibold uppercase tracking-wider">
                         Net Amount (Total Payable)
                       </div>
                       <div className="text-xl sm:text-2xl font-mono font-bold text-emerald-400">
-                        Rs. {formatNPR(busySalesComputed.netAmount)}
+                        Rs. {formatNPR(salesVoucherComputed.netAmount)}
                       </div>
                       <div className="text-[10px] text-slate-300 italic pt-1 border-t border-slate-800 leading-tight">
-                        Words: {numberToWords(busySalesComputed.netAmount)} Rupees Only
+                        Words: {numberToWords(salesVoucherComputed.netAmount)} Rupees Only
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* 3. BOTTOM ACTION BUTTON BAR (EXACT BUSY STYLE) */}
+              {/* 3. BOTTOM ACTION BUTTON BAR (STANDARD ERP HOTKEYS) */}
               <div className="bg-slate-200 border-t border-slate-300 p-2.5 px-4 flex flex-wrap items-center justify-between gap-2 shrink-0">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <button
                     type="button"
-                    onClick={() => setBusySalesModal({ type: 'vch_detail' })}
+                    onClick={() => setSalesAuxModal({ type: 'vch_detail' })}
                     className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded text-xs font-semibold shadow-2xs transition cursor-pointer"
                   >
                     Vch. Detail [Alt+D]
                   </button>
                   <button
                     type="button"
-                    onClick={() => setBusySalesModal({ type: 'master_detail' })}
+                    onClick={() => setSalesAuxModal({ type: 'master_detail' })}
                     className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded text-xs font-semibold shadow-2xs transition cursor-pointer"
                   >
                     Master Detail [Alt+M]
                   </button>
                   <button
                     type="button"
-                    onClick={() => setBusySalesModal({ type: 'party_dashboard' })}
+                    onClick={() => setSalesAuxModal({ type: 'party_dashboard' })}
                     className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded text-xs font-semibold shadow-2xs transition cursor-pointer"
                   >
                     Party Dash Board [Alt+B]
@@ -17417,14 +18110,14 @@ export default function App() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setBusySalesModal({ type: 'update_discount' })}
+                    onClick={() => setSalesAuxModal({ type: 'update_discount' })}
                     className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded text-xs font-semibold shadow-2xs transition cursor-pointer"
                   >
                     Update Discount [Alt+U]
                   </button>
                   <button
                     type="button"
-                    onClick={() => setBusySalesModal({ type: 'check_scheme' })}
+                    onClick={() => setSalesAuxModal({ type: 'check_scheme' })}
                     className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded text-xs font-semibold shadow-2xs transition cursor-pointer"
                   >
                     Check Scheme [Alt+S]
@@ -17441,8 +18134,8 @@ export default function App() {
                   </button>
                   <button
                     type="button"
-                    id="btn-save-busy-sales-voucher"
-                    onClick={handleSaveBusySalesVoucher}
+                    id="btn-save-sales-voucher"
+                    onClick={handleSaveSalesVoucher}
                     className="px-6 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer"
                   >
                     <Check className="w-4 h-4" />
@@ -17472,7 +18165,7 @@ export default function App() {
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Busy/Tally keyboard entry: Press <kbd className="px-1 py-0.5 bg-slate-100 rounded text-[10px] font-mono border">Enter</kbd> to traverse fields. Press <kbd className="px-1 py-0.5 bg-slate-100 rounded text-[10px] font-mono border">Esc</kbd> to exit.
+                      Quick keyboard entry: Press <kbd className="px-1 py-0.5 bg-slate-100 rounded text-[10px] font-mono border">Enter</kbd> to traverse fields. Press <kbd className="px-1 py-0.5 bg-slate-100 rounded text-[10px] font-mono border">Esc</kbd> to exit.
                     </p>
                   </div>
                 </div>
@@ -17713,11 +18406,11 @@ export default function App() {
       )}
 
       {/* ========================================================================= */}
-      {/* 24. BUSY SALES AUXILIARY DIALOGS & PRINT PREVIEW MODALS                   */}
+      {/* 24. SALES AUXILIARY DIALOGS & PRINT PREVIEW MODALS                   */}
       {/* ========================================================================= */}
 
       {/* 24A. VOUCHER DETAIL (TRANSPORT & DELIVERY) MODAL [Alt+D] */}
-      {busySalesModal.type === 'vch_detail' && (
+      {salesAuxModal.type === 'vch_detail' && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-100">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
@@ -17732,7 +18425,7 @@ export default function App() {
               </div>
               <button
                 type="button"
-                onClick={() => setBusySalesModal({ type: null })}
+                onClick={() => setSalesAuxModal({ type: null })}
                 className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -17823,7 +18516,7 @@ export default function App() {
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 text-xs font-bold">
               <button
                 type="button"
-                onClick={() => setBusySalesModal({ type: null })}
+                onClick={() => setSalesAuxModal({ type: null })}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition cursor-pointer"
               >
                 Close [Esc]
@@ -17832,7 +18525,7 @@ export default function App() {
                 type="button"
                 onClick={() => {
                   setSalesVoucherData((prev) => ({ ...prev, showTransport: true }));
-                  setBusySalesModal({ type: null });
+                  setSalesAuxModal({ type: null });
                   showToast('Transport details saved to voucher.', 'success');
                 }}
                 className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition cursor-pointer shadow-xs"
@@ -17845,7 +18538,7 @@ export default function App() {
       )}
 
       {/* 24B. MASTER DETAIL MODAL [Alt+M] */}
-      {busySalesModal.type === 'master_detail' && (
+      {salesAuxModal.type === 'master_detail' && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-100">
             {(() => {
@@ -17865,7 +18558,7 @@ export default function App() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setBusySalesModal({ type: null })}
+                      onClick={() => setSalesAuxModal({ type: null })}
                       className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
                     >
                       <X className="w-5 h-5" />
@@ -17915,7 +18608,7 @@ export default function App() {
                   <div className="flex justify-end pt-2 text-xs font-bold">
                     <button
                       type="button"
-                      onClick={() => setBusySalesModal({ type: null })}
+                      onClick={() => setSalesAuxModal({ type: null })}
                       className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition cursor-pointer shadow-xs"
                     >
                       Close [Esc]
@@ -17929,7 +18622,7 @@ export default function App() {
       )}
 
       {/* 24C. PARTY DASHBOARD MODAL [Alt+B] */}
-      {busySalesModal.type === 'party_dashboard' && (
+      {salesAuxModal.type === 'party_dashboard' && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 border border-slate-100 max-h-[90vh] overflow-y-auto">
             {(() => {
@@ -17952,7 +18645,7 @@ export default function App() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setBusySalesModal({ type: null })}
+                      onClick={() => setSalesAuxModal({ type: null })}
                       className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
                     >
                       <X className="w-5 h-5" />
@@ -18003,7 +18696,7 @@ export default function App() {
                   <div className="flex justify-end pt-2 text-xs font-bold">
                     <button
                       type="button"
-                      onClick={() => setBusySalesModal({ type: null })}
+                      onClick={() => setSalesAuxModal({ type: null })}
                       className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition cursor-pointer shadow-xs"
                     >
                       Close Dashboard [Esc]
@@ -18017,7 +18710,7 @@ export default function App() {
       )}
 
       {/* 24D. UPDATE DISCOUNT MODAL [Alt+U] */}
-      {busySalesModal.type === 'update_discount' && (
+      {salesAuxModal.type === 'update_discount' && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-100">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
@@ -18032,7 +18725,7 @@ export default function App() {
               </div>
               <button
                 type="button"
-                onClick={() => setBusySalesModal({ type: null })}
+                onClick={() => setSalesAuxModal({ type: null })}
                 className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -18086,7 +18779,7 @@ export default function App() {
                           ...prev,
                           items: prev.items.map((it) => ({ ...it, disc_pct: pct })),
                         }));
-                        setBusySalesModal({ type: null });
+                        setSalesAuxModal({ type: null });
                         showToast(`Applied ${pct}% discount to all item lines.`, 'success');
                       }}
                       className="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold transition cursor-pointer"
@@ -18101,7 +18794,7 @@ export default function App() {
             <div className="flex justify-end pt-2 text-xs font-bold">
               <button
                 type="button"
-                onClick={() => setBusySalesModal({ type: null })}
+                onClick={() => setSalesAuxModal({ type: null })}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition cursor-pointer"
               >
                 Close [Esc]
@@ -18112,7 +18805,7 @@ export default function App() {
       )}
 
       {/* 24E. CHECK SCHEME MODAL [Alt+S] */}
-      {busySalesModal.type === 'check_scheme' && (
+      {salesAuxModal.type === 'check_scheme' && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-100">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
@@ -18127,7 +18820,7 @@ export default function App() {
               </div>
               <button
                 type="button"
-                onClick={() => setBusySalesModal({ type: null })}
+                onClick={() => setSalesAuxModal({ type: null })}
                 className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -18149,7 +18842,7 @@ export default function App() {
                           : bs
                       ),
                     }));
-                    setBusySalesModal({ type: null });
+                    setSalesAuxModal({ type: null });
                     showToast('Scheme applied: 3% Trade Discount updated.', 'success');
                   },
                 },
@@ -18166,7 +18859,7 @@ export default function App() {
                           : bs
                       ),
                     }));
-                    setBusySalesModal({ type: null });
+                    setSalesAuxModal({ type: null });
                     showToast('Scheme applied: Freight charges waived.', 'success');
                   },
                 },
@@ -18182,7 +18875,7 @@ export default function App() {
                       ...prev,
                       items: prev.items.map((it) => ({ ...it, disc_pct: 5 })),
                     }));
-                    setBusySalesModal({ type: null });
+                    setSalesAuxModal({ type: null });
                     showToast('Scheme applied: 5% line discount applied to all items.', 'success');
                   },
                 },
@@ -18206,7 +18899,7 @@ export default function App() {
             <div className="flex justify-end pt-2 text-xs font-bold">
               <button
                 type="button"
-                onClick={() => setBusySalesModal({ type: null })}
+                onClick={() => setSalesAuxModal({ type: null })}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition cursor-pointer"
               >
                 Close [Esc]
@@ -18217,7 +18910,7 @@ export default function App() {
       )}
 
       {/* 24F. SAVE SUCCESS NOTIFICATION MODAL */}
-      {busySalesModal.type === 'save_success' && (
+      {salesAuxModal.type === 'save_success' && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-100 text-center">
             <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
@@ -18227,29 +18920,29 @@ export default function App() {
             <div>
               <h3 className="text-lg font-bold text-slate-900">Voucher Successfully Saved!</h3>
               <p className="text-xs text-slate-500 mt-1">
-                Sales Tax Invoice <span className="font-mono font-bold text-slate-800">#{busySalesModal.data?.voucher_number}</span> posted to the general ledger.
+                Sales Tax Invoice <span className="font-mono font-bold text-slate-800">#{salesAuxModal.data?.voucher_number}</span> posted to the general ledger.
               </p>
             </div>
 
             <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs font-mono space-y-1.5 text-left">
               <div className="flex justify-between">
                 <span className="text-slate-500">Party Account:</span>
-                <span className="font-bold text-slate-900">{busySalesModal.data?.party_name}</span>
+                <span className="font-bold text-slate-900">{salesAuxModal.data?.party_name}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Net Amount:</span>
-                <span className="font-bold text-emerald-700 text-sm">Rs. {formatNPR(busySalesModal.data?.amount)}</span>
+                <span className="font-bold text-emerald-700 text-sm">Rs. {formatNPR(salesAuxModal.data?.amount)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Date (BS / AD):</span>
-                <span>{busySalesModal.data?.date_bs} BS ({busySalesModal.data?.date_ad} AD)</span>
+                <span>{salesAuxModal.data?.date_bs} BS ({salesAuxModal.data?.date_ad} AD)</span>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-xs font-bold pt-2">
               <button
                 type="button"
-                onClick={() => setBusySalesModal({ type: 'print_preview', data: busySalesModal.data })}
+                onClick={() => setSalesAuxModal({ type: 'print_preview', data: salesAuxModal.data })}
                 className="py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
@@ -18258,7 +18951,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => {
-                  setBusySalesModal({ type: null });
+                  setSalesAuxModal({ type: null });
                   openVoucherAction('sales', 'add');
                 }}
                 className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl transition cursor-pointer"
@@ -18270,7 +18963,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => {
-                setBusySalesModal({ type: null });
+                setSalesAuxModal({ type: null });
                 openVoucherAction('sales', 'list');
               }}
               className="text-xs text-slate-400 hover:text-slate-600 font-semibold cursor-pointer block mx-auto"
@@ -18282,7 +18975,7 @@ export default function App() {
       )}
 
       {/* 24G. IRD NEPAL COMPLIANT TAX INVOICE PRINT PREVIEW MODAL */}
-      {busySalesModal.type === 'print_preview' && (
+      {salesAuxModal.type === 'print_preview' && (
         <div className="fixed inset-0 z-50 bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-xl max-w-4xl w-full p-6 shadow-2xl space-y-4 border border-slate-300 my-8">
             {/* Top Toolbar */}
@@ -18349,7 +19042,7 @@ export default function App() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setBusySalesModal({ type: null })}
+                  onClick={() => setSalesAuxModal({ type: null })}
                   className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
                 >
                   <X className="w-5 h-5" />
@@ -18396,16 +19089,16 @@ export default function App() {
                     <div>
                       <span className="text-slate-500">Invoice No: </span>
                       <strong className="font-mono font-bold text-slate-900">
-                        {busySalesModal.data?.voucher_number || salesVoucherData.voucher_number || '1'}
+                        {salesAuxModal.data?.voucher_number || salesVoucherData.voucher_number || '1'}
                       </strong>
                     </div>
                     <div>
                       <span className="text-slate-500">Date (BS): </span>
-                      <strong className="font-mono">{busySalesModal.data?.date_bs || salesVoucherData.date_bs} BS</strong>
+                      <strong className="font-mono">{salesAuxModal.data?.date_bs || salesVoucherData.date_bs} BS</strong>
                     </div>
                     <div>
                       <span className="text-slate-500">Date (AD): </span>
-                      <span className="font-mono">{busySalesModal.data?.date_ad || salesVoucherData.date_ad} AD</span>
+                      <span className="font-mono">{salesAuxModal.data?.date_ad || salesVoucherData.date_ad} AD</span>
                     </div>
                   </div>
                 </div>
@@ -18416,7 +19109,7 @@ export default function App() {
                 <div className="space-y-0.5">
                   <span className="text-[10px] uppercase font-bold text-slate-400 block">Buyer / Consignee:</span>
                   <strong className="text-slate-900 block font-bold text-xs">
-                    {busySalesModal.data?.party_name || salesVoucherData.party_name || 'Himalayan Traders Pvt. Ltd.'}
+                    {salesAuxModal.data?.party_name || salesVoucherData.party_name || 'Himalayan Traders Pvt. Ltd.'}
                   </strong>
                   <span className="text-slate-600 block text-[11px]">Kathmandu, Nepal</span>
                   <span className="text-slate-600 block font-mono text-[11px]">Buyer PAN: 302918291</span>
@@ -18425,16 +19118,16 @@ export default function App() {
                 <div className="space-y-0.5 text-right font-mono text-xs">
                   <div>
                     <span className="text-slate-500">Sale Type: </span>
-                    <strong>{busySalesModal.data?.sale_type || salesVoucherData.sale_type || 'VAT 13%'}</strong>
+                    <strong>{salesAuxModal.data?.sale_type || salesVoucherData.sale_type || 'VAT 13%'}</strong>
                   </div>
                   <div>
                     <span className="text-slate-500">Mat. Centre: </span>
-                    <span>{busySalesModal.data?.mat_centre || salesVoucherData.mat_centre || 'Main Store'}</span>
+                    <span>{salesAuxModal.data?.mat_centre || salesVoucherData.mat_centre || 'Main Store'}</span>
                   </div>
                   <div>
                     <span className="text-slate-500">Vehicle No: </span>
                     <span className="font-mono font-bold">
-                      {busySalesModal.data?.transport_info?.vehicle_no || salesVoucherData.vehicle_no || '—'}
+                      {salesAuxModal.data?.transport_info?.vehicle_no || salesVoucherData.vehicle_no || '—'}
                     </span>
                   </div>
                 </div>
@@ -18453,7 +19146,7 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {busySalesComputed.computedItems.map((item, idx) => (
+                  {salesVoucherComputed.computedItems.map((item, idx) => (
                     <tr key={item.id}>
                       <td className="p-2 text-center font-mono border-r border-slate-300">{idx + 1}</td>
                       <td className="p-2 border-r border-slate-300 font-medium">
@@ -18481,29 +19174,29 @@ export default function App() {
                     </p>
                   )}
                   <p className="italic">
-                    <strong>In Words:</strong> {numberToWords(busySalesComputed.netAmount)} Rupees Only
+                    <strong>In Words:</strong> {numberToWords(salesVoucherComputed.netAmount)} Rupees Only
                   </p>
                 </div>
 
                 <div className="w-64 space-y-1 text-xs font-mono text-right">
                   <div className="flex justify-between">
                     <span className="text-slate-600">Subtotal:</span>
-                    <span className="font-bold">Rs. {formatNPR(busySalesComputed.grossSubtotal)}</span>
+                    <span className="font-bold">Rs. {formatNPR(salesVoucherComputed.grossSubtotal)}</span>
                   </div>
-                  {busySalesComputed.tradeDiscount > 0 && (
+                  {salesVoucherComputed.tradeDiscount > 0 && (
                     <div className="flex justify-between text-amber-700">
                       <span>Less: Discount:</span>
-                      <span>- Rs. {formatNPR(busySalesComputed.tradeDiscount)}</span>
+                      <span>- Rs. {formatNPR(salesVoucherComputed.tradeDiscount)}</span>
                     </div>
                   )}
                   <div className="flex justify-between">
                     <span className="text-slate-600">VAT (13%):</span>
-                    <span>+ Rs. {formatNPR(busySalesComputed.vatAmount)}</span>
+                    <span>+ Rs. {formatNPR(salesVoucherComputed.vatAmount)}</span>
                   </div>
-                  {busySalesComputed.freightCharges > 0 && (
+                  {salesVoucherComputed.freightCharges > 0 && (
                     <div className="flex justify-between">
                       <span className="text-slate-600">Freight:</span>
-                      <span>+ Rs. {formatNPR(busySalesComputed.freightCharges)}</span>
+                      <span>+ Rs. {formatNPR(salesVoucherComputed.freightCharges)}</span>
                     </div>
                   )}
                   <div
@@ -18511,7 +19204,7 @@ export default function App() {
                     style={{ borderColor: invoiceDesignSettings.themeColor }}
                   >
                     <span>Grand Total:</span>
-                    <span>Rs. {formatNPR(busySalesComputed.netAmount)}</span>
+                    <span>Rs. {formatNPR(salesVoucherComputed.netAmount)}</span>
                   </div>
                 </div>
               </div>
@@ -18532,6 +19225,151 @@ export default function App() {
                 <div className="border-t border-slate-300 pt-1">Checked By</div>
                 <div className="border-t border-slate-300 pt-1">Receiver's Signature</div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 25. PURE PWA DESKTOP APP INSTALLATION & OFFLINE CAPABILITIES MODAL */}
+      {showPWAInstallGuide && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-hidden">
+          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-slate-100">
+            {/* Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-800 bg-slate-900/90 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-linear-to-br from-emerald-500 to-teal-700 text-white flex items-center justify-center shadow-md">
+                  <Laptop className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <span>Desktop App (Pure PWA &amp; Offline ERP)</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      Standalone
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Simple Accounting &amp; Cheque Management ERP
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPWAInstallGuide(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="p-5 overflow-y-auto space-y-4 max-h-[75vh] text-xs">
+              {/* Standalone Status Badge */}
+              <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs font-bold text-white flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${isStandaloneApp ? 'bg-emerald-400' : 'bg-blue-400 animate-pulse'}`} />
+                    <span>
+                      {isStandaloneApp
+                        ? 'Running as Standalone Desktop Application'
+                        : 'Web Browser Mode (Installable as Native Desktop App)'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Official Domain: <span className="font-mono text-emerald-400">https://simpleaccountingcheque.vercel.app</span>
+                  </p>
+                </div>
+
+                {deferredInstallPrompt && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await deferredInstallPrompt.prompt();
+                        const outcome = await deferredInstallPrompt.userChoice;
+                        if (outcome.outcome === 'accepted') {
+                          setIsStandaloneApp(true);
+                          setDeferredInstallPrompt(null);
+                          setShowPWAInstallGuide(false);
+                          showToast('Desktop app installed successfully!', 'success');
+                        }
+                      } catch {}
+                    }}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer shrink-0"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>1-Click Install Now</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Windows & Mac Installation Instructions */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700 space-y-2">
+                  <div className="font-bold text-sm text-emerald-400 flex items-center gap-2">
+                    <Laptop className="w-4 h-4" />
+                    <span>Windows / Chrome / Edge</span>
+                  </div>
+                  <ol className="list-decimal list-inside space-y-1.5 text-slate-300 text-[11px] leading-relaxed">
+                    <li>Look at the right side of your browser URL bar for the <strong>Install (⊕ or ⬇)</strong> icon.</li>
+                    <li>Or click the <strong>3 dots (⋮)</strong> menu in Chrome/Edge &rarr; select <strong>Install Simple Accounting &amp; Cheque Management ERP</strong>.</li>
+                    <li>Click <strong>Install</strong>. A desktop shortcut is immediately created on your Windows Desktop and Start Menu.</li>
+                  </ol>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700 space-y-2">
+                  <div className="font-bold text-sm text-cyan-400 flex items-center gap-2">
+                    <Globe className="w-4 h-4" />
+                    <span>macOS / Safari / Chrome</span>
+                  </div>
+                  <ol className="list-decimal list-inside space-y-1.5 text-slate-300 text-[11px] leading-relaxed">
+                    <li><strong>macOS Sonoma+ (Safari):</strong> Click <strong>File &rarr; Add to Dock...</strong> or the Share icon &rarr; <strong>Add to Dock</strong>.</li>
+                    <li><strong>Chrome / Edge on Mac:</strong> Click the Install icon in the address bar &rarr; <strong>Install</strong>.</li>
+                    <li>The app runs in a dedicated standalone window with its own icon in your macOS Dock.</li>
+                  </ol>
+                </div>
+              </div>
+
+              {/* Offline Capabilities & Data Persistence */}
+              <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700 space-y-3">
+                <h4 className="font-bold text-sm text-white flex items-center gap-2">
+                  <HardDrive className="w-4 h-4 text-emerald-400" />
+                  <span>Full Offline Persistence &amp; Automatic Cloud Synchronization</span>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-[11px]">
+                  <div className="p-3 bg-slate-900/80 rounded-lg border border-slate-700/80">
+                    <span className="text-emerald-400 font-bold block mb-1">All Accounting Vouchers</span>
+                    <p className="text-slate-400">
+                      Sales [F8], Purchase [F9], Payment [F5], Receipt [F6], Journal [F7], Contra [F4], and Debit/Credit Notes function with zero latency offline.
+                    </p>
+                  </div>
+                  <div className="p-3 bg-slate-900/80 rounded-lg border border-slate-700/80">
+                    <span className="text-blue-400 font-bold block mb-1">Cheque Registers</span>
+                    <p className="text-slate-400">
+                      Issue, clear, bounce, and manage partial cheque payments without internet. Saved in local IndexedDB &amp; localStorage.
+                    </p>
+                  </div>
+                  <div className="p-3 bg-slate-900/80 rounded-lg border border-slate-700/80">
+                    <span className="text-purple-400 font-bold block mb-1">Automatic Reconnect Sync</span>
+                    <p className="text-slate-400">
+                      When your network reconnects, the background sync worker automatically pushes all local changes to the cloud database.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-slate-900 border-t border-slate-800 flex items-center justify-between shrink-0">
+              <span className="text-[11px] text-slate-400">
+                Official ERP Application &bull; 100% Offline Capable
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowPWAInstallGuide(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
