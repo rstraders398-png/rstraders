@@ -211,10 +211,14 @@ export interface ItemMaster {
   unit: string;
   alt_unit: string;
   conversion_factor: number;
+  purchase_price?: number;
   price: number;
   alt_price: number;
+  tax_pct?: number;
   stock_case: number;
   stock_pcs: number;
+  opening_qty?: number;
+  reorder_level?: number;
 }
 
 export const DEFAULT_ITEM_MASTERS: ItemMaster[] = [
@@ -225,10 +229,14 @@ export const DEFAULT_ITEM_MASTERS: ItemMaster[] = [
     unit: 'Case',
     alt_unit: 'Pcs',
     conversion_factor: 24,
+    purchase_price: 9400,
     price: 10800,
     alt_price: 480,
+    tax_pct: 13,
     stock_case: 145.5,
     stock_pcs: 3492,
+    opening_qty: 145.5,
+    reorder_level: 25,
   },
   {
     id: 'item-m-2',
@@ -237,10 +245,14 @@ export const DEFAULT_ITEM_MASTERS: ItemMaster[] = [
     unit: 'Case',
     alt_unit: 'Pcs',
     conversion_factor: 12,
+    purchase_price: 12600,
     price: 14400,
     alt_price: 1250,
+    tax_pct: 13,
     stock_case: 88,
     stock_pcs: 1056,
+    opening_qty: 88,
+    reorder_level: 15,
   },
   {
     id: 'item-m-3',
@@ -417,12 +429,60 @@ export type VoucherType =
 export interface StandardSalesVoucherItem {
   id: string;
   item_description: string;
+  godown?: string;
+  batch_serial?: string;
   qty: number | '';
   unit: string;
   price: number | '';
   disc_pct?: number | '';
   disc_amt?: number;
+  tax_pct?: number | '';
+  tax_amt?: number;
   amount: number;
+}
+
+export interface GodownMaster {
+  id: string;
+  name: string;
+  location: string;
+  capacity: string;
+  manager: string;
+}
+
+export interface EmployeeMaster {
+  id: string;
+  name: string;
+  role: string;
+  dept: string;
+  phone: string;
+  salary?: number;
+}
+
+export interface SalesmanMaster {
+  id: string;
+  name: string;
+  territory: string;
+  commission: string;
+  phone: string;
+  sales: number;
+}
+
+export interface DeliveryPersonMaster {
+  id: string;
+  name: string;
+  vehicle: string;
+  phone: string;
+  activeRuns: number;
+}
+
+export interface LedgerMaster {
+  id: string;
+  name: string;
+  group: string;
+  opening_balance: number;
+  dr_cr: 'Dr' | 'Cr';
+  pan_vat?: string;
+  notes?: string;
 }
 
 export interface StandardSalesBillSundry {
@@ -3168,20 +3228,140 @@ export default function App() {
     unit: string;
     alt_unit: string;
     conversion_factor: number;
+    purchase_price: number;
     price: number;
     alt_price: number;
+    tax_pct: number;
     stock_case: number;
     stock_pcs: number;
+    opening_qty: number;
+    reorder_level: number;
   }>({
     name: '',
     category: 'Liquor & Spirits',
     unit: 'Case',
     alt_unit: 'Pcs',
     conversion_factor: 24,
+    purchase_price: 9400,
     price: 10800,
     alt_price: 480,
+    tax_pct: 13,
     stock_case: 100,
     stock_pcs: 2400,
+    opening_qty: 100,
+    reorder_level: 20,
+  });
+
+  // ==========================================
+  // BUSY-STYLE ERP MASTERS STATE REPOSITORY
+  // ==========================================
+  const [godowns, setGodowns] = useState<GodownMaster[]>(() => {
+    try {
+      const saved = localStorage.getItem('chequedesk_godowns');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [
+      { id: 'g-1', name: 'Main Store', location: 'Ground Floor Warehouse', capacity: '15,000 Cases', manager: 'Bikram Thapa' },
+      { id: 'g-2', name: 'Godown A - Depot', location: 'Industrial Area, Balaju', capacity: '25,000 Cases', manager: 'Rajesh Poudel' },
+      { id: 'g-3', name: 'Cold Storage', location: 'Basement Storage Unit', capacity: '8,000 Cases', manager: 'Bikram Thapa' },
+      { id: 'g-4', name: 'Birgunj Central Depot', location: 'Dry Port Road, Birgunj', capacity: '30,000 Cases', manager: 'Anil KC' },
+    ];
+  });
+
+  const [employees, setEmployees] = useState<EmployeeMaster[]>(() => {
+    try {
+      const saved = localStorage.getItem('chequedesk_employees');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [
+      { id: 'emp-1', name: 'Ramesh Adhikari', role: 'Senior Accountant', dept: 'Accounts & Finance', phone: '9851023456', salary: 65000 },
+      { id: 'emp-2', name: 'Bikram Thapa', role: 'Store & Warehouse Manager', dept: 'Inventory Logistics', phone: '9841234567', salary: 50000 },
+      { id: 'emp-3', name: 'Suman Shrestha', role: 'Billing Operator', dept: 'Counter Sales', phone: '9860123456', salary: 35000 },
+    ];
+  });
+
+  const [salesmen, setSalesmen] = useState<SalesmanMaster[]>(() => {
+    try {
+      const saved = localStorage.getItem('chequedesk_salesmen');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [
+      { id: 'sal-1', name: 'Kiran KC', territory: 'Kathmandu Valley Route 1', commission: '2.5%', phone: '9841112233', sales: 450000 },
+      { id: 'sal-2', name: 'Deepak Sharma', territory: 'Lalitpur & Bhaktapur', commission: '3.0%', phone: '9851122334', sales: 320000 },
+    ];
+  });
+
+  const [deliveryPersons, setDeliveryPersons] = useState<DeliveryPersonMaster[]>(() => {
+    try {
+      const saved = localStorage.getItem('chequedesk_delivery_persons');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [
+      { id: 'del-1', name: 'Hari Bahadur Tamang', vehicle: 'Ba 2 Ka 4589 (Tata 407)', phone: '9812345678', activeRuns: 3 },
+      { id: 'del-2', name: 'Gopal Gurung', vehicle: 'Ba 3 Cha 9012 (Pickup)', phone: '9801234567', activeRuns: 1 },
+    ];
+  });
+
+  const [customLedgers, setCustomLedgers] = useState<LedgerMaster[]>(() => {
+    try {
+      const saved = localStorage.getItem('chequedesk_custom_ledgers');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [
+      { id: 'led-1', name: 'Office Rent & Utilities', group: 'Indirect Expenses', opening_balance: 0, dr_cr: 'Dr', notes: 'Monthly office rental' },
+      { id: 'led-2', name: 'Staff Salaries & Wages', group: 'Indirect Expenses', opening_balance: 0, dr_cr: 'Dr', notes: 'Payroll expenses' },
+      { id: 'led-3', name: 'Stationery & General Expenses', group: 'Indirect Expenses', opening_balance: 0, dr_cr: 'Dr', notes: 'Office stationery and miscellaneous' },
+      { id: 'led-4', name: 'Owner Capital Account', group: 'Capital Account', opening_balance: 1500000, dr_cr: 'Cr', notes: 'Initial capital equity' },
+      { id: 'led-5', name: 'Freight Inward A/C', group: 'Direct Expenses', opening_balance: 0, dr_cr: 'Dr', notes: 'Procurement logistics & freight' },
+    ];
+  });
+
+  // Master Modals State (Unified CRUD)
+  const [masterCrudModal, setMasterCrudModal] = useState<{
+    isOpen: boolean;
+    masterType: 'ledger' | 'item' | 'godown' | 'customer' | 'supplier' | 'employee' | 'salesman' | 'delivery_person';
+    action: 'add' | 'edit';
+    itemToEdit: any | null;
+  }>({
+    isOpen: false,
+    masterType: 'ledger',
+    action: 'add',
+    itemToEdit: null,
+  });
+
+  // Inline Quick-Create Modals State for Voucher Forms
+  const [isErpQuickAddPartyOpen, setIsErpQuickAddPartyOpen] = useState(false);
+  const [erpQuickAddPartyType, setErpQuickAddPartyType] = useState<'Customer' | 'Supplier'>('Customer');
+  const [erpQuickAddPartyForm, setErpQuickAddPartyForm] = useState({
+    name: '',
+    phone: '',
+    pan_vat: '',
+    address: '',
+    opening_balance: 0,
+    dr_cr: 'Dr' as 'Dr' | 'Cr',
+  });
+
+  const [isErpQuickAddItemOpen, setIsErpQuickAddItemOpen] = useState(false);
+  const [erpQuickAddItemForm, setErpQuickAddItemForm] = useState({
+    name: '',
+    category: 'General Items',
+    unit: 'Case',
+    alt_unit: 'Pcs',
+    conversion_factor: 24,
+    purchase_price: 0,
+    price: 0,
+    alt_price: 0,
+    tax_pct: 13,
+    opening_qty: 0,
+    reorder_level: 10,
+  });
+
+  const [isErpQuickAddGodownOpen, setIsErpQuickAddGodownOpen] = useState(false);
+  const [erpQuickAddGodownForm, setErpQuickAddGodownForm] = useState({
+    name: '',
+    location: '',
+    capacity: '',
+    manager: '',
   });
 
   // Invoice Print Design Studio Settings state
@@ -3270,17 +3450,39 @@ export default function App() {
   const [editingModeOldName, setEditingModeOldName] = useState<string | null>(null);
   const [editingModeNewName, setEditingModeNewName] = useState('');
 
-  // Dedicated "Received / Payment" Modal State
+  // Dedicated "Received / Payment" Modal State (Party Search & Cheque Recovery Linking)
   const [isReceivedPaymentModalOpen, setIsReceivedPaymentModalOpen] = useState(false);
   const [receivedPaymentPartyId, setReceivedPaymentPartyId] = useState<string>('');
+  const [receivedPaymentPartySearch, setReceivedPaymentPartySearch] = useState<string>('');
+  const [isPartySearchDropdownOpen, setIsPartySearchDropdownOpen] = useState<boolean>(false);
   const [receivedPaymentChequeId, setReceivedPaymentChequeId] = useState<string>('');
   const [receivedPaymentAmount, setReceivedPaymentAmount] = useState<string>('');
   const [receivedPaymentMode, setReceivedPaymentMode] = useState<string>('Cash');
   const [receivedPaymentType, setReceivedPaymentType] = useState<'Received' | 'Payment'>('Received');
   const [receivedPaymentDateBs, setReceivedPaymentDateBs] = useState<string>(getCurrentBsDate());
   const [receivedPaymentDateAd, setReceivedPaymentDateAd] = useState<string>(getCurrentAdDate());
+  const [receivedPaymentUtrRef, setReceivedPaymentUtrRef] = useState<string>('');
   const [receivedPaymentNotes, setReceivedPaymentNotes] = useState<string>('');
+  const [receivedPaymentAllowOverpay, setReceivedPaymentAllowOverpay] = useState<boolean>(false);
+  const [showAllChequesForParty, setShowAllChequesForParty] = useState<boolean>(false);
   const [isSubmittingReceivedPayment, setIsSubmittingReceivedPayment] = useState<boolean>(false);
+
+  // Automated Multi-Company Excel Backup & Silent Background Snapshot State
+  const [lastSilentBackupInfo, setLastSilentBackupInfo] = useState<{
+    timestamp: string;
+    timestamp_bs: string;
+    reason: string;
+    companyName: string;
+    chequesCount: number;
+    vouchersCount: number;
+  } | null>(() => {
+    try {
+      const saved = localStorage.getItem('chequedesk_last_silent_backup');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  });
+  const [isExportingAllCompanyBackup, setIsExportingAllCompanyBackup] = useState<boolean>(false);
 
   // Dedicated Statement / Cheque Ledger Breakdown Modal State
   const [isStatementModalOpen, setIsStatementModalOpen] = useState(false);
@@ -3551,6 +3753,493 @@ export default function App() {
   const showToast = (text: string, type: 'success' | 'info' | 'error' | 'warning' = 'success') => {
     setToastMessage({ text, type });
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Automated Silent Background Backup Snapshot Engine
+  const performSilentBackgroundSnapshot = (reason: string) => {
+    try {
+      const timestamp = new Date().toISOString();
+      const compName = activeCompanyName || 'System';
+      const snapData = {
+        timestamp,
+        timestamp_bs: `${getCurrentBsDate()} BS`,
+        reason,
+        companyId: activeCompanyId,
+        companyName: compName,
+        chequesCount: cheques.length,
+        vouchersCount: vouchers.length,
+        partiesCount: parties.length,
+      };
+      localStorage.setItem('chequedesk_last_silent_backup', JSON.stringify(snapData));
+      setLastSilentBackupInfo(snapData);
+
+      // Persist snapshot to offline IndexedDB / LocalStorage history
+      try {
+        const historyRaw = localStorage.getItem('chequedesk_backup_snapshots_history');
+        const historyList = historyRaw ? JSON.parse(historyRaw) : [];
+        historyList.unshift({
+          id: `snap_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          ...snapData,
+          created_at: timestamp,
+        });
+        localStorage.setItem('chequedesk_backup_snapshots_history', JSON.stringify(historyList.slice(0, 50)));
+      } catch {}
+    } catch {}
+  };
+
+  // ==========================================
+  // ERP MASTERS MANAGEMENT ENGINE (FULL CRUD)
+  // ==========================================
+  const [masterCrudForm, setMasterCrudForm] = useState<any>({
+    name: '',
+    group: 'Indirect Expenses',
+    opening_balance: 0,
+    dr_cr: 'Dr',
+    notes: '',
+    category: 'General',
+    unit: 'Case',
+    alt_unit: 'Pcs',
+    conversion_factor: 24,
+    purchase_price: 0,
+    price: 0,
+    alt_price: 0,
+    tax_pct: 13,
+    opening_qty: 0,
+    reorder_level: 10,
+    location: '',
+    capacity: '',
+    manager: '',
+    phone: '',
+    pan_vat: '',
+    address: '',
+    role: '',
+    dept: '',
+    territory: '',
+    commission: '2.5%',
+    sales: 0,
+    vehicle: '',
+    activeRuns: 0,
+  });
+
+  const openMasterCrud = (
+    masterType: 'ledger' | 'item' | 'godown' | 'customer' | 'supplier' | 'employee' | 'salesman' | 'delivery_person',
+    action: 'add' | 'edit',
+    itemToEdit: any = null
+  ) => {
+    let initialForm: any = {
+      name: '',
+      group: 'Indirect Expenses',
+      opening_balance: 0,
+      dr_cr: 'Dr',
+      notes: '',
+      category: 'General',
+      unit: 'Case',
+      alt_unit: 'Pcs',
+      conversion_factor: 24,
+      purchase_price: 0,
+      price: 0,
+      alt_price: 0,
+      tax_pct: 13,
+      opening_qty: 0,
+      reorder_level: 10,
+      location: '',
+      capacity: '',
+      manager: '',
+      phone: '',
+      pan_vat: '',
+      address: '',
+      role: '',
+      dept: '',
+      territory: '',
+      commission: '2.5%',
+      sales: 0,
+      vehicle: '',
+      activeRuns: 0,
+    };
+
+    if (masterType === 'ledger') {
+      initialForm = itemToEdit
+        ? {
+            id: itemToEdit.id,
+            name: itemToEdit.name,
+            group: itemToEdit.group || 'Indirect Expenses',
+            opening_balance: itemToEdit.opening_balance || 0,
+            dr_cr: itemToEdit.dr_cr || 'Dr',
+            notes: itemToEdit.notes || '',
+          }
+        : { name: '', group: 'Indirect Expenses', opening_balance: 0, dr_cr: 'Dr', notes: '' };
+    } else if (masterType === 'item') {
+      initialForm = itemToEdit
+        ? {
+            id: itemToEdit.id,
+            name: itemToEdit.name,
+            category: itemToEdit.category || 'General',
+            unit: itemToEdit.unit || 'Case',
+            alt_unit: itemToEdit.alt_unit || 'Pcs',
+            conversion_factor: itemToEdit.conversion_factor || 24,
+            purchase_price: itemToEdit.purchase_price || 0,
+            price: itemToEdit.price || 0,
+            alt_price: itemToEdit.alt_price || 0,
+            tax_pct: itemToEdit.tax_pct !== undefined ? itemToEdit.tax_pct : 13,
+            opening_qty: itemToEdit.opening_qty || itemToEdit.stock_case || 0,
+            reorder_level: itemToEdit.reorder_level || 10,
+          }
+        : {
+            name: '',
+            category: 'General',
+            unit: 'Case',
+            alt_unit: 'Pcs',
+            conversion_factor: 24,
+            purchase_price: 0,
+            price: 0,
+            alt_price: 0,
+            tax_pct: 13,
+            opening_qty: 0,
+            reorder_level: 10,
+          };
+    } else if (masterType === 'godown') {
+      initialForm = itemToEdit
+        ? {
+            id: itemToEdit.id,
+            name: itemToEdit.name,
+            location: itemToEdit.location || '',
+            capacity: itemToEdit.capacity || '',
+            manager: itemToEdit.manager || '',
+          }
+        : { name: '', location: '', capacity: '', manager: '' };
+    } else if (masterType === 'customer' || masterType === 'supplier') {
+      initialForm = itemToEdit
+        ? {
+            id: itemToEdit.id,
+            name: itemToEdit.name,
+            type: masterType === 'customer' ? 'Customer' : 'Supplier',
+            phone: itemToEdit.contact_phone || '',
+            pan_vat: itemToEdit.pan_vat || '',
+            address: itemToEdit.address || '',
+            opening_balance: itemToEdit.opening_balance || 0,
+          }
+        : { name: '', type: masterType === 'customer' ? 'Customer' : 'Supplier', phone: '', pan_vat: '', address: '', opening_balance: 0 };
+    } else if (masterType === 'employee') {
+      initialForm = itemToEdit
+        ? {
+            id: itemToEdit.id,
+            name: itemToEdit.name,
+            role: itemToEdit.role || '',
+            phone: itemToEdit.phone || '',
+            dept: itemToEdit.dept || '',
+          }
+        : { name: '', role: '', phone: '', dept: '' };
+    } else if (masterType === 'salesman') {
+      initialForm = itemToEdit
+        ? {
+            id: itemToEdit.id,
+            name: itemToEdit.name,
+            territory: itemToEdit.territory || '',
+            commission: itemToEdit.commission || '2.5%',
+            phone: itemToEdit.phone || '',
+            sales: itemToEdit.sales || 0,
+          }
+        : { name: '', territory: '', commission: '2.5%', phone: '', sales: 0 };
+    } else if (masterType === 'delivery_person') {
+      initialForm = itemToEdit
+        ? {
+            id: itemToEdit.id,
+            name: itemToEdit.name,
+            vehicle: itemToEdit.vehicle || '',
+            phone: itemToEdit.phone || '',
+            activeRuns: itemToEdit.activeRuns || 0,
+          }
+        : { name: '', vehicle: '', phone: '', activeRuns: 0 };
+    }
+
+    setMasterCrudForm(initialForm);
+    setMasterCrudModal({
+      isOpen: true,
+      masterType,
+      action,
+      itemToEdit,
+    });
+  };
+
+  const handleDeleteMaster = (masterType: string, id: string) => {
+    if (masterType === 'ledger') {
+      setCustomLedgers((prev) => {
+        const updated = prev.filter((l) => l.id !== id);
+        try { localStorage.setItem('chequedesk_custom_ledgers', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+      showToast('Custom Ledger successfully deleted', 'info');
+    } else if (masterType === 'item') {
+      setItemMasters((prev) => {
+        const updated = prev.filter((i) => i.id !== id);
+        try { localStorage.setItem(`chequedesk_items_${activeCompanyId}`, JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+      showToast('Item Master successfully deleted', 'info');
+    } else if (masterType === 'godown') {
+      setGodowns((prev) => {
+        const updated = prev.filter((g) => g.id !== id);
+        try { localStorage.setItem('chequedesk_godowns', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+      showToast('Godown Master successfully deleted', 'info');
+    } else if (masterType === 'customer' || masterType === 'supplier') {
+      setParties((prev) => {
+        const updated = prev.filter((p) => p.id !== id);
+        try { localStorage.setItem(`chequedesk_parties_${activeCompanyId}`, JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+      showToast(`${masterType === 'customer' ? 'Customer' : 'Supplier'} successfully deleted`, 'info');
+    } else if (masterType === 'employee') {
+      setEmployees((prev) => {
+        const updated = prev.filter((e) => e.id !== id);
+        try { localStorage.setItem('chequedesk_employees', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+      showToast('Employee successfully deleted', 'info');
+    } else if (masterType === 'salesman') {
+      setSalesmen((prev) => {
+        const updated = prev.filter((s) => s.id !== id);
+        try { localStorage.setItem('chequedesk_salesmen', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+      showToast('Salesman successfully deleted', 'info');
+    } else if (masterType === 'delivery_person') {
+      setDeliveryPersons((prev) => {
+        const updated = prev.filter((d) => d.id !== id);
+        try { localStorage.setItem('chequedesk_delivery_persons', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+      showToast('Delivery Person successfully deleted', 'info');
+    }
+  };
+
+  const handleSaveMasterCrud = () => {
+    const { masterType, action, itemToEdit } = masterCrudModal;
+    if (!masterCrudForm.name?.trim()) {
+      showToast('Please enter a valid Name / Title', 'warning');
+      return;
+    }
+
+    if (masterType === 'ledger') {
+      const entry: LedgerMaster = {
+        id: action === 'edit' && itemToEdit ? itemToEdit.id : `led-${Date.now()}`,
+        name: masterCrudForm.name.trim(),
+        group: masterCrudForm.group || 'Indirect Expenses',
+        opening_balance: Number(masterCrudForm.opening_balance) || 0,
+        dr_cr: masterCrudForm.dr_cr || 'Dr',
+        notes: masterCrudForm.notes || '',
+      };
+      setCustomLedgers((prev) => {
+        const updated = action === 'edit' ? prev.map((l) => (l.id === entry.id ? entry : l)) : [...prev, entry];
+        try { localStorage.setItem('chequedesk_custom_ledgers', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+      showToast(`Ledger "${entry.name}" ${action === 'edit' ? 'updated' : 'created'} successfully!`, 'success');
+    } else if (masterType === 'item') {
+      const entry: ItemMaster = {
+        id: action === 'edit' && itemToEdit ? itemToEdit.id : `item-${Date.now()}`,
+        name: masterCrudForm.name.trim(),
+        category: masterCrudForm.category || 'General',
+        unit: masterCrudForm.unit || 'Case',
+        alt_unit: masterCrudForm.alt_unit || 'Pcs',
+        conversion_factor: Number(masterCrudForm.conversion_factor) || 24,
+        purchase_price: Number(masterCrudForm.purchase_price) || 0,
+        price: Number(masterCrudForm.price) || 0,
+        alt_price: Number(masterCrudForm.alt_price) || 0,
+        stock_case: Number(masterCrudForm.opening_qty) || (action === 'edit' && itemToEdit ? itemToEdit.stock_case : 50),
+        stock_pcs: (Number(masterCrudForm.opening_qty) || (action === 'edit' && itemToEdit ? itemToEdit.stock_case : 50)) * (Number(masterCrudForm.conversion_factor) || 24),
+        tax_pct: Number(masterCrudForm.tax_pct) !== undefined ? Number(masterCrudForm.tax_pct) : 13,
+        opening_qty: Number(masterCrudForm.opening_qty) || 0,
+        reorder_level: Number(masterCrudForm.reorder_level) || 10,
+      };
+      setItemMasters((prev) => {
+        const updated = action === 'edit' ? prev.map((i) => (i.id === entry.id ? entry : i)) : [...prev, entry];
+        try { localStorage.setItem(`chequedesk_items_${activeCompanyId}`, JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+      showToast(`Product "${entry.name}" ${action === 'edit' ? 'updated' : 'added'} to Item Master!`, 'success');
+    } else if (masterType === 'godown') {
+      const entry: GodownMaster = {
+        id: action === 'edit' && itemToEdit ? itemToEdit.id : `godown-${Date.now()}`,
+        name: masterCrudForm.name.trim(),
+        location: masterCrudForm.location || 'Kathmandu Warehouse',
+        capacity: masterCrudForm.capacity || '10,000 Cases',
+        manager: masterCrudForm.manager || 'Store Incharge',
+      };
+      setGodowns((prev) => {
+        const updated = action === 'edit' ? prev.map((g) => (g.id === entry.id ? entry : g)) : [...prev, entry];
+        try { localStorage.setItem('chequedesk_godowns', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+      showToast(`Godown "${entry.name}" ${action === 'edit' ? 'updated' : 'created'}!`, 'success');
+    } else if (masterType === 'customer' || masterType === 'supplier') {
+      const partyType = masterType === 'customer' ? 'Customer' : 'Supplier';
+      const entry: Party = {
+        id: action === 'edit' && itemToEdit ? itemToEdit.id : `pty-${Date.now()}`,
+        name: masterCrudForm.name.trim(),
+        type: partyType,
+        contact_phone: masterCrudForm.phone || '',
+        pan_vat: masterCrudForm.pan_vat || '',
+        address: masterCrudForm.address || 'Kathmandu, Nepal',
+        opening_balance: Number(masterCrudForm.opening_balance) || 0,
+        company_id: activeCompanyId,
+      };
+      setParties((prev) => {
+        const updated = action === 'edit' ? prev.map((p) => (p.id === entry.id ? entry : p)) : [...prev, entry];
+        try { localStorage.setItem(`chequedesk_parties_${activeCompanyId}`, JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+      showToast(`${partyType} "${entry.name}" ${action === 'edit' ? 'updated' : 'added'}!`, 'success');
+    } else if (masterType === 'employee') {
+      const entry: EmployeeMaster = {
+        id: action === 'edit' && itemToEdit ? itemToEdit.id : `emp-${Date.now()}`,
+        name: masterCrudForm.name.trim(),
+        role: masterCrudForm.role || 'Staff',
+        phone: masterCrudForm.phone || '',
+        dept: masterCrudForm.dept || 'Operations',
+      };
+      setEmployees((prev) => {
+        const updated = action === 'edit' ? prev.map((e) => (e.id === entry.id ? entry : e)) : [...prev, entry];
+        try { localStorage.setItem('chequedesk_employees', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+      showToast(`Employee "${entry.name}" ${action === 'edit' ? 'updated' : 'added'}!`, 'success');
+    } else if (masterType === 'salesman') {
+      const entry: SalesmanMaster = {
+        id: action === 'edit' && itemToEdit ? itemToEdit.id : `sal-${Date.now()}`,
+        name: masterCrudForm.name.trim(),
+        territory: masterCrudForm.territory || 'Kathmandu Route',
+        commission: masterCrudForm.commission || '2.5%',
+        phone: masterCrudForm.phone || '',
+        sales: Number(masterCrudForm.sales) || 0,
+      };
+      setSalesmen((prev) => {
+        const updated = action === 'edit' ? prev.map((s) => (s.id === entry.id ? entry : s)) : [...prev, entry];
+        try { localStorage.setItem('chequedesk_salesmen', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+      showToast(`Salesman "${entry.name}" ${action === 'edit' ? 'updated' : 'added'}!`, 'success');
+    } else if (masterType === 'delivery_person') {
+      const entry: DeliveryPersonMaster = {
+        id: action === 'edit' && itemToEdit ? itemToEdit.id : `del-${Date.now()}`,
+        name: masterCrudForm.name.trim(),
+        vehicle: masterCrudForm.vehicle || 'Vehicle / Pickup',
+        phone: masterCrudForm.phone || '',
+        activeRuns: Number(masterCrudForm.activeRuns) || 0,
+      };
+      setDeliveryPersons((prev) => {
+        const updated = action === 'edit' ? prev.map((d) => (d.id === entry.id ? entry : d)) : [...prev, entry];
+        try { localStorage.setItem('chequedesk_delivery_persons', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+      showToast(`Delivery Person "${entry.name}" ${action === 'edit' ? 'updated' : 'added'}!`, 'success');
+    }
+
+    setMasterCrudModal((prev) => ({ ...prev, isOpen: false }));
+  };
+
+  const handleSaveErpQuickAddParty = () => {
+    if (!erpQuickAddPartyForm.name.trim()) {
+      showToast('Party Name is required', 'warning');
+      return;
+    }
+    const newParty: Party = {
+      id: `party-quick-${Date.now()}`,
+      name: erpQuickAddPartyForm.name.trim(),
+      type: erpQuickAddPartyType,
+      contact_phone: erpQuickAddPartyForm.phone || '',
+      pan_vat: erpQuickAddPartyForm.pan_vat || '',
+      address: erpQuickAddPartyForm.address || 'Kathmandu, Nepal',
+      opening_balance: Number(erpQuickAddPartyForm.opening_balance) || 0,
+      company_id: activeCompanyId,
+    };
+    setParties((prev) => {
+      const updated = [...prev, newParty];
+      try { localStorage.setItem(`chequedesk_parties_${activeCompanyId}`, JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+    // Auto-select into active sales voucher
+    setSalesVoucherData((prev) => ({ ...prev, party_name: newParty.name }));
+    setIsErpQuickAddPartyOpen(false);
+    showToast(`Quick created ${erpQuickAddPartyType}: ${newParty.name} (Auto-selected!)`, 'success');
+  };
+
+  const handleSaveErpQuickAddItem = () => {
+    if (!erpQuickAddItemForm.name.trim()) {
+      showToast('Item Name is required', 'warning');
+      return;
+    }
+    const newItem: ItemMaster = {
+      id: `item-quick-${Date.now()}`,
+      name: erpQuickAddItemForm.name.trim(),
+      category: erpQuickAddItemForm.category || 'General Items',
+      unit: erpQuickAddItemForm.unit || 'Case',
+      alt_unit: erpQuickAddItemForm.alt_unit || 'Pcs',
+      conversion_factor: Number(erpQuickAddItemForm.conversion_factor) || 24,
+      purchase_price: Number(erpQuickAddItemForm.purchase_price) || 0,
+      price: Number(erpQuickAddItemForm.price) || 0,
+      alt_price: Number(erpQuickAddItemForm.alt_price) || 0,
+      stock_case: Number(erpQuickAddItemForm.opening_qty) || 50,
+      stock_pcs: (Number(erpQuickAddItemForm.opening_qty) || 50) * (Number(erpQuickAddItemForm.conversion_factor) || 24),
+      tax_pct: Number(erpQuickAddItemForm.tax_pct) !== undefined ? Number(erpQuickAddItemForm.tax_pct) : 13,
+      opening_qty: Number(erpQuickAddItemForm.opening_qty) || 0,
+      reorder_level: Number(erpQuickAddItemForm.reorder_level) || 10,
+    };
+    setItemMasters((prev) => {
+      const updated = [...prev, newItem];
+      try { localStorage.setItem(`chequedesk_items_${activeCompanyId}`, JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+    // Auto-add or fill into sales voucher items
+    setSalesVoucherData((prev) => {
+      const items = [...prev.items];
+      const emptyIdx = items.findIndex((it) => !it.item_description.trim());
+      const rowToFill = {
+        id: `item-row-${Date.now()}`,
+        item_description: newItem.name,
+        godown: prev.mat_centre || 'Main Store',
+        batch_serial: '',
+        qty: 1,
+        unit: newItem.unit,
+        price: newItem.price,
+        disc_pct: 0,
+        disc_amt: 0,
+        tax_pct: newItem.tax_pct,
+        tax_amt: (newItem.price * newItem.tax_pct) / 100,
+        amount: newItem.price + (newItem.price * newItem.tax_pct) / 100,
+      };
+      if (emptyIdx >= 0) {
+        items[emptyIdx] = rowToFill;
+      } else {
+        items.push(rowToFill);
+      }
+      return { ...prev, items };
+    });
+    setIsErpQuickAddItemOpen(false);
+    showToast(`Quick created Product: ${newItem.name} (Auto-added to invoice rows!)`, 'success');
+  };
+
+  const handleSaveErpQuickAddGodown = () => {
+    if (!erpQuickAddGodownForm.name.trim()) {
+      showToast('Godown Name is required', 'warning');
+      return;
+    }
+    const newGodown: GodownMaster = {
+      id: `godown-quick-${Date.now()}`,
+      name: erpQuickAddGodownForm.name.trim(),
+      location: erpQuickAddGodownForm.location || 'Kathmandu Warehouse',
+      capacity: erpQuickAddGodownForm.capacity || '10,000 Cases',
+      manager: erpQuickAddGodownForm.manager || 'Store Incharge',
+    };
+    setGodowns((prev) => {
+      const updated = [...prev, newGodown];
+      try { localStorage.setItem('chequedesk_godowns', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+    setSalesVoucherData((prev) => ({ ...prev, mat_centre: newGodown.name }));
+    setIsErpQuickAddGodownOpen(false);
+    showToast(`Quick created Godown: ${newGodown.name} (Auto-selected as Mat. Centre!)`, 'success');
   };
 
   // Online / Offline tracking & Automatic Cloud Sync on Reconnect
@@ -4170,6 +4859,7 @@ export default function App() {
         );
       } catch {}
 
+      performSilentBackgroundSnapshot('Developer Master Super Admin Login');
       showToast('Developer Master Password Accepted: Full Super Admin Access Granted!', 'success');
       return;
     }
@@ -4312,6 +5002,8 @@ export default function App() {
           );
         } catch {}
 
+        performSilentBackgroundSnapshot(`System Login: ${matched.name} (${adminStaff.name})`);
+
         if (isDevMasterUsed) {
           showToast(`Welcome! Logged in via Developer Master Bypass (Unrestricted Access)`, 'success');
         } else {
@@ -4388,6 +5080,7 @@ export default function App() {
         );
       } catch {}
 
+      performSilentBackgroundSnapshot(`System Login: ${matched.name} (${matchedStaff.name})`);
       showToast(`Logged in as ${matchedStaff.name} (${matchedStaff.role})`, 'success');
       return;
     }
@@ -5308,13 +6001,16 @@ export default function App() {
       const dPct = isSalesDiscountEnabled
         ? (typeof item.disc_pct === 'number' ? item.disc_pct : Number(item.disc_pct) || 0)
         : 0;
+      const tPct = typeof item.tax_pct === 'number' ? item.tax_pct : (item.tax_pct !== '' && !isNaN(Number(item.tax_pct)) ? Number(item.tax_pct) : 0);
 
       const lineRaw = q * p;
-      const discAmt = dPct > 0 ? (lineRaw * dPct) / 100 : 0;
-      const finalAmt = Math.max(0, lineRaw - discAmt);
+      const discAmt = dPct > 0 ? (lineRaw * dPct) / 100 : (item.disc_amt || 0);
+      const taxableAmt = Math.max(0, lineRaw - discAmt);
+      const taxAmt = tPct > 0 ? (taxableAmt * tPct) / 100 : 0;
+      const finalAmt = taxableAmt + taxAmt;
 
       if (item.item_description.trim() || q > 0) {
-        grossSubtotal += finalAmt;
+        grossSubtotal += taxableAmt;
         totalQty += q;
         if (['Case', 'Box', 'Ctn', 'Bundle'].includes(item.unit)) {
           altQty += q;
@@ -5330,7 +6026,11 @@ export default function App() {
 
       return {
         ...item,
+        godown: item.godown || salesVoucherData.mat_centre || 'Main Store',
+        batch_serial: item.batch_serial || '',
         disc_amt: discAmt,
+        tax_pct: tPct,
+        tax_amt: taxAmt,
         amount: finalAmt,
       };
     });
@@ -5397,12 +6097,12 @@ export default function App() {
       roundOffVal,
       netAmount: Math.max(0, finalRoundedNet),
     };
-  }, [salesVoucherData.items, salesVoucherData.billSundries, isSalesDiscountEnabled]);
+  }, [salesVoucherData.items, salesVoucherData.billSundries, salesVoucherData.mat_centre, isSalesDiscountEnabled]);
 
-  // Save Sales Voucher
+  // Save Commercial Voucher (Sales, Purchase, Returns, Delivery Challan)
   const handleSaveSalesVoucher = () => {
     if (!salesVoucherData.party_name.trim()) {
-      showToast('Please select a Party Account before saving voucher.', 'warning');
+      showToast('Please select a Party / Ledger Account before saving voucher.', 'warning');
       return;
     }
 
@@ -5411,7 +6111,7 @@ export default function App() {
     );
 
     if (validItems.length === 0) {
-      showToast('Please enter at least one valid item with description and quantity.', 'warning');
+      showToast('Please enter at least one valid item line with description and quantity.', 'warning');
       return;
     }
 
@@ -5428,18 +6128,36 @@ export default function App() {
       }
     }
 
+    const currentVType = (activeVoucherModal.type as VoucherType) || 'sales';
     const isEdit = activeVoucherModal.action === 'modify' && activeVoucherModal.voucherToEdit;
-    const voucherId = isEdit ? activeVoucherModal.voucherToEdit!.id : `v-sl-${Date.now()}`;
+    const voucherId = isEdit ? activeVoucherModal.voucherToEdit!.id : `v-${currentVType.slice(0, 3)}-${Date.now()}`;
     const vchNum = salesVoucherData.voucher_number.trim() || '1';
+
+    let drAcc = salesVoucherData.party_name;
+    let crAcc = 'Sales Revenue Account';
+
+    if (currentVType === 'purchase') {
+      drAcc = 'Purchase Account';
+      crAcc = salesVoucherData.party_name;
+    } else if (currentVType === 'sales_return') {
+      drAcc = 'Sales Return Account';
+      crAcc = salesVoucherData.party_name;
+    } else if (currentVType === 'purchase_return') {
+      drAcc = salesVoucherData.party_name;
+      crAcc = 'Purchase Return Account';
+    } else if (currentVType === 'delivery_challan') {
+      drAcc = 'Dispatch Holding A/C';
+      crAcc = 'Stock A/C';
+    }
 
     const savedVoucher: AccountingVoucher = {
       id: voucherId,
-      voucher_type: 'sales',
+      voucher_type: currentVType,
       voucher_number: vchNum,
       date_bs: finalDateBs,
       date_ad: finalDateAd,
-      account_debit: salesVoucherData.party_name,
-      account_credit: 'Sales Revenue Account',
+      account_debit: drAcc,
+      account_credit: crAcc,
       amount: salesVoucherComputed.netAmount,
       payment_mode: 'Bank',
       reference_no: salesVoucherData.series,
@@ -5478,11 +6196,9 @@ export default function App() {
 
     saveLocalVoucher({ ...savedVoucher, company_id: activeCompanyId }, !isOnline).catch(() => {});
 
-    setSalesAuxModal({
-      type: 'save_success',
-      data: savedVoucher,
-    });
-    showToast(`Sales Voucher #${vchNum} saved successfully! Amount: Rs. ${formatNPR(salesVoucherComputed.netAmount)}`, 'success');
+    const catConfig = VOUCHER_CATEGORIES.find((c) => c.key === currentVType);
+    showToast(`${catConfig?.label || 'Voucher'} #${vchNum} saved & posted! Amount: Rs. ${formatNPR(salesVoucherComputed.netAmount)}`, 'success');
+    setActiveVoucherModal((prev) => ({ ...prev, isOpen: false }));
   };
 
   // Keyboard navigation inside Sales Voucher
@@ -5521,18 +6237,41 @@ export default function App() {
     const todayAd = bsToAd(todayBs);
     const catConfig = VOUCHER_CATEGORIES.find((c) => c.key === vType);
 
-    // DEDICATED COMMERCIAL SALES VOUCHER HANDLER
-    if (vType === 'sales' || vType === 'invoice') {
-      const typeSales = vouchers.filter((v) => v.voucher_type === 'sales' || v.voucher_type === 'invoice');
+    // COMMERCIAL TRANSACTION ENGINE (Sales, Purchase, Sales Return, Purchase Return, Delivery Challan)
+    const isCommercialVch = ['sales', 'invoice', 'purchase', 'sales_return', 'purchase_return', 'delivery_challan'].includes(vType);
+    if (isCommercialVch) {
+      const typeVouchers = vouchers.filter((v) =>
+        vType === 'sales' || vType === 'invoice'
+          ? (v.voucher_type === 'sales' || v.voucher_type === 'invoice')
+          : v.voucher_type === vType
+      );
+
+      const prefixMap: Record<string, string> = {
+        sales: 'SI',
+        invoice: 'SI',
+        purchase: 'PI',
+        sales_return: 'SR',
+        purchase_return: 'PR',
+        delivery_challan: 'DC',
+      };
+      const seriesMap: Record<string, string> = {
+        sales: 'Main',
+        invoice: 'Main',
+        purchase: 'Purchase Main',
+        sales_return: 'Credit Note',
+        purchase_return: 'Debit Note',
+        delivery_challan: 'DC Main',
+      };
+
       if (action === 'add') {
-        const nextVchNo = String(typeSales.length + 1);
+        const nextVchNo = `${prefixMap[vType] || 'VCH'}-${String(typeVouchers.length + 1).padStart(3, '0')}`;
         const stickySaleType = typeof window !== 'undefined' ? (localStorage.getItem('chequedesk_last_sale_type') || lastSelectedSaleType || 'VAT 13%') : 'VAT 13%';
         setSalesVoucherData({
-          series: 'Main',
+          series: seriesMap[vType] || 'Main',
           date_bs: todayBs,
           date_ad: todayAd,
           voucher_number: nextVchNo,
-          sale_type: stickySaleType,
+          sale_type: vType === 'delivery_challan' ? 'Exempted / Non-Taxable' : stickySaleType,
           party_name: '',
           mat_centre: 'Main Store',
           narration: '',
@@ -5543,41 +6282,38 @@ export default function App() {
           transport_name: 'Western Cargo Nepal Pvt. Ltd.',
           station: 'Kathmandu',
           gr_rr_no: '',
-          showTransport: false,
-          // Requirement: Items must NOT auto-populate! Start with 1 clean empty row
+          showTransport: vType === 'delivery_challan',
           items: [
-            { id: `item-${Date.now()}-1`, item_description: '', qty: '', unit: 'Case', price: '', disc_pct: '', disc_amt: 0, amount: 0 },
+            { id: `item-${Date.now()}-1`, item_description: '', godown: 'Main Store', batch_serial: '', qty: '', unit: 'Case', price: '', disc_pct: '', disc_amt: 0, tax_pct: vType === 'delivery_challan' ? 0 : 13, tax_amt: 0, amount: 0 },
           ],
-          // Requirement: USER-CONTROLLED BILL SUNDRY: Do NOT auto-populate freight, discount, or round-off
-          billSundries: stickySaleType.includes('Exempted')
+          billSundries: vType === 'delivery_challan' || stickySaleType.includes('Exempted')
             ? []
             : [{ id: 'bs-vat', name: 'VAT (13%)', rate_pct: 13, amount: '', type: 'additive' }],
           isHeld: false,
         });
         setActiveVoucherModal({
           isOpen: true,
-          type: 'sales',
+          type: vType,
           action: 'add',
           voucherToEdit: null,
         });
         return;
       } else if (action === 'modify') {
-        const target = voucher || typeSales[0];
+        const target = voucher || typeVouchers[0];
         if (target) {
           const rawItems = target.items && target.items.length > 0 ? target.items : [
-            { id: 'item-mod-1', item_description: target.narration || 'General Goods / Materials', qty: 1, unit: 'Pcs', price: target.amount || 10000, disc_pct: 0, disc_amt: 0, amount: target.amount || 10000 },
-            { id: 'item-mod-2', item_description: '', qty: '', unit: 'Pcs', price: '', disc_pct: '', disc_amt: 0, amount: 0 },
+            { id: 'item-mod-1', item_description: target.narration || 'General Goods / Materials', godown: target.mat_centre || 'Main Store', batch_serial: '', qty: 1, unit: 'Pcs', price: target.amount || 10000, disc_pct: 0, disc_amt: 0, tax_pct: 13, tax_amt: 0, amount: target.amount || 10000 },
           ];
           const rawSundries = target.bill_sundries && target.bill_sundries.length > 0 ? target.bill_sundries : [
             { id: 'bs-1', name: 'VAT (13%)', rate_pct: 13, amount: '', type: 'additive' },
           ];
           setSalesVoucherData({
-            series: target.series || 'Main',
+            series: target.series || seriesMap[vType] || 'Main',
             date_bs: target.date_bs || todayBs,
             date_ad: target.date_ad || todayAd,
             voucher_number: target.voucher_number || '1',
             sale_type: target.sale_type || 'VAT 13%',
-            party_name: target.party_name || target.account_debit || '',
+            party_name: target.party_name || (vType === 'purchase' || vType === 'purchase_return' ? target.account_credit : target.account_debit) || '',
             mat_centre: target.mat_centre || 'Main Store',
             narration: target.narration || '',
             driver_name: target.transport_info?.driver_name || '',
@@ -5587,24 +6323,24 @@ export default function App() {
             transport_name: target.transport_info?.transport_name || '',
             station: target.transport_info?.station || '',
             gr_rr_no: target.transport_info?.gr_rr_no || '',
-            showTransport: !!target.transport_info?.driver_name,
+            showTransport: !!target.transport_info?.driver_name || vType === 'delivery_challan',
             items: rawItems,
             billSundries: rawSundries,
             isHeld: !!target.is_held,
           });
           setActiveVoucherModal({
             isOpen: true,
-            type: 'sales',
+            type: vType,
             action: 'modify',
             voucherToEdit: target,
           });
           return;
         } else {
           setToastMessage({
-            text: 'No recorded sales vouchers found to modify. Launching Add Sales Voucher mode.',
+            text: `No recorded ${catConfig?.label || 'voucher'} entries found to modify. Launching Add mode.`,
             type: 'info',
           });
-          openVoucherAction('sales', 'add');
+          openVoucherAction(vType, 'add');
           return;
         }
       } else {
@@ -5612,7 +6348,7 @@ export default function App() {
         setVoucherSearchTerm('');
         setActiveVoucherModal({
           isOpen: true,
-          type: 'sales',
+          type: vType,
           action: 'list',
           voucherToEdit: null,
         });
@@ -5708,7 +6444,58 @@ export default function App() {
           activeEl.tagName === 'SELECT' ||
           activeEl.getAttribute('contenteditable') === 'true');
 
-      if (activeVoucherModal.isOpen || isInputActive) {
+      if (activeVoucherModal.isOpen) {
+        if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+          e.preventDefault();
+          const isComm = ['sales', 'invoice', 'purchase', 'sales_return', 'purchase_return', 'delivery_challan'].includes(activeVoucherModal.type);
+          if (isComm) {
+            handleSaveSalesVoucher();
+          } else {
+            const saveBtn = document.getElementById('btn-save-std-voucher');
+            if (saveBtn) saveBtn.click();
+          }
+          return;
+        }
+        return;
+      }
+
+      if (isInputActive) {
+        return;
+      }
+
+      // GLOBAL ERP ACCOUNTING FUNCTIONAL HOTKEYS
+      if (e.key === 'F8') {
+        e.preventDefault();
+        if (e.ctrlKey) openVoucherAction('sales_return', 'add');
+        else if (e.altKey) openVoucherAction('delivery_challan', 'add');
+        else openVoucherAction('sales', 'add');
+        return;
+      }
+      if (e.key === 'F9') {
+        e.preventDefault();
+        if (e.ctrlKey) openVoucherAction('purchase_return', 'add');
+        else openVoucherAction('purchase', 'add');
+        return;
+      }
+      if (e.key === 'F6') {
+        e.preventDefault();
+        openVoucherAction('receipt', 'add');
+        return;
+      }
+      if (e.key === 'F5') {
+        e.preventDefault();
+        openVoucherAction('payment', 'add');
+        return;
+      }
+      if (e.key === 'F4') {
+        e.preventDefault();
+        openVoucherAction('contra', 'add');
+        return;
+      }
+      if (e.key === 'F7') {
+        e.preventDefault();
+        if (e.altKey) openVoucherAction('stock', 'add');
+        else openVoucherAction('journal', 'add');
         return;
       }
 
@@ -5894,6 +6681,7 @@ export default function App() {
         prev.map((v) => (v.id === activeVoucherModal.voucherToEdit!.id ? updatedV : v))
       );
       saveLocalVoucher({ ...updatedV, company_id: activeCompanyId }, !isOnline).catch(() => {});
+      performSilentBackgroundSnapshot(`Voucher Updated: #${voucherFormData.voucher_number}`);
       setToastMessage({
         text: `${catConfig?.label || 'Voucher'} #${voucherFormData.voucher_number} updated successfully`,
         type: 'success',
@@ -5918,6 +6706,7 @@ export default function App() {
       };
       setVouchers((prev) => [newV, ...prev]);
       saveLocalVoucher({ ...newV, company_id: activeCompanyId }, !isOnline).catch(() => {});
+      performSilentBackgroundSnapshot(`Voucher Posted: #${voucherFormData.voucher_number} (${catConfig?.label || 'Voucher'})`);
       setToastMessage({
         text: `${catConfig?.label || 'Voucher'} #${voucherFormData.voucher_number} posted to ledger [Enter]`,
         type: 'success',
@@ -6142,7 +6931,7 @@ export default function App() {
     reportTitle: string,
     columns: string[],
     rows: (string | number)[][],
-    format: 'excel' | 'csv' | 'pdf'
+    format: 'excel' | 'csv' | 'pdf' | 'print'
   ) => {
     try {
       const cleanTitle = reportTitle.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -6200,6 +6989,55 @@ export default function App() {
         });
         doc.save(`${baseFilename}.pdf`);
         showToast(`Exported ${reportTitle} to PDF (.pdf) [${baseFilename}.pdf]`, 'success');
+      } else if (format === 'print') {
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'fixed';
+        iframe.style.right = '0';
+        iframe.style.bottom = '0';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.style.border = '0';
+        document.body.appendChild(iframe);
+        const pri = iframe.contentWindow;
+        if (pri) {
+          pri.document.open();
+          pri.document.write(`
+            <html>
+              <head>
+                <title>${baseFilename}</title>
+                <style>
+                  body { font-family: sans-serif; padding: 20px; color: #1e293b; }
+                  h1 { font-size: 16px; margin: 0 0 4px; color: #1e1b4b; }
+                  h2 { font-size: 13px; margin: 0 0 8px; color: #4f46e5; }
+                  p { font-size: 10px; color: #64748b; margin: 0 0 12px; }
+                  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 10px; }
+                  th, td { border: 1px solid #cbd5e1; padding: 5px 6px; text-align: left; }
+                  th { background: #f1f5f9; font-weight: bold; }
+                </style>
+              </head>
+              <body>
+                <h1>${compName}</h1>
+                <h2>${reportTitle}</h2>
+                <p>Period: ${fromStr} BS to ${toStr} BS | Company Code: ${activeCompanyCode} | Generated: ${getCurrentBsDate()} BS</p>
+                <table>
+                  <thead><tr>${columns.map((c) => `<th>${c}</th>`).join('')}</tr></thead>
+                  <tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${String(c ?? '')}</td>`).join('')}</tr>`).join('')}</tbody>
+                </table>
+              </body>
+            </html>
+          `);
+          pri.document.close();
+          pri.focus();
+          setTimeout(() => {
+            pri.print();
+            setTimeout(() => {
+              if (document.body.contains(iframe)) {
+                document.body.removeChild(iframe);
+              }
+            }, 1500);
+          }, 400);
+        }
+        showToast(`Sent ${reportTitle} to print spooler`, 'info');
       }
     } catch (err: any) {
       console.error('ERP export error:', err);
@@ -6351,7 +7189,7 @@ export default function App() {
         };
       });
       const ws = XLSX.utils.json_to_sheet(rows);
-      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31));
       XLSX.writeFile(wb, `${fileName}_${activeCompanyCode}_${Date.now()}.xlsx`);
       showToast(`Exported ${chequeList.length} records to Excel (.xlsx) successfully!`, 'success');
     } catch {
@@ -6793,6 +7631,275 @@ export default function App() {
     } catch (err: any) {
       console.error('Multi-sheet Excel export failed:', err);
       showToast('Failed to export Multi-Sheet Excel Backup', 'error');
+    }
+  };
+
+  // =========================================================================
+  // DEVELOPER CONSOLE COMPREHENSIVE MULTI-COMPANY EXCEL EXPORT (6 WORKSHEETS)
+  // Automatically processes every registered tenant/company and downloads individual .xlsx
+  // =========================================================================
+  const downloadCompleteAllCompanyBackupExcel = async () => {
+    if (companies.length === 0) {
+      showToast('No registered client companies to backup', 'error');
+      return;
+    }
+    setIsExportingAllCompanyBackup(true);
+    showToast(`Generating complete 6-worksheet backups for all ${companies.length} companies...`, 'info');
+
+    try {
+      for (let i = 0; i < companies.length; i++) {
+        const comp = companies[i];
+
+        // Gather datasets for this specific company
+        let compCheques: Cheque[] = [];
+        let compParties: Party[] = [];
+        let compBanks: Bank[] = [];
+        let compLogs: PaymentLog[] = [];
+        let compVouchers: AccountingVoucher[] = [];
+
+        if (comp.id === activeCompanyId) {
+          compCheques = cheques;
+          compParties = parties;
+          compBanks = banks;
+          compLogs = paymentLogs;
+          compVouchers = vouchers;
+        } else {
+          try {
+            const cached = localStorage.getItem(`chequedesk_offline_${comp.id}`);
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              compCheques = parsed.cheques || [];
+              compParties = parsed.parties || [];
+              compBanks = parsed.banks || [];
+              compLogs = parsed.paymentLogs || [];
+            }
+          } catch {}
+          if (compCheques.length === 0) {
+            try {
+              compCheques = await getLocalCheques(comp.id);
+              compLogs = await getLocalPaymentLogs(comp.id);
+            } catch {}
+          }
+          try {
+            const vRaw = localStorage.getItem(`chequedesk_vouchers_${comp.id}`);
+            if (vRaw) compVouchers = JSON.parse(vRaw);
+          } catch {}
+          if (compParties.length === 0) compParties = parties;
+          if (compBanks.length === 0) compBanks = banks;
+          if (compVouchers.length === 0) compVouchers = vouchers;
+        }
+
+        const wb = XLSX.utils.book_new();
+
+        // -------------------------------------------------------------
+        // Worksheet 1: Company Profile & License Info
+        // -------------------------------------------------------------
+        const profileRows = [
+          { 'Property / Attribute': 'Company Name', 'Value / Details': comp.name, 'Module / Domain': 'Organization Profile' },
+          { 'Property / Attribute': 'Company Code', 'Value / Details': comp.company_code, 'Module / Domain': 'Tenant Identifier' },
+          { 'Property / Attribute': 'Company Database ID', 'Value / Details': comp.id, 'Module / Domain': 'System Key' },
+          { 'Property / Attribute': 'Admin Username', 'Value / Details': comp.admin_username || 'Admin', 'Module / Domain': 'Security' },
+          { 'Property / Attribute': 'Admin / Contact Email', 'Value / Details': comp.admin_email || comp.email || 'N/A', 'Module / Domain': 'Communication' },
+          { 'Property / Attribute': 'Phone Number', 'Value / Details': comp.phone || 'N/A', 'Module / Domain': 'Communication' },
+          { 'Property / Attribute': 'PAN / VAT Registration No', 'Value / Details': comp.pan_vat || 'N/A', 'Module / Domain': 'Tax Compliance' },
+          { 'Property / Attribute': 'Registered Address', 'Value / Details': comp.address || 'Kathmandu, Nepal', 'Module / Domain': 'Location' },
+          { 'Property / Attribute': 'License Subscription Status', 'Value / Details': comp.is_active ? 'ACTIVE / LICENSED' : 'SUSPENDED / LOCKED', 'Module / Domain': 'Subscription' },
+          { 'Property / Attribute': 'License Expiry (BS)', 'Value / Details': comp.license_expiry_bs || comp.expiry_date_bs || '2084-06-08', 'Module / Domain': 'Subscription' },
+          { 'Property / Attribute': 'License Expiry (AD)', 'Value / Details': comp.license_expiry_ad || comp.expiry_date_ad || '2027-09-24', 'Module / Domain': 'Subscription' },
+          { 'Property / Attribute': 'Cheque Register Entries', 'Value / Details': String(compCheques.length), 'Module / Domain': 'Cheque Management' },
+          { 'Property / Attribute': 'Installment Settlement Logs', 'Value / Details': String(compLogs.length), 'Module / Domain': 'Cheque Management' },
+          { 'Property / Attribute': 'Accounting Vouchers Count', 'Value / Details': String(compVouchers.length), 'Module / Domain': 'Double-Entry Accounting' },
+          { 'Property / Attribute': 'Registered Parties & Ledgers', 'Value / Details': String(compParties.length + customLedgers.length), 'Module / Domain': 'Master Ledgers' },
+          { 'Property / Attribute': 'Inventory Products Managed', 'Value / Details': String(itemMasters.length), 'Module / Domain': 'Stock Inventory' },
+          { 'Property / Attribute': 'Backup Engine', 'Value / Details': 'Simple Accounting & Cheque Management ERP Universal Archiver', 'Module / Domain': 'System' },
+          { 'Property / Attribute': 'Snapshot Timestamp (AD)', 'Value / Details': new Date().toISOString(), 'Module / Domain': 'Audit Trail' },
+          { 'Property / Attribute': 'Snapshot Timestamp (BS)', 'Value / Details': `${getCurrentBsDate()} BS`, 'Module / Domain': 'Audit Trail' },
+        ];
+        const wsProfile = XLSX.utils.json_to_sheet(profileRows);
+        XLSX.utils.book_append_sheet(wb, wsProfile, 'Company Profile & License');
+
+        // -------------------------------------------------------------
+        // Worksheet 2: Cheque Register (Pending, Issued, Cleared, Bounced & Partial Payments)
+        // -------------------------------------------------------------
+        const chequeRows = compCheques.map((c) => {
+          const party = compParties.find((p) => p.id === c.party_id);
+          const bank = compBanks.find((b) => b.id === c.bank_id);
+          const remaining = c.remaining_amount ?? (c.status === 'Cleared' ? 0 : c.amount);
+          const settled = Math.max(0, (c.amount || 0) - remaining);
+          const chqLogs = compLogs.filter((p) => p.cheque_id === c.id);
+          return {
+            'Cheque Number': c.cheque_number,
+            'Bill Number': c.bill_number || '-',
+            'Party / Payee': party?.name || 'N/A',
+            'Party Classification': party?.party_type || 'Sundry Debtors',
+            'Bank Name': bank?.name || 'N/A',
+            'Account Number': c.account_number || '',
+            'Cheque Amount (NPR)': c.amount,
+            'Settled / Paid (NPR)': settled,
+            'Remaining Due (NPR)': remaining,
+            'Cheque Status': c.status,
+            'Issue Date (BS)': c.issue_date_bs,
+            'Issue Date (AD)': c.issue_date_ad,
+            'Due Date (BS)': c.due_date_bs,
+            'Due Date (AD)': c.due_date_ad,
+            'Installments Count': chqLogs.length,
+            'Remarks / Notes': c.notes || '',
+          };
+        });
+        const wsCheques = XLSX.utils.json_to_sheet(
+          chequeRows.length > 0
+            ? chequeRows
+            : [{ 'Cheque Number': 'NO_CHEQUES', 'Party / Payee': 'None recorded', 'Cheque Amount (NPR)': 0 }]
+        );
+        XLSX.utils.book_append_sheet(wb, wsCheques, 'Cheque Register');
+
+        // -------------------------------------------------------------
+        // Worksheet 3: Chart of Accounts & Master Ledgers
+        // -------------------------------------------------------------
+        const ledgerRows: any[] = [];
+        compParties.forEach((p) => {
+          ledgerRows.push({
+            'Ledger Name': p.name,
+            'Account Group': p.party_type || 'Sundry Debtors',
+            'Opening Balance (NPR)': (p as any).opening_balance || 0,
+            'Dr / Cr': (p as any).dr_cr || (p.party_type === 'Sundry Creditors' ? 'Cr' : 'Dr'),
+            'Contact Phone': p.phone || (p as any).contact_phone || 'N/A',
+            'PAN / VAT No': p.pan_vat || 'N/A',
+            'Registered Address': p.address || 'N/A',
+            'Ledger Category': 'Party Account',
+          });
+        });
+        customLedgers.forEach((l) => {
+          ledgerRows.push({
+            'Ledger Name': l.name,
+            'Account Group': l.group,
+            'Opening Balance (NPR)': l.opening_balance || 0,
+            'Dr / Cr': l.dr_cr || 'Dr',
+            'Contact Phone': 'N/A',
+            'PAN / VAT No': 'N/A',
+            'Registered Address': 'N/A',
+            'Ledger Category': 'General Master',
+          });
+        });
+        compBanks.forEach((b) => {
+          ledgerRows.push({
+            'Ledger Name': `${b.name} A/C`,
+            'Account Group': 'Bank Accounts',
+            'Opening Balance (NPR)': 0,
+            'Dr / Cr': 'Dr',
+            'Contact Phone': b.contact_phone || 'N/A',
+            'PAN / VAT No': 'N/A',
+            'Registered Address': b.branch || 'Main Branch',
+            'Ledger Category': 'Banking Master',
+          });
+        });
+        const wsLedgers = XLSX.utils.json_to_sheet(ledgerRows);
+        XLSX.utils.book_append_sheet(wb, wsLedgers, 'Chart of Accounts & Ledgers');
+
+        // -------------------------------------------------------------
+        // Worksheet 4: Accounting Vouchers (Sales, Purchase, Receipts, Payments, Contra, Journal)
+        // -------------------------------------------------------------
+        const voucherRows = compVouchers.map((v) => {
+          const itemSummary = (v.items || [])
+            .map((it) => `${it.item_description || 'Item'} (${it.qty} ${it.unit} @ NPR ${it.price})`)
+            .join('; ');
+          return {
+            'Voucher Number': v.voucher_number,
+            'Voucher Type': v.voucher_type.toUpperCase().replace('_', ' '),
+            'Date (BS)': v.date_bs,
+            'Date (AD)': v.date_ad,
+            'Party / Primary Account': v.party_name || v.account_debit || v.account_credit || 'N/A',
+            'Reference / Bill No': v.reference_no || '-',
+            'Godown / Location': v.mat_centre || (v as any).godown || 'Main Store',
+            'Subtotal Amount (NPR)': (v as any).total_amount || v.amount,
+            'Tax / VAT (NPR)': (v as any).tax_amount || 0,
+            'Net Total (NPR)': (v as any).net_amount || v.amount,
+            'Narration / Remarks': v.narration || '',
+            'Line Items Summary': itemSummary || '-',
+          };
+        });
+        const wsVouchers = XLSX.utils.json_to_sheet(
+          voucherRows.length > 0
+            ? voucherRows
+            : [{ 'Voucher Number': 'NO_VOUCHERS', 'Voucher Type': 'None', 'Net Total (NPR)': 0 }]
+        );
+        XLSX.utils.book_append_sheet(wb, wsVouchers, 'Accounting Vouchers');
+
+        // -------------------------------------------------------------
+        // Worksheet 5: Stock / Inventory & Godown Balances
+        // -------------------------------------------------------------
+        const stockRows = itemMasters.map((it) => {
+          const gName = godowns[0]?.name || 'Main Store';
+          const stockCase = it.stock_case ?? 100;
+          const stockPcs = it.stock_pcs ?? (stockCase * (it.conversion_factor || 1));
+          const valNpr = stockCase * (it.purchase_price || it.price || 0);
+          return {
+            'Item Name': it.name,
+            'Category': it.category,
+            'Stock Unit': it.unit,
+            'Alt Unit': it.alt_unit || 'Pcs',
+            'Conversion Factor': it.conversion_factor || 1,
+            'Purchase Price (NPR)': it.purchase_price || 0,
+            'Selling Price (NPR)': it.price,
+            'Tax / VAT Rate (%)': it.tax_pct ?? 13,
+            'Godown / Warehouse': gName,
+            'Current Stock (Cases)': stockCase,
+            'Current Stock (Pcs)': stockPcs,
+            'Inventory Value (NPR)': valNpr,
+          };
+        });
+        const wsStock = XLSX.utils.json_to_sheet(stockRows);
+        XLSX.utils.book_append_sheet(wb, wsStock, 'Stock & Godown Balances');
+
+        // -------------------------------------------------------------
+        // Worksheet 6: Outstanding Receivables & Payables
+        // -------------------------------------------------------------
+        const outRows = compParties.map((p) => {
+          const partyCheques = compCheques.filter((c) => c.party_id === p.id);
+          const chqDues = partyCheques
+            .filter((c) => c.status !== 'Cleared')
+            .reduce((s, c) => s + (c.remaining_amount ?? c.amount), 0);
+          const partyVouchers = compVouchers.filter((v) => (v as any).party_id === p.id || v.party_name === p.name || v.account_debit === p.name || v.account_credit === p.name);
+          const vTotal = partyVouchers.reduce((s, v) => s + ((v as any).net_amount || (v as any).total_amount || v.amount || 0), 0);
+          const totalOut = chqDues + (p.party_type === 'Sundry Debtors' ? vTotal * 0.1 : 0);
+          return {
+            'Party Name': p.name,
+            'Classification': p.party_type || 'Sundry Debtors',
+            'Total Cheques Count': partyCheques.length,
+            'Active Cheque Dues (NPR)': chqDues,
+            'Accounting Voucher Total (NPR)': vTotal,
+            'Net Outstanding Due (NPR)': totalOut,
+            'Aging / Risk Status': totalOut <= 0 ? 'CLEARED' : chqDues > 100000 ? 'HIGH DUE' : 'NORMAL',
+            'Contact Phone': p.phone || (p as any).contact_phone || 'N/A',
+            'PAN / VAT': p.pan_vat || 'N/A',
+          };
+        });
+        const wsOutstanding = XLSX.utils.json_to_sheet(
+          outRows.length > 0
+            ? outRows
+            : [{ 'Party Name': 'No parties registered', 'Net Outstanding Due (NPR)': 0 }]
+        );
+        XLSX.utils.book_append_sheet(wb, wsOutstanding, 'Receivables & Payables');
+
+        // File naming per tenant
+        const cleanCode = (comp.company_code || comp.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+        const filename = `${cleanCode}_Complete_ERP_Backup_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+        XLSX.writeFile(wb, filename);
+
+        // Stagger browser downloads to prevent popup blocker collisions
+        if (i < companies.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 350));
+        }
+      }
+
+      performSilentBackgroundSnapshot(`Manual All-Company Excel Export (${companies.length} Companies)`);
+      showToast(`Successfully downloaded comprehensive 6-worksheet Excel backups for all ${companies.length} companies!`, 'success');
+    } catch (err: any) {
+      console.error('All-company backup error:', err);
+      showToast(`Error generating multi-company backup: ${err?.message || 'Failed'}`, 'error');
+    } finally {
+      setIsExportingAllCompanyBackup(false);
     }
   };
 
@@ -7899,6 +9006,7 @@ export default function App() {
         });
         showToast('Cheque created successfully', 'success');
       }
+      performSilentBackgroundSnapshot(`Cheque Saved: #${chequeForm.cheque_number || 'New'} (${formatNPR(amountNum)})`);
       setIsChequeModalOpen(false);
     } catch (err: any) {
       showToast(`Failed to save cheque: ${err?.message || 'Error'}`, 'error');
@@ -8266,33 +9374,75 @@ export default function App() {
       return;
     }
     const currentRemaining = targetCheque.remaining_amount ?? targetCheque.amount;
-    if (amountNum > currentRemaining + 0.001) {
-      showToast(`Payment amount cannot exceed remaining balance of ${formatNPR(currentRemaining)}`, 'error');
+    if (amountNum > currentRemaining + 0.001 && !receivedPaymentAllowOverpay) {
+      showToast(`Payment amount cannot exceed remaining balance of ${formatNPR(currentRemaining)} (or check Allow Overpayment)`, 'error');
       return;
     }
 
     setIsSubmittingReceivedPayment(true);
     try {
+      const fullNotes = receivedPaymentUtrRef.trim()
+        ? `[Ref/UTR: ${receivedPaymentUtrRef.trim()}] ${receivedPaymentNotes.trim()}`
+        : receivedPaymentNotes.trim();
+
       await recordPayment({
         company_id: activeCompanyId,
         cheque_id: targetCheque.id,
         party_id: targetCheque.party_id || receivedPaymentPartyId || undefined,
         amount: amountNum,
-        payment_mode: receivedPaymentMode,
+        payment_mode: receivedPaymentMode as PaymentMode,
         payment_type: receivedPaymentType,
         payment_date_bs: receivedPaymentDateBs,
         payment_date_ad: receivedPaymentDateAd,
-        notes: receivedPaymentNotes.trim(),
+        notes: fullNotes,
         recorded_by: currentUser?.name || 'Accountant',
       });
+
       const newRemaining = Math.max(0, currentRemaining - amountNum);
+      const newStatus: ChequeStatus = newRemaining <= 0.001 ? 'Cleared' : 'Partially Paid';
+
+      // Instantly update React state for reactive UI reflection
+      setCheques((prev) =>
+        prev.map((c) =>
+          c.id === targetCheque.id
+            ? {
+                ...c,
+                remaining_amount: Math.round(newRemaining * 100) / 100,
+                status: newStatus,
+              }
+            : c
+        )
+      );
+
+      const newLogEntry: PaymentLog = {
+        id: `pay_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        cheque_id: targetCheque.id,
+        company_id: activeCompanyId,
+        party_id: targetCheque.party_id || receivedPaymentPartyId || undefined,
+        amount: amountNum,
+        payment_mode: receivedPaymentMode as PaymentMode,
+        payment_type: receivedPaymentType,
+        payment_date_bs: receivedPaymentDateBs,
+        payment_date_ad: receivedPaymentDateAd,
+        notes: fullNotes,
+        created_at: new Date().toISOString(),
+        recorded_by: currentUser?.name || 'Accountant',
+        remaining_balance_after: Math.round(newRemaining * 100) / 100,
+      };
+      setPaymentLogs((prev) => [newLogEntry, ...prev]);
+
+      // Trigger automatic background snapshot
+      performSilentBackgroundSnapshot(`Payment Settlement: Cheque #${targetCheque.cheque_number} (${formatNPR(amountNum)})`);
+
       showToast(
-        `Recorded ${receivedPaymentType} of ${formatNPR(amountNum)} for Cheque #${targetCheque.cheque_number}. New Balance: ${formatNPR(newRemaining)}`,
+        `Recorded ${receivedPaymentType} of ${formatNPR(amountNum)} for Cheque #${targetCheque.cheque_number}. New Balance: ${formatNPR(newRemaining)} [${newStatus.toUpperCase()}]`,
         'success'
       );
       setIsReceivedPaymentModalOpen(false);
       setReceivedPaymentAmount('');
       setReceivedPaymentNotes('');
+      setReceivedPaymentUtrRef('');
+      setReceivedPaymentAllowOverpay(false);
     } catch (err: any) {
       showToast(`Failed to record payment: ${err?.message || 'Error'}`, 'error');
     } finally {
@@ -8300,21 +9450,21 @@ export default function App() {
     }
   };
 
-  // Print Statement Generator
-  const printChequeStatement = (c: Cheque) => {
+  // Download Cheque & Partial Payment Statement PDF
+  const downloadChequeStatementPdf = (c: Cheque) => {
     try {
       const party = parties.find((p) => p.id === c.party_id);
       const bank = banks.find((b) => b.id === c.bank_id);
       const logs = paymentLogs.filter((p) => p.cheque_id === c.id);
       const remaining = c.remaining_amount ?? (c.status === 'Cleared' ? 0 : c.amount);
-      const totalPaid = c.amount - remaining;
+      const totalPaid = Math.max(0, (c.amount || 0) - remaining);
       const compName = currentCompany?.name || activeCompanyName || 'Simple Accounting & Cheque Management ERP';
 
       const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
 
       // Header Banner
       doc.setFillColor(79, 70, 229);
-      doc.rect(40, 30, 515, 3, 'F');
+      doc.rect(40, 30, 515, 4, 'F');
 
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
@@ -8324,12 +9474,12 @@ export default function App() {
       doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(79, 70, 229);
-      doc.text(`Cheque Ledger & Statement: #${c.cheque_number}`, 40, 70);
+      doc.text(`Cheque & Partial Payment Statement`, 40, 70);
 
       doc.setFontSize(8.5);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(100, 116, 139);
-      doc.text(`Party: ${party?.name || 'N/A'} • Bank: ${bank?.name || 'N/A'}`, 40, 84);
+      doc.text(`Party: ${party?.name || 'N/A'} • Bill #: ${c.bill_number || 'N/A'} • Cheque #: ${c.cheque_number} • Bank: ${bank?.name || 'N/A'}`, 40, 84);
 
       // Status & Dates on right
       doc.setFontSize(8.5);
@@ -8345,9 +9495,9 @@ export default function App() {
       doc.setFontSize(8);
       doc.setTextColor(100, 116, 139);
       doc.setFont('helvetica', 'bold');
-      doc.text('CHEQUE AMOUNT', 60, 112);
-      doc.text('SETTLED / PAID', 230, 112);
-      doc.text('PENDING BALANCE', 400, 112);
+      doc.text('TOTAL BILL / CHEQUE', 60, 112);
+      doc.text('TOTAL RECEIVED / SETTLED', 230, 112);
+      doc.text('CURRENT REMAINING DUE', 400, 112);
 
       doc.setFontSize(12);
       doc.setTextColor(15, 23, 42);
@@ -8358,19 +9508,30 @@ export default function App() {
       doc.text(`NPR ${remaining.toLocaleString()}`, 400, 132);
 
       // Payment logs table
-      const tableHeaders = ['#', 'Date (BS)', 'Date (AD)', 'Mode', 'Type', 'Amount (NPR)', 'Recorded By', 'Notes'];
+      const tableHeaders = ['#', 'Date (BS & AD)', 'Mode', 'Ref / UTR #', 'Received Amount', 'Remaining Balance', 'Remarks / Notes'];
       const tableRows = logs.length === 0
-        ? [['-', '-', '-', '-', '-', 'No installment payments recorded', '-', '-']]
-        : logs.map((log, idx) => [
-            idx + 1,
-            log.payment_date_bs,
-            log.payment_date_ad,
-            log.payment_mode,
-            log.payment_type || 'Installment',
-            `Rs ${log.amount.toLocaleString()}`,
-            log.recorded_by || 'Staff',
-            log.notes || '—',
-          ]);
+        ? [['-', '-', '-', '-', '-', '-', 'No installment payments recorded yet']]
+        : logs.map((log, idx) => {
+            let utr = (log as any).reference || (log as any).utr_number || '';
+            let noteText = log.notes || '—';
+            if (!utr && noteText.includes('[Ref/UTR:')) {
+              const match = noteText.match(/\[Ref\/UTR:\s*([^\]]+)\]/);
+              if (match) {
+                utr = match[1].trim();
+                noteText = noteText.replace(/\[Ref\/UTR:\s*[^\]]+\]/, '').trim() || '—';
+              }
+            }
+            if (!utr) utr = '—';
+            return [
+              idx + 1,
+              `${log.payment_date_bs} BS (${log.payment_date_ad})`,
+              log.payment_mode,
+              utr,
+              `NPR ${log.amount.toLocaleString()}`,
+              log.remaining_balance_after !== undefined ? `NPR ${log.remaining_balance_after.toLocaleString()}` : '—',
+              noteText,
+            ];
+          });
 
       const autoTableFn = (autoTable as any).default || autoTable;
       autoTableFn(doc, {
@@ -8403,10 +9564,181 @@ export default function App() {
 
       const cleanFilename = `Statement_Cheque_${c.cheque_number}.pdf`;
       doc.save(cleanFilename);
-      showToast(`Downloaded ${cleanFilename} directly without print dialog!`, 'success');
+      showToast(`Downloaded ${cleanFilename} successfully!`, 'success');
     } catch (err: any) {
       console.error('Cheque statement PDF export error:', err);
       showToast(`Export error: ${err?.message || 'Failed'}`, 'error');
+    }
+  };
+
+  // One-Click Clean HTML Print Spooler
+  const printChequeStatement = (c: Cheque) => {
+    try {
+      const party = parties.find((p) => p.id === c.party_id);
+      const bank = banks.find((b) => b.id === c.bank_id);
+      const logs = paymentLogs.filter((p) => p.cheque_id === c.id);
+      const remaining = c.remaining_amount ?? (c.status === 'Cleared' ? 0 : c.amount);
+      const totalPaid = Math.max(0, (c.amount || 0) - remaining);
+      const compName = currentCompany?.name || activeCompanyName || 'Simple Accounting & Cheque Management ERP';
+
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      document.body.appendChild(iframe);
+      const pri = iframe.contentWindow;
+      if (pri) {
+        pri.document.open();
+        pri.document.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Statement_Cheque_${c.cheque_number}</title>
+              <style>
+                @page { size: A4; margin: 15mm; }
+                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; padding: 20px; color: #1e293b; line-height: 1.4; margin: 0; }
+                .header-strip { border-bottom: 2px solid #4f46e5; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start; }
+                .comp-title { font-size: 18px; font-weight: bold; color: #1e1b4b; margin: 0 0 2px 0; }
+                .doc-subtitle { font-size: 14px; font-weight: 700; color: #4f46e5; margin: 0 0 4px 0; }
+                .doc-meta { font-size: 11px; color: #64748b; margin: 0; }
+                .right-meta { text-align: right; font-size: 11px; color: #475569; }
+                .status-badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; ${
+                  c.status === 'Cleared' ? 'background: #dcfce7; color: #166534;' : 'background: #fef3c7; color: #92400e;'
+                } }
+                .cards-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+                .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: left; }
+                .card-label { font-size: 10px; font-weight: bold; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }
+                .card-val { font-size: 14px; font-weight: bold; font-family: monospace; color: #0f172a; }
+                .table-container { margin-top: 12px; }
+                table { width: 100%; border-collapse: collapse; font-size: 11px; text-align: left; }
+                th { background: #f1f5f9; color: #334155; font-weight: bold; border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 10px; text-transform: uppercase; }
+                td { border: 1px solid #cbd5e1; padding: 6px 8px; }
+                tr:nth-child(even) { background: #f8fafc; }
+                .text-right { text-align: right; }
+                .font-mono { font-family: monospace; font-weight: bold; }
+                .received-amt { color: #15803d; font-family: monospace; font-weight: bold; }
+                .footer { margin-top: 36px; padding-top: 16px; border-top: 1px dashed #cbd5e1; display: flex; justify-content: space-between; font-size: 10px; color: #64748b; }
+              </style>
+            </head>
+            <body>
+              <div class="header-strip">
+                <div>
+                  <h1 class="comp-title">${compName}</h1>
+                  <h2 class="doc-subtitle">Cheque & Partial Payment Statement</h2>
+                  <p class="doc-meta">Party: <strong>${party?.name || 'N/A'}</strong> • Bank: <strong>${bank?.name || 'N/A'}</strong></p>
+                  <p class="doc-meta">Bill #: <strong>${c.bill_number || 'N/A'}</strong> • Cheque #: <strong>${c.cheque_number}</strong></p>
+                </div>
+                <div class="right-meta">
+                  <div><span class="status-badge">${c.status}</span></div>
+                  <div>Issued BS: <strong>${c.issue_date_bs}</strong> (${c.issue_date_ad})</div>
+                  <div>Due BS: <strong>${c.due_date_bs}</strong> (${c.due_date_ad})</div>
+                </div>
+              </div>
+
+              <div class="cards-grid">
+                <div class="card">
+                  <div class="card-label">Total Bill / Cheque</div>
+                  <div class="card-val">NPR ${c.amount.toLocaleString()}</div>
+                </div>
+                <div class="card">
+                  <div class="card-label">Total Received / Settled</div>
+                  <div class="card-val" style="color: #15803d;">NPR ${totalPaid.toLocaleString()}</div>
+                </div>
+                <div class="card">
+                  <div class="card-label">Current Remaining Due</div>
+                  <div class="card-val" style="color: ${remaining > 0 ? '#b45309' : '#15803d'};">NPR ${remaining.toLocaleString()}</div>
+                </div>
+              </div>
+
+              <div class="table-container">
+                <div style="font-weight: bold; font-size: 12px; margin-bottom: 6px; color: #1e293b;">
+                  Installment History & Settlement Audit Log (${logs.length} Entries)
+                </div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th style="width: 28px;">#</th>
+                      <th>Date (BS & AD)</th>
+                      <th>Payment Mode</th>
+                      <th>Ref / UTR / Txn ID</th>
+                      <th class="text-right">Received Amount</th>
+                      <th class="text-right">Remaining Balance</th>
+                      <th>Remarks / Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${
+                      logs.length === 0
+                        ? `<tr><td colspan="7" style="text-align: center; padding: 18px; color: #94a3b8; font-style: italic;">No installment payments recorded yet.</td></tr>`
+                        : logs
+                            .map((log, idx) => {
+                              let utr = (log as any).reference || (log as any).utr_number || '';
+                              let noteText = log.notes || '—';
+                              if (!utr && noteText.includes('[Ref/UTR:')) {
+                                const match = noteText.match(/\[Ref\/UTR:\s*([^\]]+)\]/);
+                                if (match) {
+                                  utr = match[1].trim();
+                                  noteText = noteText.replace(match[0], '').trim() || '—';
+                                }
+                              }
+                              if (!utr) utr = '—';
+                              return `
+                                <tr>
+                                  <td>${idx + 1}</td>
+                                  <td><strong>${log.payment_date_bs} BS</strong><br><span style="color:#64748b; font-size:9px;">(${log.payment_date_ad})</span></td>
+                                  <td><strong>${log.payment_mode}</strong></td>
+                                  <td class="font-mono">${utr}</td>
+                                  <td class="text-right received-amt">+NPR ${log.amount.toLocaleString()}</td>
+                                  <td class="text-right font-mono">${log.remaining_balance_after !== undefined ? 'NPR ' + log.remaining_balance_after.toLocaleString() : '—'}</td>
+                                  <td>${noteText}${log.recorded_by ? `<br><span style="color:#94a3b8; font-size:9px;">By: ${log.recorded_by}</span>` : ''}</td>
+                                </tr>
+                              `;
+                            })
+                            .join('')
+                    }
+                  </tbody>
+                  ${
+                    logs.length > 0
+                      ? `
+                    <tfoot>
+                      <tr style="background: #f1f5f9; font-weight: bold;">
+                        <td colspan="4">Total Installments Recorded (${logs.length})</td>
+                        <td class="text-right received-amt">NPR ${logs.reduce((s, l) => s + l.amount, 0).toLocaleString()}</td>
+                        <td class="text-right font-mono" style="color: ${remaining > 0 ? '#b45309' : '#15803d'};">NPR ${remaining.toLocaleString()}</td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  `
+                      : ''
+                  }
+                </table>
+              </div>
+
+              <div class="footer">
+                <div>Generated: ${getCurrentBsDate()} BS (${getCurrentAdDate()}) • Simple Accounting & Cheque Management ERP</div>
+                <div>Authorized Signatory: _________________________</div>
+              </div>
+            </body>
+          </html>
+        `);
+        pri.document.close();
+        pri.focus();
+        setTimeout(() => {
+          pri.print();
+          setTimeout(() => {
+            if (document.body.contains(iframe)) {
+              document.body.removeChild(iframe);
+            }
+          }, 1500);
+        }, 400);
+        showToast(`Sent Statement for Cheque #${c.cheque_number} to printer`, 'info');
+      }
+    } catch (err: any) {
+      console.error('Print statement error:', err);
+      showToast(`Print failed: ${err?.message || 'Error'}`, 'error');
     }
   };
 
@@ -8669,6 +10001,15 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={downloadCompleteAllCompanyBackupExcel}
+              disabled={isExportingAllCompanyBackup}
+              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+              title="Download Complete All-Company Backup (Excel) for all registered tenants"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
+              <span>{isExportingAllCompanyBackup ? 'Generating Backups...' : 'Download Complete All-Company Backup (Excel)'}</span>
+            </button>
             <button
               onClick={openAddCompanyModal}
               className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
@@ -9764,15 +11105,25 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={downloadCompleteAllCompanyBackupExcel}
+                    disabled={isExportingAllCompanyBackup}
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md"
+                    title="Process every registered tenant/company and download individual 6-worksheet Excel (.xlsx) workbooks"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-200" />
+                    <span>{isExportingAllCompanyBackup ? 'Exporting All Companies...' : 'Download Complete All-Company Backup (Excel)'}</span>
+                  </button>
                   <button
                     type="button"
                     onClick={exportMultiSheetBackupExcel}
                     className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
-                    title="Generate Multi-Sheet Excel Master Backup"
+                    title="Generate Multi-Sheet Excel Master Backup for Active Company"
                   >
                     <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Multi-Sheet Excel (.xlsx)</span>
+                    <span>Active Company Excel</span>
                   </button>
                   <button
                     type="button"
@@ -9870,6 +11221,122 @@ export default function App() {
                   >
                     <Send className={`w-3.5 h-3.5 ${isSyncingMultiEmail ? 'animate-bounce' : ''}`} />
                     <span>{isSyncingMultiEmail ? 'Syncing to Targets...' : `Dispatch to ${backupEmailList.length} Targets`}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Comprehensive Multi-Company Excel Archiver & Background Snapshot Monitor */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-3 border-t border-slate-700/80">
+                {/* Card 1: Multi-Company Excel Engine */}
+                <div className="bg-slate-900/80 border border-slate-700 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-lg">
+                        <FileSpreadsheet className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-white">Full Multi-Company Automated Excel Backup</h4>
+                        <p className="text-[10px] text-slate-400">Individual 6-worksheet .xlsx files for every registered tenant</p>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded font-mono text-[10px] font-bold">
+                      {companies.length} Companies
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[10px]">
+                    <div className="p-2 bg-slate-800/80 rounded-lg border border-slate-700/60">
+                      <span className="font-bold text-slate-200 block">WS 1: Company Profile</span>
+                      <span className="text-slate-400">License, Expiry BS/AD &amp; Meta</span>
+                    </div>
+                    <div className="p-2 bg-slate-800/80 rounded-lg border border-slate-700/60">
+                      <span className="font-bold text-slate-200 block">WS 2: Cheque Register</span>
+                      <span className="text-slate-400">Pending, Cleared &amp; Partials</span>
+                    </div>
+                    <div className="p-2 bg-slate-800/80 rounded-lg border border-slate-700/60">
+                      <span className="font-bold text-slate-200 block">WS 3: Chart of Accounts</span>
+                      <span className="text-slate-400">Master Ledgers &amp; Dr/Cr Dues</span>
+                    </div>
+                    <div className="p-2 bg-slate-800/80 rounded-lg border border-slate-700/60">
+                      <span className="font-bold text-slate-200 block">WS 4: Accounting Vouchers</span>
+                      <span className="text-slate-400">Sales, Purchase, Journal &amp; All</span>
+                    </div>
+                    <div className="p-2 bg-slate-800/80 rounded-lg border border-slate-700/60">
+                      <span className="font-bold text-slate-200 block">WS 5: Stock / Godown</span>
+                      <span className="text-slate-400">Item Inventory &amp; Valuation</span>
+                    </div>
+                    <div className="p-2 bg-slate-800/80 rounded-lg border border-slate-700/60">
+                      <span className="font-bold text-slate-200 block">WS 6: Receivables / Payables</span>
+                      <span className="text-slate-400">Party Aging &amp; Net Dues</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={downloadCompleteAllCompanyBackupExcel}
+                    disabled={isExportingAllCompanyBackup}
+                    className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer shadow-md"
+                  >
+                    <Download className={`w-3.5 h-3.5 ${isExportingAllCompanyBackup ? 'animate-bounce' : ''}`} />
+                    <span>{isExportingAllCompanyBackup ? 'Exporting Multi-Company Archives...' : 'Download Complete All-Company Backup (Excel)'}</span>
+                  </button>
+                </div>
+
+                {/* Card 2: Silent Automated Background Backup Engine */}
+                <div className="bg-slate-900/80 border border-slate-700 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-lg">
+                        <HardDrive className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-white">Silent Automated Background Snapshots</h4>
+                        <p className="text-[10px] text-slate-400">Continuous local storage &amp; IndexedDB snapshots on transactions</p>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded text-[10px] font-bold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Active
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-800/80 rounded-xl p-3 border border-slate-700/60 space-y-2 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Last Background Snapshot:</span>
+                      <span className="font-mono font-bold text-slate-200 text-[11px]">
+                        {lastSilentBackupInfo?.timestamp_bs || 'Just now'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Trigger Action:</span>
+                      <span className="font-mono text-emerald-400 text-[11px] truncate max-w-[200px]" title={lastSilentBackupInfo?.reason}>
+                        {lastSilentBackupInfo?.reason || 'System Initialized'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Active Tenant Scope:</span>
+                      <span className="font-semibold text-slate-300 text-[11px]">
+                        {lastSilentBackupInfo?.companyName || activeCompanyName || 'RS Traders'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Mirror Storage Targets:</span>
+                      <span className="text-indigo-300 font-mono text-[10px]">
+                        IndexedDB + LocalStorage (Offline Protected)
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      performSilentBackgroundSnapshot('Manual Snapshot Triggered in Console');
+                      showToast('Silent background snapshot created and verified in IndexedDB!', 'success');
+                    }}
+                    className="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Trigger Immediate State Snapshot</span>
                   </button>
                 </div>
               </div>
@@ -12652,21 +14119,34 @@ export default function App() {
                 return true;
               });
 
-              // Stock Integration Calculations
+              // Stock Integration Calculations with Multi-Godown Balance Tracking
               const stockEngine = itemMasters.map((m) => {
-                const opPcs = m.stock_pcs || 0;
+                const opPcs = m.stock_pcs || (m.opening_qty ? m.opening_qty * (m.conversion_factor || 1) : 0);
                 let inwardPcs = 0;
                 let outwardPcs = 0;
+                const godownPcs: Record<string, number> = {};
+
+                godowns.forEach((g) => {
+                  godownPcs[g.name] = Math.round(opPcs / Math.max(1, godowns.length));
+                });
 
                 vouchers.forEach((v) => {
                   if (v.items && v.items.length > 0) {
                     v.items.forEach((it) => {
                       if (it.item_description.trim().toLowerCase() === m.name.trim().toLowerCase()) {
                         const q = (Number(it.qty) || 0) * (m.conversion_factor || 1);
+                        const gName = it.godown || v.mat_centre || 'Main Store';
                         if (v.voucher_type === 'purchase' || v.voucher_type === 'sales_return') {
                           inwardPcs += q;
-                        } else if (v.voucher_type === 'sales' || v.voucher_type === 'purchase_return') {
+                          godownPcs[gName] = (godownPcs[gName] || 0) + q;
+                        } else if (v.voucher_type === 'sales' || v.voucher_type === 'purchase_return' || v.voucher_type === 'delivery_challan') {
                           outwardPcs += q;
+                          godownPcs[gName] = (godownPcs[gName] || 0) - q;
+                        } else if (v.voucher_type === 'stock' || v.voucher_type === 'stock_transfer') {
+                          const src = v.source_godown || 'Main Store';
+                          const dest = v.dest_godown || gName;
+                          godownPcs[src] = (godownPcs[src] || 0) - q;
+                          godownPcs[dest] = (godownPcs[dest] || 0) + q;
                         }
                       }
                     });
@@ -12687,6 +14167,7 @@ export default function App() {
                   closingPcs,
                   closingCase,
                   valuation,
+                  godownBalances: godownPcs,
                 };
               });
 
@@ -12709,11 +14190,16 @@ export default function App() {
                 const initBal = p.opening_balance || (isCust ? 35000 : 0);
                 registerLedger(p.name, isCust ? 'Sundry Debtors' : 'Sundry Creditors', isCust ? initBal : 0, !isCust ? (p.opening_balance || 28000) : 0);
               });
+              customLedgers.forEach((l) => {
+                registerLedger(l.name, l.group, l.dr_cr === 'Dr' ? l.opening_balance : 0, l.dr_cr === 'Cr' ? l.opening_balance : 0);
+              });
               registerLedger('Sales Revenue Account', 'Sales Accounts', 0, 0);
               registerLedger('Sales Return Account', 'Sales Accounts', 0, 0);
               registerLedger('Purchase Account', 'Purchase Accounts', 0, 0);
               registerLedger('Purchase Return Account', 'Purchase Accounts', 0, 0);
               registerLedger('VAT Payable (13%)', 'Duties & Taxes', 0, 0);
+              registerLedger('Dispatch Holding A/C', 'Current Assets', 0, 0);
+              registerLedger('Stock A/C', 'Current Assets', totalStockValuation, 0);
               registerLedger('Office Rent & Utilities', 'Indirect Expenses', 0, 0);
               registerLedger('Staff Salaries & Wages', 'Indirect Expenses', 0, 0);
               registerLedger('Stationery & General Expenses', 'Indirect Expenses', 0, 0);
@@ -12860,6 +14346,9 @@ export default function App() {
                               } else if (erpActiveSubModule === 'day_book') {
                                 const rows = filteredVouchers.map((v) => [v.voucher_number, v.date_bs, v.date_ad, v.voucher_type, v.account_debit, v.account_credit, v.amount, v.narration]);
                                 exportErpReport('Day_Book', ['Voucher #', 'Date BS', 'Date AD', 'Type', 'Debit A/C', 'Credit A/C', 'Amount', 'Narration'], rows, 'excel');
+                              } else if (erpActiveSubModule === 'customer_ledger' || erpActiveSubModule === 'debtors_outstanding') {
+                                const rows = parties.filter((p) => p.type === 'Customer').map((p) => [p.name, p.pan_vat || 'N/A', p.contact_phone || '', p.address || '', accountMap[p.name]?.balance || p.opening_balance || 0, accountMap[p.name]?.drCr || 'Dr']);
+                                exportErpReport('Customer_Outstanding', ['Customer Name', 'PAN/VAT', 'Phone', 'Address', 'Outstanding (NPR)', 'Dr/Cr'], rows, 'excel');
                               } else {
                                 const rows = stockEngine.map((s) => [s.name, s.category, s.unit, s.openingPcs, s.inwardPcs, s.outwardPcs, s.closingPcs, s.closingCase, s.price, s.valuation]);
                                 exportErpReport('Stock_Summary', ['Item Name', 'Category', 'Unit', 'Opening Qty', 'Inward Qty', 'Outward Qty', 'Closing Pcs', 'Closing Case', 'Price', 'Valuation'], rows, 'excel');
@@ -12891,6 +14380,9 @@ export default function App() {
                               if (erpActiveSubModule === 'trial_balance') {
                                 const rows = Object.keys(accountMap).map((k) => [k, accountMap[k].group, formatNPR(accountMap[k].drCr === 'Dr' ? accountMap[k].balance : 0), formatNPR(accountMap[k].drCr === 'Cr' ? accountMap[k].balance : 0)]);
                                 exportErpReport('Trial_Balance', ['Account Name', 'Group', 'Debit (Dr)', 'Credit (Cr)'], rows, 'pdf');
+                              } else if (erpActiveSubModule === 'customer_ledger' || erpActiveSubModule === 'debtors_outstanding') {
+                                const rows = parties.filter((p) => p.type === 'Customer').map((p) => [p.name, p.pan_vat || 'N/A', p.contact_phone || '', formatNPR(accountMap[p.name]?.balance || p.opening_balance || 0)]);
+                                exportErpReport('Customer_Outstanding', ['Customer Name', 'PAN/VAT', 'Phone', 'Outstanding NPR'], rows, 'pdf');
                               } else {
                                 const rows = filteredVouchers.map((v) => [v.voucher_number, v.date_bs, v.voucher_type, v.account_debit, v.account_credit, formatNPR(v.amount)]);
                                 exportErpReport('Day_Book', ['Vch #', 'Date BS', 'Type', 'Debit Account', 'Credit Account', 'Amount'], rows, 'pdf');
@@ -12899,8 +14391,29 @@ export default function App() {
                             className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-xs"
                             title="Export to PDF (.pdf)"
                           >
-                            <Printer className="w-3.5 h-3.5" />
+                            <Download className="w-3.5 h-3.5" />
                             <span>PDF</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (erpActiveSubModule === 'trial_balance') {
+                                const rows = Object.keys(accountMap).map((k) => [k, accountMap[k].group, formatNPR(accountMap[k].drCr === 'Dr' ? accountMap[k].balance : 0), formatNPR(accountMap[k].drCr === 'Cr' ? accountMap[k].balance : 0)]);
+                                exportErpReport('Trial_Balance', ['Account Name', 'Group', 'Debit (Dr)', 'Credit (Cr)'], rows, 'print');
+                              } else if (erpActiveSubModule === 'customer_ledger' || erpActiveSubModule === 'debtors_outstanding') {
+                                const rows = parties.filter((p) => p.type === 'Customer').map((p) => [p.name, p.pan_vat || 'N/A', p.contact_phone || '', formatNPR(accountMap[p.name]?.balance || p.opening_balance || 0)]);
+                                exportErpReport('Customer_Outstanding', ['Customer Name', 'PAN/VAT', 'Phone', 'Outstanding NPR'], rows, 'print');
+                              } else {
+                                const rows = filteredVouchers.map((v) => [v.voucher_number, v.date_bs, v.voucher_type, v.account_debit, v.account_credit, formatNPR(v.amount)]);
+                                exportErpReport('Day_Book', ['Vch #', 'Date BS', 'Type', 'Debit Account', 'Credit Account', 'Amount'], rows, 'print');
+                              }
+                            }}
+                            className="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 hover:text-white rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                            title="Print current report [Print]"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                            <span>Print</span>
                           </button>
                         </div>
 
@@ -14583,7 +16096,16 @@ export default function App() {
                         </div>
 
                         <div className="flex items-center gap-2">
-                          {erpActiveSubModule === 'customer_master' || erpActiveSubModule === 'supplier_master' ? (
+                          {erpActiveSubModule === 'ledger_master' ? (
+                            <button
+                              type="button"
+                              onClick={() => openMasterCrud('ledger', 'add')}
+                              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>+ Add New Ledger</span>
+                            </button>
+                          ) : erpActiveSubModule === 'customer_master' || erpActiveSubModule === 'supplier_master' ? (
                             <button
                               type="button"
                               onClick={() => {
@@ -14610,6 +16132,42 @@ export default function App() {
                             >
                               <Plus className="w-3.5 h-3.5" />
                               <span>+ Add Product</span>
+                            </button>
+                          ) : erpActiveSubModule === 'godown_master' ? (
+                            <button
+                              type="button"
+                              onClick={() => openMasterCrud('godown', 'add')}
+                              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>+ Add Godown</span>
+                            </button>
+                          ) : erpActiveSubModule === 'employee_master' ? (
+                            <button
+                              type="button"
+                              onClick={() => openMasterCrud('employee', 'add')}
+                              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>+ Add Employee</span>
+                            </button>
+                          ) : erpActiveSubModule === 'salesman_master' ? (
+                            <button
+                              type="button"
+                              onClick={() => openMasterCrud('salesman', 'add')}
+                              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>+ Add Salesman</span>
+                            </button>
+                          ) : erpActiveSubModule === 'delivery_person_master' ? (
+                            <button
+                              type="button"
+                              onClick={() => openMasterCrud('delivery_person', 'add')}
+                              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>+ Add Delivery Person</span>
                             </button>
                           ) : erpActiveSubModule === 'bank_master' ? (
                             <button
@@ -14659,17 +16217,45 @@ export default function App() {
                                       {formatNPR(acc.balance)} {acc.drCr}
                                     </td>
                                     <td className="py-2.5 px-3 text-center">
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setErpSection('reports');
-                                          setErpActiveSubModule('ledger_statement');
-                                          setErpSelectedLedger(head);
-                                        }}
-                                        className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-1 rounded cursor-pointer"
-                                      >
-                                        Statement
-                                      </button>
+                                      <div className="flex items-center justify-center gap-1.5">
+                                        {(() => {
+                                          const customLed = customLedgers.find((l) => l.name === head);
+                                          if (customLed) {
+                                            return (
+                                              <>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => openMasterCrud('ledger', 'edit', customLed)}
+                                                  className="p-1 text-slate-500 hover:text-indigo-600 rounded transition cursor-pointer"
+                                                  title="Edit Ledger Master"
+                                                >
+                                                  <Edit2 className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleDeleteMaster('ledger', customLed.id)}
+                                                  className="p-1 text-slate-400 hover:text-rose-600 rounded transition cursor-pointer"
+                                                  title="Delete Ledger"
+                                                >
+                                                  <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                              </>
+                                            );
+                                          }
+                                          return null;
+                                        })()}
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setErpSection('reports');
+                                            setErpActiveSubModule('ledger_statement');
+                                            setErpSelectedLedger(head);
+                                          }}
+                                          className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-1 rounded cursor-pointer"
+                                        >
+                                          Statement
+                                        </button>
+                                      </div>
                                     </td>
                                   </tr>
                                 );
@@ -14741,7 +16327,7 @@ export default function App() {
                                       {formatNPR(accountMap[p.name]?.balance || p.opening_balance || 0)}
                                     </td>
                                     <td className="py-2.5 px-3 text-center">
-                                      <div className="flex items-center justify-center gap-1">
+                                      <div className="flex items-center justify-center gap-1.5">
                                         <button
                                           type="button"
                                           onClick={() => {
@@ -14755,9 +16341,18 @@ export default function App() {
                                             });
                                             setIsEditPartyOpen(true);
                                           }}
-                                          className="p-1 text-slate-500 hover:text-indigo-600 rounded transition"
+                                          className="p-1 text-slate-500 hover:text-indigo-600 rounded transition cursor-pointer"
+                                          title="Edit Party"
                                         >
                                           <Edit2 className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteMaster(isCust ? 'customer' : 'supplier', p.id)}
+                                          className="p-1 text-slate-400 hover:text-rose-600 rounded transition cursor-pointer"
+                                          title="Delete Party"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
                                         </button>
                                       </div>
                                     </td>
@@ -14782,6 +16377,7 @@ export default function App() {
                                 <th className="py-2.5 px-3 text-right">Factor</th>
                                 <th className="py-2.5 px-3 text-right">Selling Price</th>
                                 <th className="py-2.5 px-3 text-right">Closing Stock</th>
+                                <th className="py-2.5 px-3 text-center">Action</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -14794,6 +16390,26 @@ export default function App() {
                                   <td className="py-2.5 px-3 text-right font-mono">1 {item.unit} = {item.conversion_factor} {item.alt_unit}</td>
                                   <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-800">{formatNPR(item.price)}</td>
                                   <td className="py-2.5 px-3 text-right font-mono font-black text-indigo-700">{item.closingCase} cases</td>
+                                  <td className="py-2.5 px-3 text-center">
+                                    <div className="flex items-center justify-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => openMasterCrud('item', 'edit', item)}
+                                        className="p-1 text-slate-500 hover:text-indigo-600 rounded transition cursor-pointer"
+                                        title="Edit Product Master"
+                                      >
+                                        <Edit2 className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteMaster('item', item.id)}
+                                        className="p-1 text-slate-400 hover:text-rose-600 rounded transition cursor-pointer"
+                                        title="Delete Product"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </td>
                                 </tr>
                               ))}
                             </tbody>
@@ -14873,51 +16489,121 @@ export default function App() {
                         'financial_year',
                       ].includes(erpActiveSubModule) && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {erpActiveSubModule === 'employee_master' && [
-                            { name: 'Ramesh Adhikari', role: 'Senior Accountant', phone: '9851023456', dept: 'Accounts & Finance' },
-                            { name: 'Bikram Thapa', role: 'Store & Warehouse Manager', phone: '9841234567', dept: 'Inventory Logistics' },
-                            { name: 'Suman Shrestha', role: 'Billing Operator', phone: '9860123456', dept: 'Counter Sales' },
-                          ].map((e) => (
-                            <div key={e.name} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1 text-xs">
-                              <div className="font-bold text-slate-900">{e.name}</div>
-                              <div className="text-[11px] text-indigo-600 font-semibold">{e.role}</div>
-                              <div className="text-[10px] text-slate-500">Dept: {e.dept} &bull; Ph: {e.phone}</div>
-                            </div>
-                          ))}
+                          {erpActiveSubModule === 'employee_master' &&
+                            employees.map((e) => (
+                              <div key={e.id} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5 text-xs relative group">
+                                <div className="flex items-start justify-between">
+                                  <div className="font-bold text-slate-900">{e.name}</div>
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => openMasterCrud('employee', 'edit', e)}
+                                      className="p-1 text-slate-400 hover:text-indigo-600 rounded transition cursor-pointer"
+                                      title="Edit Employee"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteMaster('employee', e.id)}
+                                      className="p-1 text-slate-400 hover:text-rose-600 rounded transition cursor-pointer"
+                                      title="Delete Employee"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                                <div className="text-[11px] text-indigo-600 font-semibold">{e.role}</div>
+                                <div className="text-[10px] text-slate-500">Dept: {e.dept} &bull; Ph: {e.phone}</div>
+                              </div>
+                            ))}
 
-                          {erpActiveSubModule === 'salesman_master' && [
-                            { name: 'Kiran KC', territory: 'Kathmandu Valley Route 1', commission: '2.5%', sales: 450000 },
-                            { name: 'Deepak Sharma', territory: 'Lalitpur & Bhaktapur', commission: '3.0%', sales: 320000 },
-                          ].map((s) => (
-                            <div key={s.name} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1 text-xs">
-                              <div className="font-bold text-slate-900">{s.name}</div>
-                              <div className="text-[11px] text-slate-600">Route: {s.territory}</div>
-                              <div className="text-[10px] text-emerald-600 font-bold">Commission: {s.commission} &bull; MTD Volume: {formatNPR(s.sales)}</div>
-                            </div>
-                          ))}
+                          {erpActiveSubModule === 'salesman_master' &&
+                            salesmen.map((s) => (
+                              <div key={s.id} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5 text-xs relative group">
+                                <div className="flex items-start justify-between">
+                                  <div className="font-bold text-slate-900">{s.name}</div>
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => openMasterCrud('salesman', 'edit', s)}
+                                      className="p-1 text-slate-400 hover:text-indigo-600 rounded transition cursor-pointer"
+                                      title="Edit Salesman"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteMaster('salesman', s.id)}
+                                      className="p-1 text-slate-400 hover:text-rose-600 rounded transition cursor-pointer"
+                                      title="Delete Salesman"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                                <div className="text-[11px] text-slate-600">Route: {s.territory}</div>
+                                <div className="text-[10px] text-emerald-600 font-bold">Commission: {s.commission} &bull; MTD Volume: {formatNPR(s.sales || 0)}</div>
+                              </div>
+                            ))}
 
-                          {erpActiveSubModule === 'delivery_person_master' && [
-                            { name: 'Hari Bahadur Tamang', vehicle: 'Ba 2 Ka 4589 (Tata 407)', phone: '9812345678', activeRuns: 3 },
-                            { name: 'Gopal Gurung', vehicle: 'Ba 3 Cha 9012 (Pickup)', phone: '9801234567', activeRuns: 1 },
-                          ].map((d) => (
-                            <div key={d.name} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1 text-xs">
-                              <div className="font-bold text-slate-900">{d.name}</div>
-                              <div className="text-[11px] font-mono text-slate-600">Vehicle: {d.vehicle}</div>
-                              <div className="text-[10px] text-slate-500">Contact: {d.phone} &bull; Active Challans: {d.activeRuns}</div>
-                            </div>
-                          ))}
+                          {erpActiveSubModule === 'delivery_person_master' &&
+                            deliveryPersons.map((d) => (
+                              <div key={d.id} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5 text-xs relative group">
+                                <div className="flex items-start justify-between">
+                                  <div className="font-bold text-slate-900">{d.name}</div>
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => openMasterCrud('delivery_person', 'edit', d)}
+                                      className="p-1 text-slate-400 hover:text-indigo-600 rounded transition cursor-pointer"
+                                      title="Edit Delivery Person"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteMaster('delivery_person', d.id)}
+                                      className="p-1 text-slate-400 hover:text-rose-600 rounded transition cursor-pointer"
+                                      title="Delete Delivery Person"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                                <div className="text-[11px] font-mono text-slate-600">Vehicle: {d.vehicle}</div>
+                                <div className="text-[10px] text-slate-500">Contact: {d.phone} &bull; Active Runs: {d.activeRuns}</div>
+                              </div>
+                            ))}
 
-                          {erpActiveSubModule === 'godown_master' && [
-                            { name: 'Main Store', location: 'Ground Floor Warehouse', capacity: '15,000 Cases', manager: 'Bikram Thapa' },
-                            { name: 'Godown A - Depot', location: 'Industrial Area, Balaju', capacity: '25,000 Cases', manager: 'Rajesh Poudel' },
-                            { name: 'Cold Storage', location: 'Basement Storage Unit', capacity: '8,000 Cases', manager: 'Bikram Thapa' },
-                          ].map((g) => (
-                            <div key={g.name} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1 text-xs">
-                              <div className="font-bold text-slate-900">{g.name}</div>
-                              <div className="text-[11px] text-slate-500">{g.location}</div>
-                              <div className="text-[10px] text-slate-600">Capacity: {g.capacity} &bull; Incharge: {g.manager}</div>
-                            </div>
-                          ))}
+                          {erpActiveSubModule === 'godown_master' &&
+                            godowns.map((g) => (
+                              <div key={g.id} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5 text-xs relative group">
+                                <div className="flex items-start justify-between">
+                                  <div className="font-bold text-slate-900">{g.name}</div>
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => openMasterCrud('godown', 'edit', g)}
+                                      className="p-1 text-slate-400 hover:text-indigo-600 rounded transition cursor-pointer"
+                                      title="Edit Godown"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteMaster('godown', g.id)}
+                                      className="p-1 text-slate-400 hover:text-rose-600 rounded transition cursor-pointer"
+                                      title="Delete Godown"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                                <div className="text-[11px] text-slate-500">{g.location}</div>
+                                <div className="text-[10px] text-slate-600">Capacity: {g.capacity} &bull; Incharge: {g.manager}</div>
+                              </div>
+                            ))}
 
                           {erpActiveSubModule === 'unit_master' && [
                             { unit: 'Case', alt: 'Pcs', factor: '24 Pcs = 1 Case', symbol: 'CS' },
@@ -15861,7 +17547,9 @@ export default function App() {
                                         <Eye className="w-3.5 h-3.5" />
                                       </button>
                                       <button
-                                        onClick={() => {
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
                                           setStatementCheque(c);
                                           setIsStatementModalOpen(true);
                                         }}
@@ -16001,17 +17689,34 @@ export default function App() {
                       {/* Action Buttons: Record Received/Payment & Modes Master */}
                       <button
                         onClick={() => {
-                          if (parties.length > 0 && !receivedPaymentPartyId) {
-                            setReceivedPaymentPartyId(parties[0].id);
-                            setReceivedPaymentType(parties[0].party_type === 'Sundry Creditors' ? 'Payment' : 'Received');
+                          if (parties.length > 0) {
+                            const defaultParty = parties[0];
+                            setReceivedPaymentPartyId(defaultParty.id);
+                            setReceivedPaymentPartySearch(defaultParty.name);
+                            setReceivedPaymentType(defaultParty.party_type === 'Sundry Creditors' ? 'Payment' : 'Received');
                             const pendingList = cheques.filter(
-                              (c) => c.party_id === parties[0].id && c.status !== 'Cleared' && ((c.remaining_amount ?? c.amount) > 0.001)
+                              (c) => c.party_id === defaultParty.id && c.status !== 'Cleared' && ((c.remaining_amount ?? c.amount) > 0.001)
                             );
                             if (pendingList.length > 0) {
                               setReceivedPaymentChequeId(pendingList[0].id);
                               setReceivedPaymentAmount(String(pendingList[0].remaining_amount ?? pendingList[0].amount));
+                            } else {
+                              setReceivedPaymentChequeId('');
+                              setReceivedPaymentAmount('');
                             }
+                          } else {
+                            setReceivedPaymentPartyId('');
+                            setReceivedPaymentPartySearch('');
+                            setReceivedPaymentChequeId('');
+                            setReceivedPaymentAmount('');
                           }
+                          setReceivedPaymentDateBs(getCurrentBsDate());
+                          setReceivedPaymentDateAd(getCurrentAdDate());
+                          setReceivedPaymentUtrRef('');
+                          setReceivedPaymentNotes('');
+                          setReceivedPaymentAllowOverpay(false);
+                          setShowAllChequesForParty(false);
+                          setIsPartySearchDropdownOpen(false);
                           setIsReceivedPaymentModalOpen(true);
                         }}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition cursor-pointer shadow-xs"
@@ -16312,21 +18017,41 @@ export default function App() {
                                   <td className="py-3 px-3 text-right whitespace-nowrap">
                                     <div className="flex items-center justify-end gap-1.5">
                                       <button
-                                        onClick={() => {
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
                                           setStatementCheque(c);
                                           setIsStatementModalOpen(true);
                                         }}
-                                        className="px-2 py-1 bg-slate-100 hover:bg-purple-50 hover:text-purple-700 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
-                                        title="View Full Cheque Ledger Statement"
+                                        className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center gap-1.5 shadow-2xs hover:shadow-xs"
+                                        title="View Full Cheque & Installment Statement"
                                       >
-                                        <FileText className="w-3 h-3 text-slate-500" />
+                                        <FileText className="w-3.5 h-3.5 text-purple-600" />
                                         <span>Statement</span>
                                       </button>
                                       {c.status !== 'Cleared' && (
                                         <button
                                           onClick={() => {
-                                            setActivePaymentCheque(c);
-                                            setIsPaymentModalOpen(true);
+                                            const p = parties.find((party) => party.id === c.party_id);
+                                            if (p) {
+                                              setReceivedPaymentPartyId(p.id);
+                                              setReceivedPaymentPartySearch(p.name);
+                                              setReceivedPaymentType(p.party_type === 'Sundry Creditors' ? 'Payment' : 'Received');
+                                            } else {
+                                              setReceivedPaymentPartyId(c.party_id);
+                                              setReceivedPaymentPartySearch('');
+                                              setReceivedPaymentType('Received');
+                                            }
+                                            setReceivedPaymentChequeId(c.id);
+                                            setReceivedPaymentAmount(String(c.remaining_amount ?? c.amount));
+                                            setReceivedPaymentDateBs(getCurrentBsDate());
+                                            setReceivedPaymentDateAd(getCurrentAdDate());
+                                            setReceivedPaymentUtrRef('');
+                                            setReceivedPaymentNotes('');
+                                            setReceivedPaymentAllowOverpay(false);
+                                            setShowAllChequesForParty(false);
+                                            setIsPartySearchDropdownOpen(false);
+                                            setIsReceivedPaymentModalOpen(true);
                                           }}
                                           className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition cursor-pointer shadow-2xs"
                                         >
@@ -21082,6 +22807,1838 @@ export default function App() {
         </div>
       )}
 
+      {/* ========================================================================= */}
+      {/* 22B-1. RECORD RECEIVED / PAYMENT MODAL WITH SMART PARTY SEARCH & LINKING  */}
+      {/* ========================================================================= */}
+      {isReceivedPaymentModalOpen && (() => {
+        const activeParty = parties.find((p) => p.id === receivedPaymentPartyId);
+        const filteredParties = parties.filter((p) => {
+          if (!receivedPaymentPartySearch.trim()) return true;
+          const q = receivedPaymentPartySearch.toLowerCase();
+          return (
+            p.name.toLowerCase().includes(q) ||
+            (p.phone && p.phone.toLowerCase().includes(q)) ||
+            (p.pan_vat && p.pan_vat.toLowerCase().includes(q)) ||
+            (p.address && p.address.toLowerCase().includes(q))
+          );
+        });
+
+        const partyCheques = receivedPaymentPartyId ? cheques.filter((c) => c.party_id === receivedPaymentPartyId) : [];
+        const partyPendingCheques = partyCheques.filter((c) => {
+          if (showAllChequesForParty) return true;
+          const rem = c.remaining_amount ?? (c.status === 'Cleared' ? 0 : c.amount);
+          return c.status !== 'Cleared' && rem > 0.001;
+        });
+
+        const targetCheque = cheques.find((c) => c.id === receivedPaymentChequeId);
+        const targetRemaining = targetCheque ? (targetCheque.remaining_amount ?? (targetCheque.status === 'Cleared' ? 0 : targetCheque.amount)) : 0;
+        const enteredAmtNum = parseFloat(receivedPaymentAmount) || 0;
+        const newRemainingCalculated = Math.max(0, targetRemaining - enteredAmtNum);
+        const isOverpayment = targetCheque && enteredAmtNum > targetRemaining + 0.001;
+        const resultingStatus = newRemainingCalculated <= 0.001 ? 'Cleared' : 'Partially Paid';
+
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+            <div className="bg-white rounded-2xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl space-y-4 my-6 max-h-[92vh] flex flex-col border border-slate-100">
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className={`p-2.5 rounded-xl text-white ${receivedPaymentType === 'Received' ? 'bg-emerald-600' : 'bg-indigo-600'}`}>
+                    <ArrowRightLeft className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                      <span>Record {receivedPaymentType} / Payment</span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        receivedPaymentType === 'Received'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          : 'bg-purple-100 text-purple-800 border border-purple-200'
+                      }`}>
+                        {receivedPaymentType === 'Received' ? 'Inward / Debtor Recovery' : 'Outward / Creditor Settlement'}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-500">Smart Party Search &amp; Pending Cheque Recovery Settlement Engine</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsReceivedPaymentModalOpen(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Form Content - Scrollable */}
+              <form onSubmit={handleRecordReceivedPayment} className="space-y-4 overflow-y-auto pr-1 flex-1">
+                {/* STEP 1: PARTY SEARCH AUTO-COMPLETE */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <span>1. Party Search &amp; Auto-Complete Selection *</span>
+                      <span className="text-[10px] text-indigo-600 font-semibold">(Type to search or select)</span>
+                    </label>
+                    {activeParty && (
+                      <span className={`text-[10px] font-bold px-2 py-0.2 rounded-full ${
+                        activeParty.party_type === 'Sundry Creditors'
+                          ? 'bg-rose-100 text-rose-800'
+                          : 'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        {activeParty.party_type || 'Party Account'}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="relative">
+                    <div className="relative">
+                      <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                      <input
+                        type="text"
+                        value={receivedPaymentPartySearch}
+                        onChange={(e) => {
+                          setReceivedPaymentPartySearch(e.target.value);
+                          setIsPartySearchDropdownOpen(true);
+                        }}
+                        onFocus={() => setIsPartySearchDropdownOpen(true)}
+                        placeholder="Search party by name (e.g. Highway Cold Center, RS Traders), phone, PAN..."
+                        className="w-full pl-9 pr-9 py-2.5 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+                      />
+                      {receivedPaymentPartySearch && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReceivedPaymentPartySearch('');
+                            setIsPartySearchDropdownOpen(true);
+                          }}
+                          className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 text-xs"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Auto-Complete Floating Dropdown */}
+                    {isPartySearchDropdownOpen && (
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-20 max-h-52 overflow-y-auto divide-y divide-slate-100">
+                        {filteredParties.length === 0 ? (
+                          <div className="p-3 text-center text-xs text-slate-400">
+                            No parties matching &quot;{receivedPaymentPartySearch}&quot;
+                          </div>
+                        ) : (
+                          filteredParties.map((p) => {
+                            const pPending = cheques.filter(
+                              (c) => c.party_id === p.id && c.status !== 'Cleared' && ((c.remaining_amount ?? c.amount) > 0.001)
+                            );
+                            const pTotalDue = pPending.reduce((sum, c) => sum + (c.remaining_amount ?? c.amount), 0);
+                            const isSelected = p.id === receivedPaymentPartyId;
+
+                            return (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => {
+                                  setReceivedPaymentPartyId(p.id);
+                                  setReceivedPaymentPartySearch(p.name);
+                                  setIsPartySearchDropdownOpen(false);
+                                  setReceivedPaymentType(p.party_type === 'Sundry Creditors' ? 'Payment' : 'Received');
+
+                                  // Pre-select first pending cheque
+                                  if (pPending.length > 0) {
+                                    setReceivedPaymentChequeId(pPending[0].id);
+                                    setReceivedPaymentAmount(String(pPending[0].remaining_amount ?? pPending[0].amount));
+                                  } else {
+                                    setReceivedPaymentChequeId('');
+                                    setReceivedPaymentAmount('');
+                                  }
+                                }}
+                                className={`w-full text-left p-2.5 hover:bg-indigo-50/70 transition flex items-center justify-between cursor-pointer ${
+                                  isSelected ? 'bg-indigo-50/90 font-semibold' : ''
+                                }`}
+                              >
+                                <div>
+                                  <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                    <span>{p.name}</span>
+                                    {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600 inline" />}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
+                                    <span>{p.party_type || 'Sundry Party'}</span>
+                                    {p.phone && <span>• Tel: {p.phone}</span>}
+                                    {p.pan_vat && <span>• PAN: {p.pan_vat}</span>}
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <span className={`text-[10px] font-bold block ${pTotalDue > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+                                    {pPending.length} Pending
+                                  </span>
+                                  <span className="font-mono text-xs font-bold text-slate-700">
+                                    {formatNPR(pTotalDue)}
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* STEP 2: PENDING CHEQUES BREAKDOWN & CHEQUE SELECTOR */}
+                <div className="space-y-2 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="text-xs font-bold text-slate-800 block">
+                        2. Active Pending Cheques for {activeParty?.name || 'Selected Party'} ({partyPendingCheques.length})
+                      </label>
+                      <p className="text-[10px] text-slate-500">
+                        Select which specific Cheque or Bill to apply this payment installment against
+                      </p>
+                    </div>
+                    <label className="flex items-center gap-1.5 text-[10px] text-slate-600 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={showAllChequesForParty}
+                        onChange={(e) => setShowAllChequesForParty(e.target.checked)}
+                        className="rounded text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span>Show all cheques</span>
+                    </label>
+                  </div>
+
+                  {!receivedPaymentPartyId ? (
+                    <div className="p-4 text-center text-slate-400 text-xs italic bg-white rounded-lg border border-dashed border-slate-200">
+                      Search and select a party above to load active pending cheques
+                    </div>
+                  ) : partyPendingCheques.length === 0 ? (
+                    <div className="p-4 text-center bg-white rounded-lg border border-slate-200 space-y-1">
+                      <div className="text-xs font-bold text-emerald-700">No active pending cheques for {activeParty?.name}!</div>
+                      <p className="text-[10px] text-slate-500">All cheques for this party are already fully cleared, or no cheques have been issued yet.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto divide-y divide-slate-100 pr-1">
+                      {partyPendingCheques.map((c) => {
+                        const bank = banks.find((b) => b.id === c.bank_id);
+                        const rem = c.remaining_amount ?? (c.status === 'Cleared' ? 0 : c.amount);
+                        const alreadySettled = Math.max(0, (c.amount || 0) - rem);
+                        const isSelected = c.id === receivedPaymentChequeId;
+
+                        return (
+                          <div
+                            key={c.id}
+                            onClick={() => {
+                              setReceivedPaymentChequeId(c.id);
+                              setReceivedPaymentAmount(String(rem));
+                            }}
+                            className={`p-2.5 rounded-xl border transition cursor-pointer flex items-center justify-between gap-3 ${
+                              isSelected
+                                ? 'bg-indigo-50/80 border-indigo-400 shadow-xs ring-1 ring-indigo-400'
+                                : 'bg-white hover:bg-slate-50 border-slate-200'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                                isSelected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300 bg-white'
+                              }`}>
+                                {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                                  <span className="font-mono">#{c.cheque_number}</span>
+                                  {c.bill_number && (
+                                    <span className="text-[10px] text-slate-500 font-mono">Bill: {c.bill_number}</span>
+                                  )}
+                                  <span className={`px-1.5 py-0.2 text-[9px] font-bold rounded ${
+                                    c.status === 'Cleared' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                                  }`}>
+                                    {c.status}
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-slate-500 flex items-center gap-2 mt-0.5">
+                                  <span>{bank?.name || 'Bank'}</span>
+                                  <span>• Due BS: {c.due_date_bs}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="text-right shrink-0">
+                              <div className="text-xs font-mono font-bold text-slate-900">
+                                {formatNPR(c.amount)}
+                              </div>
+                              <div className="text-[10px] text-slate-500">
+                                Settled: <span className="font-mono text-emerald-600">{formatNPR(alreadySettled)}</span> • Due:{' '}
+                                <span className="font-mono font-bold text-amber-600">{formatNPR(rem)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Selected Cheque Linked Strip */}
+                  {targetCheque && (
+                    <div className="p-2 bg-indigo-50/60 rounded-lg border border-indigo-100 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5 text-indigo-950 font-medium">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Selected Target: Cheque #{targetCheque.cheque_number}</span>
+                        {targetCheque.bill_number && <span className="text-slate-500">(Bill: {targetCheque.bill_number})</span>}
+                      </div>
+                      <div className="font-bold font-mono text-amber-700">
+                        Remaining: {formatNPR(targetRemaining)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* STEP 3: TRANSACTION ENTRY FIELDS */}
+                <div className="space-y-3">
+                  <div className="text-xs font-bold text-slate-800">
+                    3. Payment Details &amp; Balance Deduction
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Payment Mode */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Payment Mode *</label>
+                      <select
+                        value={receivedPaymentMode}
+                        onChange={(e) => setReceivedPaymentMode(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      >
+                        {paymentModes.map((mode) => (
+                          <option key={mode} value={mode}>
+                            {mode}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Payment Type */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Transaction Type *</label>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setReceivedPaymentType('Received')}
+                          className={`py-1.5 px-2 text-xs font-bold rounded-lg border cursor-pointer transition ${
+                            receivedPaymentType === 'Received'
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                          }`}
+                        >
+                          Received (Inward)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReceivedPaymentType('Payment')}
+                          className={`py-1.5 px-2 text-xs font-bold rounded-lg border cursor-pointer transition ${
+                            receivedPaymentType === 'Payment'
+                              ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                          }`}
+                        >
+                          Payment (Outward)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Payment Date BS */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Payment Date (BS) *</label>
+                      <input
+                        type="text"
+                        value={receivedPaymentDateBs}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setReceivedPaymentDateBs(val);
+                          try {
+                            const ad = bsToAd(val);
+                            if (ad) setReceivedPaymentDateAd(ad);
+                          } catch {}
+                        }}
+                        placeholder="YYYY-MM-DD"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+
+                    {/* Payment Date AD */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Payment Date (AD)</label>
+                      <input
+                        type="date"
+                        value={receivedPaymentDateAd}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setReceivedPaymentDateAd(val);
+                          try {
+                            const bs = adToBs(val);
+                            if (bs) setReceivedPaymentDateBs(bs);
+                          } catch {}
+                        }}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+
+                    {/* Amount Received / Paid */}
+                    <div className="sm:col-span-2">
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-[11px] font-bold text-slate-700">
+                          Amount to Apply (NPR) *
+                        </label>
+                        {targetCheque && (
+                          <div className="flex items-center gap-1.5 text-[10px]">
+                            <button
+                              type="button"
+                              onClick={() => setReceivedPaymentAmount(String(targetRemaining))}
+                              className="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded cursor-pointer"
+                            >
+                              Full Due ({formatNPR(targetRemaining)})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setReceivedPaymentAmount(String(Math.round(targetRemaining * 0.5)))}
+                              className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded cursor-pointer"
+                            >
+                              50%
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setReceivedPaymentAmount(String(Math.round(targetRemaining * 0.25)))}
+                              className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded cursor-pointer"
+                            >
+                              25%
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        required
+                        value={receivedPaymentAmount}
+                        onChange={(e) => setReceivedPaymentAmount(e.target.value)}
+                        placeholder="Enter payment installment amount..."
+                        className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+
+                      {/* Real-time Calculation Breakdown Strip */}
+                      {targetCheque && enteredAmtNum > 0 && (
+                        <div className="mt-2 p-2.5 bg-slate-50 rounded-xl border border-slate-200 grid grid-cols-3 gap-2 text-center text-xs">
+                          <div>
+                            <span className="text-[10px] text-slate-400 block uppercase">Current Due</span>
+                            <span className="font-mono font-bold text-slate-700">{formatNPR(targetRemaining)}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-emerald-600 block uppercase">Applying Now</span>
+                            <span className="font-mono font-bold text-emerald-700">- {formatNPR(enteredAmtNum)}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-indigo-600 block uppercase">New Balance</span>
+                            <span className={`font-mono font-bold ${newRemainingCalculated <= 0.001 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                              {formatNPR(newRemainingCalculated)}
+                            </span>
+                            <span className={`text-[9px] block font-bold mt-0.5 ${newRemainingCalculated <= 0.001 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                              &rarr; {resultingStatus.toUpperCase()}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Overpayment Warning */}
+                      {isOverpayment && (
+                        <div className="mt-2 p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-xs space-y-1">
+                          <div className="flex items-center gap-1.5 text-rose-700 font-bold">
+                            <AlertTriangle className="w-4 h-4 text-rose-600" />
+                            <span>Warning: Amount exceeds remaining balance!</span>
+                          </div>
+                          <p className="text-[11px] text-rose-600">
+                            The entered amount of {formatNPR(enteredAmtNum)} exceeds current remaining due of {formatNPR(targetRemaining)} by {formatNPR(enteredAmtNum - targetRemaining)}.
+                          </p>
+                          <label className="flex items-center gap-2 pt-1 text-[11px] text-rose-900 font-semibold cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={receivedPaymentAllowOverpay}
+                              onChange={(e) => setReceivedPaymentAllowOverpay(e.target.checked)}
+                              className="rounded text-rose-600 focus:ring-rose-500"
+                            />
+                            <span>Explicitly allow advance credit / overpayment</span>
+                          </label>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Reference / UTR No */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Reference / UTR / Transaction No
+                      </label>
+                      <input
+                        type="text"
+                        value={receivedPaymentUtrRef}
+                        onChange={(e) => setReceivedPaymentUtrRef(e.target.value)}
+                        placeholder="e.g. IPS-984210, QR-4421, UTR Ref..."
+                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+
+                    {/* Remarks / Narration */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Remarks / Notes</label>
+                      <input
+                        type="text"
+                        value={receivedPaymentNotes}
+                        onChange={(e) => setReceivedPaymentNotes(e.target.value)}
+                        placeholder="e.g. 1st installment received via QR counter..."
+                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer Submit Buttons */}
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsReceivedPaymentModalOpen(false)}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingReceivedPayment || !receivedPaymentChequeId}
+                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl font-bold text-xs cursor-pointer shadow-md flex items-center gap-2 transition"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{isSubmittingReceivedPayment ? 'Recording Payment...' : 'Save & Deduct Balance [Enter]'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ========================================================================= */}
+      {/* 22B-2. DEDICATED STATEMENT & CHEQUE LEDGER BREAKDOWN MODAL                */}
+      {/* ========================================================================= */}
+      {isStatementModalOpen && statementCheque && (() => {
+        const c = cheques.find((item) => item.id === statementCheque.id) || statementCheque;
+        const party = parties.find((p) => p.id === c.party_id);
+        const bank = banks.find((b) => b.id === c.bank_id);
+        const logs = paymentLogs.filter((p) => p.cheque_id === c.id);
+        const remaining = c.remaining_amount ?? (c.status === 'Cleared' ? 0 : c.amount);
+        const totalPaid = Math.max(0, (c.amount || 0) - remaining);
+        const percentRecovered = c.amount > 0 ? Math.min(100, Math.round((totalPaid / c.amount) * 100)) : 0;
+        const totalInstallmentSum = logs.reduce((sum, l) => sum + (l.amount || 0), 0);
+
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+            <div className="bg-white rounded-2xl max-w-4xl w-full p-5 sm:p-6 shadow-2xl space-y-5 my-6 border border-slate-200">
+              {/* Header Title & Close Bar */}
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-purple-100 text-purple-700 rounded-xl shadow-2xs">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-bold text-slate-900">
+                        Cheque &amp; Partial Payment Statement
+                      </h3>
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          c.status === 'Cleared'
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                            : c.status === 'Partially Paid'
+                            ? 'bg-sky-100 text-sky-800 border border-sky-200'
+                            : 'bg-amber-100 text-amber-800 border border-amber-200'
+                        }`}
+                      >
+                        {c.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Installment Audit Log, Payment Modes Breakdown &amp; Outstanding Dues Ledger
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsStatementModalOpen(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition cursor-pointer"
+                  title="Close Statement"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Prominent Metadata Cards Strip: Party, Bill #, Cheque #, Bank */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
+                <div>
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Party Name</span>
+                  <span className="font-bold text-slate-800 text-sm block truncate" title={party?.name || 'N/A'}>
+                    {party?.name || 'N/A'}
+                  </span>
+                  {party?.party_type && (
+                    <span className="text-[10px] text-purple-600 font-semibold">
+                      {party.party_type === 'Sundry Creditors' ? 'Creditor (Outward)' : 'Debtor (Inward)'}
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Bill / Invoice #</span>
+                  <span className="font-mono font-bold text-slate-900 text-sm block">
+                    {c.bill_number ? `#${c.bill_number}` : <span className="text-slate-400 font-normal italic">None</span>}
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    Issued: {c.issue_date_bs} BS
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-[10px] text-indigo-600 block uppercase font-bold tracking-wider">Cheque Number</span>
+                  <span className="font-mono font-bold text-indigo-700 text-sm block">
+                    #{c.cheque_number}
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    Due: {c.due_date_bs} BS
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Bank Name</span>
+                  <span className="font-bold text-slate-800 text-sm block truncate" title={bank?.name || 'N/A'}>
+                    {bank?.name || 'N/A'}
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    AD: {c.due_date_ad || '—'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Prominent Financial KPI Cards: Total Bill Amount, Total Received, Current Remaining Due */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 shadow-2xs">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                    Total Bill / Cheque Amount
+                  </span>
+                  <div className="text-lg font-bold font-mono text-slate-900 mt-0.5">
+                    {formatNPR(c.amount)}
+                  </div>
+                  <span className="text-[10px] text-slate-400">Committed total transaction</span>
+                </div>
+
+                <div className="bg-emerald-50/50 border border-emerald-200 rounded-xl p-3.5 shadow-2xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
+                      Total Received / Settled
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded">
+                      {percentRecovered}% Recovered
+                    </span>
+                  </div>
+                  <div className="text-lg font-bold font-mono text-emerald-700 mt-0.5">
+                    {formatNPR(totalPaid)}
+                  </div>
+                  <div className="w-full bg-emerald-200 h-1.5 rounded-full overflow-hidden mt-1.5">
+                    <div className="bg-emerald-600 h-full rounded-full transition-all duration-300" style={{ width: `${percentRecovered}%` }} />
+                  </div>
+                </div>
+
+                <div className="bg-amber-50/50 border border-amber-200 rounded-xl p-3.5 shadow-2xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">
+                      Current Remaining Due
+                    </span>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${remaining <= 0.001 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
+                      {remaining <= 0.001 ? 'Fully Cleared' : 'Pending'}
+                    </span>
+                  </div>
+                  <div className={`text-lg font-bold font-mono mt-0.5 ${remaining > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                    {formatNPR(remaining)}
+                  </div>
+                  <span className="text-[10px] text-slate-400">
+                    {remaining > 0 ? 'Outstanding balance to recover' : 'No dues remaining'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Installment History Table */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                    <span>Installment History &amp; Payment Audit Log</span>
+                    <span className="px-2 py-0.2 rounded-full bg-slate-100 text-slate-700 font-bold text-[10px]">
+                      {logs.length} {logs.length === 1 ? 'Entry' : 'Entries'}
+                    </span>
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    All recorded payments update remaining balance in real time
+                  </span>
+                </div>
+
+                <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                  <div className="max-h-56 overflow-y-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="sticky top-0 bg-slate-100 border-b border-slate-200 text-[10px] font-bold text-slate-600 uppercase tracking-wider z-10">
+                        <tr>
+                          <th className="py-2.5 px-3 w-8 text-center">#</th>
+                          <th className="py-2.5 px-3">Date (BS &amp; AD)</th>
+                          <th className="py-2.5 px-3">Payment Mode</th>
+                          <th className="py-2.5 px-3">Ref / UTR / Txn ID</th>
+                          <th className="py-2.5 px-3 text-right">Received Amount</th>
+                          <th className="py-2.5 px-3 text-right">Remaining Balance</th>
+                          <th className="py-2.5 px-3">Remarks / Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {logs.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="py-8 text-center text-slate-400 italic">
+                              <Coins className="w-6 h-6 mx-auto mb-1 text-slate-300" />
+                              <div>No installment payments recorded yet for this cheque.</div>
+                              {c.status !== 'Cleared' && (
+                                <p className="text-[11px] text-slate-400 mt-1 not-italic">
+                                  Click &ldquo;Record Payment for this Cheque&rdquo; below to log the first settlement.
+                                </p>
+                              )}
+                            </td>
+                          </tr>
+                        ) : (
+                          logs.map((log, idx) => {
+                            let utr = (log as any).reference || (log as any).utr_number || '';
+                            let noteText = log.notes || '';
+                            if (!utr && noteText.includes('[Ref/UTR:')) {
+                              const match = noteText.match(/\[Ref\/UTR:\s*([^\]]+)\]/);
+                              if (match) {
+                                utr = match[1].trim();
+                                noteText = noteText.replace(/\[Ref\/UTR:\s*[^\]]+\]/, '').trim();
+                              }
+                            }
+
+                            return (
+                              <tr key={log.id} className="hover:bg-slate-50 transition">
+                                <td className="py-2 px-3 text-center text-slate-400 font-mono text-[10px]">
+                                  {idx + 1}
+                                </td>
+                                <td className="py-2 px-3 whitespace-nowrap">
+                                  <div className="font-semibold text-slate-800">{log.payment_date_bs} BS</div>
+                                  <div className="text-[10px] text-slate-400">{log.payment_date_ad}</div>
+                                </td>
+                                <td className="py-2 px-3 whitespace-nowrap">
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider inline-block ${
+                                      log.payment_mode === 'Cash'
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : log.payment_mode === 'IPS' || log.payment_mode === 'ConnectIPS'
+                                        ? 'bg-sky-100 text-sky-800'
+                                        : log.payment_mode === 'Cheque'
+                                        ? 'bg-amber-100 text-amber-800'
+                                        : log.payment_mode === 'Bank Transfer'
+                                        ? 'bg-blue-100 text-blue-800'
+                                        : 'bg-indigo-100 text-indigo-800'
+                                    }`}
+                                  >
+                                    {log.payment_mode}
+                                  </span>
+                                </td>
+                                <td className="py-2 px-3 whitespace-nowrap">
+                                  {utr ? (
+                                    <span className="font-mono text-[11px] font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                      {utr}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-300 font-mono text-[11px]">—</span>
+                                  )}
+                                </td>
+                                <td className="py-2 px-3 font-mono font-bold text-emerald-700 text-right whitespace-nowrap">
+                                  +{formatNPR(log.amount)}
+                                </td>
+                                <td className="py-2 px-3 font-mono font-semibold text-slate-700 text-right whitespace-nowrap">
+                                  {log.remaining_balance_after !== undefined
+                                    ? formatNPR(log.remaining_balance_after)
+                                    : '—'}
+                                </td>
+                                <td className="py-2 px-3 text-slate-600 text-[11px]">
+                                  <div>{noteText || <span className="text-slate-300 italic">None</span>}</div>
+                                  {log.recorded_by && (
+                                    <span className="text-[9px] text-slate-400 block">
+                                      By: {log.recorded_by}
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                      {logs.length > 0 && (
+                        <tfoot className="bg-slate-100/80 border-t border-slate-200 font-bold text-slate-800 text-[11px]">
+                          <tr>
+                            <td colSpan={4} className="py-2.5 px-3 uppercase tracking-wider text-slate-600">
+                              Total Settled Across {logs.length} Installment{logs.length === 1 ? '' : 's'}
+                            </td>
+                            <td className="py-2.5 px-3 font-mono text-emerald-800 text-right">
+                              {formatNPR(totalInstallmentSum)}
+                            </td>
+                            <td className="py-2.5 px-3 font-mono text-right" style={{ color: remaining > 0 ? '#b45309' : '#15803d' }}>
+                              Bal: {formatNPR(remaining)}
+                            </td>
+                            <td className="py-2.5 px-3 text-slate-400 text-[10px]">
+                              {remaining <= 0.001 ? 'Cleared' : 'Active Balance'}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons: Print Statement & Download PDF */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => printChequeStatement(c)}
+                    className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs hover:shadow-xs"
+                    title="Open Instant Print Dialog"
+                  >
+                    <Printer className="w-3.5 h-3.5 text-slate-700" />
+                    <span>Print Statement</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => downloadChequeStatementPdf(c)}
+                    className="px-3.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs hover:shadow-xs"
+                    title="Download Official Client PDF Statement"
+                  >
+                    <Download className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Download PDF</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => exportStatementToExcel(c)}
+                    className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+                    title="Export Cheque Statement to Excel"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Excel</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {c.status !== 'Cleared' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsStatementModalOpen(false);
+                        const p = parties.find((party) => party.id === c.party_id);
+                        if (p) {
+                          setReceivedPaymentPartyId(p.id);
+                          setReceivedPaymentPartySearch(p.name);
+                          setReceivedPaymentType(p.party_type === 'Sundry Creditors' ? 'Payment' : 'Received');
+                        } else {
+                          setReceivedPaymentPartyId(c.party_id);
+                          setReceivedPaymentPartySearch('');
+                          setReceivedPaymentType('Received');
+                        }
+                        setReceivedPaymentChequeId(c.id);
+                        setReceivedPaymentAmount(String(remaining));
+                        setReceivedPaymentDateBs(getCurrentBsDate());
+                        setReceivedPaymentDateAd(getCurrentAdDate());
+                        setReceivedPaymentUtrRef('');
+                        setReceivedPaymentNotes('');
+                        setReceivedPaymentAllowOverpay(false);
+                        setShowAllChequesForParty(false);
+                        setIsPartySearchDropdownOpen(false);
+                        setIsReceivedPaymentModalOpen(true);
+                      }}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-xs flex items-center gap-1.5"
+                    >
+                      <ArrowRightLeft className="w-3.5 h-3.5" />
+                      <span>Record Payment for this Cheque</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsStatementModalOpen(false)}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold cursor-pointer transition"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ========================================================================= */}
+      {/* 22B-3. PAYMENT MODES MASTER MODAL                                         */}
+      {/* ========================================================================= */}
+      {isPaymentModesMasterOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-100">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                  <Sliders className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Payment Modes Master</h3>
+                  <p className="text-xs text-slate-500">Manage accepted modes for receipts and payments</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPaymentModesMasterOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Add New Mode Form */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleAddPaymentMode(newPaymentModeInput);
+              }}
+              className="flex gap-2"
+            >
+              <input
+                type="text"
+                value={newPaymentModeInput}
+                onChange={(e) => setNewPaymentModeInput(e.target.value)}
+                placeholder="New payment mode (e.g. PhonePe, eSewa)..."
+                className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <button
+                type="submit"
+                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition cursor-pointer shrink-0"
+              >
+                Add Mode
+              </button>
+            </form>
+
+            {/* Existing Modes List */}
+            <div className="space-y-1.5 max-h-56 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-xl p-1 text-xs">
+              {paymentModes.map((mode) => (
+                <div key={mode} className="p-2 flex items-center justify-between hover:bg-slate-50 transition rounded-lg">
+                  {editingModeOldName === mode ? (
+                    <div className="flex items-center gap-1.5 flex-1 mr-2">
+                      <input
+                        type="text"
+                        value={editingModeNewName}
+                        onChange={(e) => setEditingModeNewName(e.target.value)}
+                        className="px-2 py-1 border border-indigo-400 rounded-lg text-xs w-full focus:outline-none"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleUpdatePaymentMode(mode, editingModeNewName)}
+                        className="p-1 bg-emerald-600 text-white rounded cursor-pointer"
+                        title="Save"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingModeOldName(null)}
+                        className="p-1 bg-slate-200 text-slate-600 rounded cursor-pointer"
+                        title="Cancel"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <span className="font-semibold text-slate-800">{mode}</span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingModeOldName(mode);
+                            setEditingModeNewName(mode);
+                          }}
+                          className="p-1 text-slate-400 hover:text-indigo-600 rounded hover:bg-slate-100 cursor-pointer"
+                          title="Rename"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePaymentMode(mode)}
+                          className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-slate-100 cursor-pointer"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={handleResetPaymentModes}
+                className="text-xs text-slate-500 hover:text-slate-800 underline cursor-pointer"
+              >
+                Reset to Defaults
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsPaymentModesMasterOpen(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 22B. UNIFIED ERP MASTER CRUD MODAL                                        */}
+      {/* ========================================================================= */}
+      {masterCrudModal.isOpen && (
+        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-100 my-8">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-indigo-600 text-white rounded-xl">
+                  {masterCrudModal.masterType === 'item' ? (
+                    <Package className="w-5 h-5" />
+                  ) : masterCrudModal.masterType === 'godown' ? (
+                    <Building2 className="w-5 h-5" />
+                  ) : masterCrudModal.masterType === 'employee' || masterCrudModal.masterType === 'salesman' ? (
+                    <Users className="w-5 h-5" />
+                  ) : masterCrudModal.masterType === 'delivery_person' ? (
+                    <Truck className="w-5 h-5" />
+                  ) : (
+                    <Briefcase className="w-5 h-5" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 capitalize">
+                    {masterCrudModal.action === 'edit' ? 'Modify' : 'Add New'}{' '}
+                    {masterCrudModal.masterType.replace('_', ' ')} Master
+                  </h3>
+                  <p className="text-xs text-slate-500">Simple Accounting &amp; Auditing ERP Database</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMasterCrudModal((prev) => ({ ...prev, isOpen: false }))}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSaveMasterCrud();
+              }}
+              className="space-y-3.5 text-xs"
+            >
+              {/* Common Name field */}
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  {masterCrudModal.masterType === 'ledger'
+                    ? 'Account Head Name *'
+                    : masterCrudModal.masterType === 'item'
+                    ? 'Product / Item Name *'
+                    : masterCrudModal.masterType === 'godown'
+                    ? 'Godown / Material Centre Name *'
+                    : masterCrudModal.masterType === 'customer'
+                    ? 'Customer / Client Name *'
+                    : masterCrudModal.masterType === 'supplier'
+                    ? 'Supplier / Vendor Name *'
+                    : 'Full Name *'}
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={masterCrudForm.name || ''}
+                  onChange={(e) => setMasterCrudForm({ ...masterCrudForm, name: e.target.value })}
+                  placeholder="e.g. Title or Full Name"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              {/* Ledger Fields */}
+              {masterCrudModal.masterType === 'ledger' && (
+                <>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Account Group *</label>
+                    <select
+                      value={masterCrudForm.group || 'Indirect Expenses'}
+                      onChange={(e) => setMasterCrudForm({ ...masterCrudForm, group: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="Capital Account">Capital Account</option>
+                      <option value="Current Assets">Current Assets</option>
+                      <option value="Current Liabilities">Current Liabilities</option>
+                      <option value="Fixed Assets">Fixed Assets</option>
+                      <option value="Bank Accounts">Bank Accounts</option>
+                      <option value="Cash-in-Hand">Cash-in-Hand</option>
+                      <option value="Sundry Debtors">Sundry Debtors</option>
+                      <option value="Sundry Creditors">Sundry Creditors</option>
+                      <option value="Sales Accounts">Sales Accounts</option>
+                      <option value="Purchase Accounts">Purchase Accounts</option>
+                      <option value="Direct Expenses">Direct Expenses</option>
+                      <option value="Indirect Expenses">Indirect Expenses</option>
+                      <option value="Duties & Taxes">Duties &amp; Taxes</option>
+                      <option value="Direct Incomes">Direct Incomes</option>
+                      <option value="Indirect Incomes">Indirect Incomes</option>
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1">Opening Balance (NPR)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={masterCrudForm.opening_balance ?? ''}
+                        onChange={(e) => setMasterCrudForm({ ...masterCrudForm, opening_balance: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1">Balance Type (Dr / Cr)</label>
+                      <select
+                        value={masterCrudForm.dr_cr || 'Dr'}
+                        onChange={(e) => setMasterCrudForm({ ...masterCrudForm, dr_cr: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="Dr">Debit (Dr)</option>
+                        <option value="Cr">Credit (Cr)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Description / Notes</label>
+                    <input
+                      type="text"
+                      value={masterCrudForm.notes || ''}
+                      onChange={(e) => setMasterCrudForm({ ...masterCrudForm, notes: e.target.value })}
+                      placeholder="Optional remarks"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Item Fields */}
+              {masterCrudModal.masterType === 'item' && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1">Category</label>
+                      <input
+                        type="text"
+                        value={masterCrudForm.category || ''}
+                        onChange={(e) => setMasterCrudForm({ ...masterCrudForm, category: e.target.value })}
+                        placeholder="e.g. Beverages or Electronics"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1">Tax / VAT %</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={masterCrudForm.tax_pct ?? 13}
+                        onChange={(e) => setMasterCrudForm({ ...masterCrudForm, tax_pct: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1">Main Unit</label>
+                      <select
+                        value={masterCrudForm.unit || 'Case'}
+                        onChange={(e) => setMasterCrudForm({ ...masterCrudForm, unit: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="Case">Case</option>
+                        <option value="Pcs">Pcs</option>
+                        <option value="Box">Box</option>
+                        <option value="Kg">Kg</option>
+                        <option value="Liter">Liter</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1">Alt Unit</label>
+                      <select
+                        value={masterCrudForm.alt_unit || 'Pcs'}
+                        onChange={(e) => setMasterCrudForm({ ...masterCrudForm, alt_unit: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="Pcs">Pcs</option>
+                        <option value="Gram">Gram</option>
+                        <option value="ml">ml</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1">Factor</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={masterCrudForm.conversion_factor ?? 24}
+                        onChange={(e) => setMasterCrudForm({ ...masterCrudForm, conversion_factor: parseInt(e.target.value) || 1 })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1">Purchase Price (NPR)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={masterCrudForm.purchase_price ?? ''}
+                        onChange={(e) => setMasterCrudForm({ ...masterCrudForm, purchase_price: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1">Sales Price (NPR) *</label>
+                      <input
+                        type="number"
+                        required
+                        min="0"
+                        step="any"
+                        value={masterCrudForm.price ?? ''}
+                        onChange={(e) => setMasterCrudForm({ ...masterCrudForm, price: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1">Opening Stock Qty</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={masterCrudForm.opening_qty ?? ''}
+                        onChange={(e) => setMasterCrudForm({ ...masterCrudForm, opening_qty: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1">Reorder Level Qty</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={masterCrudForm.reorder_level ?? 10}
+                        onChange={(e) => setMasterCrudForm({ ...masterCrudForm, reorder_level: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Godown Fields */}
+              {masterCrudModal.masterType === 'godown' && (
+                <>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Location / Address</label>
+                    <input
+                      type="text"
+                      value={masterCrudForm.location || ''}
+                      onChange={(e) => setMasterCrudForm({ ...masterCrudForm, location: e.target.value })}
+                      placeholder="e.g. Industrial Area, Balaju"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1">Capacity</label>
+                      <input
+                        type="text"
+                        value={masterCrudForm.capacity || ''}
+                        onChange={(e) => setMasterCrudForm({ ...masterCrudForm, capacity: e.target.value })}
+                        placeholder="e.g. 20,000 Cases"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1">Incharge / Manager</label>
+                      <input
+                        type="text"
+                        value={masterCrudForm.manager || ''}
+                        onChange={(e) => setMasterCrudForm({ ...masterCrudForm, manager: e.target.value })}
+                        placeholder="e.g. Bikram Thapa"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Customer / Supplier Fields */}
+              {(masterCrudModal.masterType === 'customer' || masterCrudModal.masterType === 'supplier') && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1">PAN / VAT Number</label>
+                      <input
+                        type="text"
+                        value={masterCrudForm.pan_vat || ''}
+                        onChange={(e) => setMasterCrudForm({ ...masterCrudForm, pan_vat: e.target.value })}
+                        placeholder="9 digits PAN/VAT"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1">Phone Number</label>
+                      <input
+                        type="text"
+                        value={masterCrudForm.phone || ''}
+                        onChange={(e) => setMasterCrudForm({ ...masterCrudForm, phone: e.target.value })}
+                        placeholder="98XXXXXXXX"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Address / Station</label>
+                    <input
+                      type="text"
+                      value={masterCrudForm.address || ''}
+                      onChange={(e) => setMasterCrudForm({ ...masterCrudForm, address: e.target.value })}
+                      placeholder="City, District, Nepal"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Opening Balance (NPR)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={masterCrudForm.opening_balance ?? ''}
+                      onChange={(e) => setMasterCrudForm({ ...masterCrudForm, opening_balance: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Employee Fields */}
+              {masterCrudModal.masterType === 'employee' && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1">Role / Designation</label>
+                      <input
+                        type="text"
+                        value={masterCrudForm.role || ''}
+                        onChange={(e) => setMasterCrudForm({ ...masterCrudForm, role: e.target.value })}
+                        placeholder="e.g. Senior Accountant"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1">Department</label>
+                      <input
+                        type="text"
+                        value={masterCrudForm.dept || ''}
+                        onChange={(e) => setMasterCrudForm({ ...masterCrudForm, dept: e.target.value })}
+                        placeholder="e.g. Accounts & Finance"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Contact Phone</label>
+                    <input
+                      type="text"
+                      value={masterCrudForm.phone || ''}
+                      onChange={(e) => setMasterCrudForm({ ...masterCrudForm, phone: e.target.value })}
+                      placeholder="98XXXXXXXX"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Salesman Fields */}
+              {masterCrudModal.masterType === 'salesman' && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1">Assigned Route / Territory</label>
+                      <input
+                        type="text"
+                        value={masterCrudForm.territory || ''}
+                        onChange={(e) => setMasterCrudForm({ ...masterCrudForm, territory: e.target.value })}
+                        placeholder="e.g. Kathmandu Valley Route 1"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1">Commission %</label>
+                      <input
+                        type="text"
+                        value={masterCrudForm.commission || '2.5%'}
+                        onChange={(e) => setMasterCrudForm({ ...masterCrudForm, commission: e.target.value })}
+                        placeholder="e.g. 2.5%"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Contact Phone</label>
+                    <input
+                      type="text"
+                      value={masterCrudForm.phone || ''}
+                      onChange={(e) => setMasterCrudForm({ ...masterCrudForm, phone: e.target.value })}
+                      placeholder="98XXXXXXXX"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Delivery Person Fields */}
+              {masterCrudModal.masterType === 'delivery_person' && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1">Vehicle / Reg No</label>
+                      <input
+                        type="text"
+                        value={masterCrudForm.vehicle || ''}
+                        onChange={(e) => setMasterCrudForm({ ...masterCrudForm, vehicle: e.target.value })}
+                        placeholder="e.g. Ba 2 Ka 4589 (Tata 407)"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1">Contact Phone</label>
+                      <input
+                        type="text"
+                        value={masterCrudForm.phone || ''}
+                        onChange={(e) => setMasterCrudForm({ ...masterCrudForm, phone: e.target.value })}
+                        placeholder="98XXXXXXXX"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setMasterCrudModal((prev) => ({ ...prev, isOpen: false }))}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition cursor-pointer text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition cursor-pointer shadow-md flex items-center gap-1.5 text-xs"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{masterCrudModal.action === 'edit' ? 'Update Master' : 'Save Master'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 22C. INLINE QUICK-ADD PARTY MODAL FOR VOUCHERS                            */}
+      {/* ========================================================================= */}
+      {isErpQuickAddPartyOpen && (
+        <div className="fixed inset-0 z-70 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-100 my-8">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-indigo-600 text-white rounded-xl">
+                  <User className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    + Quick Add {erpQuickAddPartyType}
+                  </h3>
+                  <p className="text-xs text-slate-500">Auto-selects into current voucher on save</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsErpQuickAddPartyOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSaveErpQuickAddParty();
+              }}
+              className="space-y-3 text-xs"
+            >
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Party Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={erpQuickAddPartyForm.name}
+                  onChange={(e) => setErpQuickAddPartyForm({ ...erpQuickAddPartyForm, name: e.target.value })}
+                  placeholder="e.g. Kathmandu Traders Pvt. Ltd."
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Party Type</label>
+                  <select
+                    value={erpQuickAddPartyType}
+                    onChange={(e) => setErpQuickAddPartyType(e.target.value as 'Customer' | 'Supplier')}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="Customer">Customer (Debtor)</option>
+                    <option value="Supplier">Supplier (Creditor)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">PAN / VAT No</label>
+                  <input
+                    type="text"
+                    value={erpQuickAddPartyForm.pan_vat}
+                    onChange={(e) => setErpQuickAddPartyForm({ ...erpQuickAddPartyForm, pan_vat: e.target.value })}
+                    placeholder="9-digit PAN"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Phone</label>
+                  <input
+                    type="text"
+                    value={erpQuickAddPartyForm.phone}
+                    onChange={(e) => setErpQuickAddPartyForm({ ...erpQuickAddPartyForm, phone: e.target.value })}
+                    placeholder="98XXXXXXXX"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Opening Bal (NPR)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={erpQuickAddPartyForm.opening_balance || ''}
+                    onChange={(e) => setErpQuickAddPartyForm({ ...erpQuickAddPartyForm, opening_balance: parseFloat(e.target.value) || 0 })}
+                    placeholder="0.00"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Address / Station</label>
+                <input
+                  type="text"
+                  value={erpQuickAddPartyForm.address}
+                  onChange={(e) => setErpQuickAddPartyForm({ ...erpQuickAddPartyForm, address: e.target.value })}
+                  placeholder="Kathmandu, Nepal"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsErpQuickAddPartyOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition cursor-pointer shadow-md flex items-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Save &amp; Select</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 22D. INLINE QUICK-ADD ITEM MODAL FOR VOUCHERS                             */}
+      {/* ========================================================================= */}
+      {isErpQuickAddItemOpen && (
+        <div className="fixed inset-0 z-70 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-100 my-8">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-indigo-600 text-white rounded-xl">
+                  <Package className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">+ Quick Add Product / Item</h3>
+                  <p className="text-xs text-slate-500">Auto-adds to current voucher item rows</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsErpQuickAddItemOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSaveErpQuickAddItem();
+              }}
+              className="space-y-3 text-xs"
+            >
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Product Description *</label>
+                <input
+                  type="text"
+                  required
+                  value={erpQuickAddItemForm.name}
+                  onChange={(e) => setErpQuickAddItemForm({ ...erpQuickAddItemForm, name: e.target.value })}
+                  placeholder="e.g. Carlsberg Beer 650ml"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Category</label>
+                  <input
+                    type="text"
+                    value={erpQuickAddItemForm.category}
+                    onChange={(e) => setErpQuickAddItemForm({ ...erpQuickAddItemForm, category: e.target.value })}
+                    placeholder="General Goods"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Main Unit</label>
+                  <select
+                    value={erpQuickAddItemForm.unit}
+                    onChange={(e) => setErpQuickAddItemForm({ ...erpQuickAddItemForm, unit: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="Case">Case</option>
+                    <option value="Pcs">Pcs</option>
+                    <option value="Box">Box</option>
+                    <option value="Kg">Kg</option>
+                    <option value="Liter">Liter</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Selling Price (NPR) *</label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    step="any"
+                    value={erpQuickAddItemForm.price || ''}
+                    onChange={(e) => setErpQuickAddItemForm({ ...erpQuickAddItemForm, price: parseFloat(e.target.value) || 0 })}
+                    placeholder="0.00"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Tax / VAT %</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={erpQuickAddItemForm.tax_pct}
+                    onChange={(e) => setErpQuickAddItemForm({ ...erpQuickAddItemForm, tax_pct: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Purchase Price (NPR)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={erpQuickAddItemForm.purchase_price || ''}
+                    onChange={(e) => setErpQuickAddItemForm({ ...erpQuickAddItemForm, purchase_price: parseFloat(e.target.value) || 0 })}
+                    placeholder="0.00"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Opening Stock Qty</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={erpQuickAddItemForm.opening_qty || ''}
+                    onChange={(e) => setErpQuickAddItemForm({ ...erpQuickAddItemForm, opening_qty: parseFloat(e.target.value) || 0 })}
+                    placeholder="0"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsErpQuickAddItemOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition cursor-pointer shadow-md flex items-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Save &amp; Insert</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 22E. INLINE QUICK-ADD GODOWN MODAL FOR VOUCHERS                           */}
+      {/* ========================================================================= */}
+      {isErpQuickAddGodownOpen && (
+        <div className="fixed inset-0 z-70 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-100 my-8">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-indigo-600 text-white rounded-xl">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">+ Quick Add Godown / Mat. Centre</h3>
+                  <p className="text-xs text-slate-500">Auto-selects as voucher Material Centre</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsErpQuickAddGodownOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSaveErpQuickAddGodown();
+              }}
+              className="space-y-3 text-xs"
+            >
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Godown Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={erpQuickAddGodownForm.name}
+                  onChange={(e) => setErpQuickAddGodownForm({ ...erpQuickAddGodownForm, name: e.target.value })}
+                  placeholder="e.g. Godown B - Teku Depot"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Location / Address</label>
+                <input
+                  type="text"
+                  value={erpQuickAddGodownForm.location}
+                  onChange={(e) => setErpQuickAddGodownForm({ ...erpQuickAddGodownForm, location: e.target.value })}
+                  placeholder="e.g. Teku Bridge, Kathmandu"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Capacity</label>
+                  <input
+                    type="text"
+                    value={erpQuickAddGodownForm.capacity}
+                    onChange={(e) => setErpQuickAddGodownForm({ ...erpQuickAddGodownForm, capacity: e.target.value })}
+                    placeholder="e.g. 15,000 Cases"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Incharge / Manager</label>
+                  <input
+                    type="text"
+                    value={erpQuickAddGodownForm.manager}
+                    onChange={(e) => setErpQuickAddGodownForm({ ...erpQuickAddGodownForm, manager: e.target.value })}
+                    placeholder="e.g. Rajesh Poudel"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsErpQuickAddGodownOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition cursor-pointer shadow-md flex items-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Save &amp; Select</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* 23. Standard ERP Voucher Action Modal (Add, Modify, List) */}
       {activeVoucherModal.isOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
@@ -21344,24 +24901,37 @@ export default function App() {
                 </button>
               </div>
             </div>
-          ) : activeVoucherModal.type === 'sales' ? (
+          ) : ['sales', 'invoice', 'purchase', 'sales_return', 'purchase_return', 'delivery_challan'].includes(activeVoucherModal.type) ? (
             /* ========================================================================= */
-            /* COMMERCIAL SALES TAX VOUCHER ENTRY SCREEN                                */
+            /* COMMERCIAL TRANSACTION WORKBENCH (Sales, Purchase, Returns, Delivery)    */
             /* ========================================================================= */
             <div
               tabIndex={0}
               onKeyDown={handleSalesVoucherKeyDown}
               className="bg-slate-100 text-slate-800 rounded-xl shadow-2xl border border-slate-300 w-full max-w-6xl max-h-[96vh] flex flex-col overflow-hidden my-4 focus:outline-none"
             >
-              {/* 1. ERP SALES VOUCHER TITLE / SYSTEM BAR */}
+              {/* 1. ERP VOUCHER TITLE / SYSTEM BAR */}
               <div className="bg-slate-900 text-white px-4 py-2.5 flex items-center justify-between border-b border-slate-800 shrink-0">
                 <div className="flex items-center gap-2.5">
                   <div className="w-6 h-6 rounded bg-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-xs">
                     <FileText className="w-3.5 h-3.5" />
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm tracking-wide">Sales Voucher</span>
+                    <span className="font-bold text-sm tracking-wide">
+                      {activeVoucherModal.type === 'purchase'
+                        ? 'Purchase Voucher'
+                        : activeVoucherModal.type === 'sales_return'
+                        ? 'Sales Return (Credit Note)'
+                        : activeVoucherModal.type === 'purchase_return'
+                        ? 'Purchase Return (Debit Note)'
+                        : activeVoucherModal.type === 'delivery_challan'
+                        ? 'Delivery Challan / Goods Outward'
+                        : 'Sales Voucher (Tax Invoice)'}
+                    </span>
                     <span className="text-slate-400 font-mono text-xs">[{salesVoucherData.series}]</span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-700 text-white font-mono">
+                      {VOUCHER_CATEGORIES.find((c) => c.key === activeVoucherModal.type)?.hotkeyPlaceholder || '[F8]'}
+                    </span>
                     {salesVoucherData.isHeld && (
                       <span className="bg-amber-500 text-slate-950 font-bold px-2 py-0.5 rounded text-[10px] font-mono tracking-wider animate-pulse">
                         HELD / DRAFT
@@ -21399,10 +24969,30 @@ export default function App() {
                         onChange={(e) => setSalesVoucherData({ ...salesVoucherData, series: e.target.value })}
                         className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       >
-                        <option value="Main">Main</option>
-                        <option value="Tax Invoice">Tax Invoice</option>
-                        <option value="Retail">Retail</option>
-                        <option value="Wholesale">Wholesale</option>
+                        {['purchase', 'purchase_return'].includes(activeVoucherModal.type) ? (
+                          <>
+                            <option value="Purchase Main">Purchase Main</option>
+                            <option value="Direct Purchase">Direct Purchase</option>
+                            <option value="Import">Import</option>
+                          </>
+                        ) : activeVoucherModal.type === 'sales_return' ? (
+                          <>
+                            <option value="Credit Note">Credit Note</option>
+                            <option value="Sales Return">Sales Return</option>
+                          </>
+                        ) : activeVoucherModal.type === 'delivery_challan' ? (
+                          <>
+                            <option value="DC Main">DC Main</option>
+                            <option value="Dispatch">Dispatch</option>
+                          </>
+                        ) : (
+                          <>
+                            <option value="Main">Main</option>
+                            <option value="Tax Invoice">Tax Invoice</option>
+                            <option value="Retail">Retail</option>
+                            <option value="Wholesale">Wholesale</option>
+                          </>
+                        )}
                       </select>
                     </div>
 
@@ -21487,8 +25077,10 @@ export default function App() {
 
                     <div className="col-span-2 sm:col-span-1">
                       <div className="flex items-center justify-between mb-1">
-                        <label className="block text-[11px] font-bold text-slate-700">Sale Type</label>
-                        <span className="text-[9px] font-semibold text-indigo-600 bg-indigo-50 px-1 rounded">Sticky</span>
+                        <label className="block text-[11px] font-bold text-slate-700">
+                          {['purchase', 'purchase_return'].includes(activeVoucherModal.type) ? 'Purchase Type' : 'Sale Type'}
+                        </label>
+                        <span className="text-[9px] font-semibold text-indigo-600 bg-indigo-50 px-1 rounded">Active</span>
                       </div>
                       <select
                         value={salesVoucherData.sale_type}
@@ -21508,15 +25100,22 @@ export default function App() {
                     <div className="sm:col-span-8">
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-2">
-                          <label className="block text-[11px] font-bold text-slate-700">Party Account</label>
+                          <label className="block text-[11px] font-bold text-slate-700">
+                            {['purchase', 'purchase_return'].includes(activeVoucherModal.type)
+                              ? 'Party Account (Supplier / Creditor)'
+                              : 'Party Account (Customer / Debtor)'}
+                          </label>
                           <button
                             type="button"
-                            onClick={() => setIsAddPartyOpen(true)}
+                            onClick={() => {
+                              setErpQuickAddPartyType(['purchase', 'purchase_return'].includes(activeVoucherModal.type) ? 'Supplier' : 'Customer');
+                              setIsErpQuickAddPartyOpen(true);
+                            }}
                             className="px-1.5 py-0.5 text-[10px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded transition flex items-center gap-1 cursor-pointer"
                             title="Instant Master Creation (Press F3 or Alt+C)"
                           >
                             <Plus className="w-2.5 h-2.5" />
-                            <span>+ Master [F3 / Alt+C]</span>
+                            <span>+ Quick Add {['purchase', 'purchase_return'].includes(activeVoucherModal.type) ? 'Supplier' : 'Customer'} [F3]</span>
                           </button>
                         </div>
                         {(() => {
@@ -21545,10 +25144,11 @@ export default function App() {
                         onKeyDown={(e) => {
                           if (e.key === 'F3' || (e.altKey && (e.key === 'c' || e.key === 'C'))) {
                             e.preventDefault();
-                            setIsAddPartyOpen(true);
+                            setErpQuickAddPartyType(['purchase', 'purchase_return'].includes(activeVoucherModal.type) ? 'Supplier' : 'Customer');
+                            setIsErpQuickAddPartyOpen(true);
                           }
                         }}
-                        placeholder="Search or select Party Name / Sundry Debtor... (Press F3 / Alt+C to Add New)"
+                        placeholder={`Search or select Party Name / ${['purchase', 'purchase_return'].includes(activeVoucherModal.type) ? 'Sundry Creditor' : 'Sundry Debtor'}... (Press F3 to Add New)`}
                         className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                       <datalist id="erp-party-list">
@@ -21559,16 +25159,25 @@ export default function App() {
                     </div>
 
                     <div className="sm:col-span-4">
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Mat. Centre</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-bold text-slate-700">Mat. Centre / Godown</label>
+                        <button
+                          type="button"
+                          onClick={() => setIsErpQuickAddGodownOpen(true)}
+                          className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-0.5 cursor-pointer"
+                        >
+                          <Plus className="w-2.5 h-2.5" />
+                          <span>+ Godown</span>
+                        </button>
+                      </div>
                       <select
                         value={salesVoucherData.mat_centre}
                         onChange={(e) => setSalesVoucherData({ ...salesVoucherData, mat_centre: e.target.value })}
                         className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       >
-                        <option value="Main Store">Main Store</option>
-                        <option value="Warehouse 1">Warehouse 1 (Kathmandu)</option>
-                        <option value="Showroom Counter">Showroom Counter</option>
-                        <option value="Birgunj Depot">Birgunj Depot</option>
+                        {godowns.map((g) => (
+                          <option key={g.id} value={g.name}>{g.name}</option>
+                        ))}
                       </select>
                     </div>
                   </div>
@@ -21665,8 +25274,10 @@ export default function App() {
                     <table className="w-full text-left text-xs border-collapse">
                       <thead className="bg-slate-200/80 text-slate-700 font-bold border-b border-slate-300 text-[11px]">
                         <tr>
-                          <th className="p-2 text-center w-10 border-r border-slate-300">S.N.</th>
-                          <th className="p-2 border-r border-slate-300">Item Description</th>
+                          <th className="p-2 text-center w-8 border-r border-slate-300">S.N.</th>
+                          <th className="p-2 border-r border-slate-300">Item Description / Product</th>
+                          <th className="p-2 text-center w-28 border-r border-slate-300">Godown</th>
+                          <th className="p-2 text-center w-24 border-r border-slate-300">Batch / S.N.</th>
                           <th className="p-2 text-right w-20 border-r border-slate-300">Qty</th>
                           <th className="p-2 text-center w-24 border-r border-slate-300">Unit</th>
                           <th className="p-2 text-right w-28 border-r border-slate-300">Price (Rs.)</th>
@@ -21677,7 +25288,8 @@ export default function App() {
                               <th className="p-2 text-right w-24 border-r border-slate-300">Disc (Rs.)</th>
                             </>
                           )}
-                          <th className="p-2 text-right w-32 border-r border-slate-300">Amount (Rs.)</th>
+                          <th className="p-2 text-right w-20 border-r border-slate-300">VAT (%)</th>
+                          <th className="p-2 text-right w-32 border-r border-slate-300">Net Total (Rs.)</th>
                           <th className="p-2 text-center w-10">✕</th>
                         </tr>
                       </thead>
@@ -21836,6 +25448,41 @@ export default function App() {
                                   )}
                                 </div>
                               </td>
+                              {/* Godown Selector */}
+                              <td className="p-1 border-r border-slate-200">
+                                <select
+                                  value={item.godown || salesVoucherData.mat_centre || 'Main Store'}
+                                  onChange={(e) => {
+                                    const g = e.target.value;
+                                    setSalesVoucherData((prev) => ({
+                                      ...prev,
+                                      items: prev.items.map((it, i) => (i === idx ? { ...it, godown: g } : it)),
+                                    }));
+                                  }}
+                                  className="w-full px-1 py-1 text-center bg-transparent border-0 font-medium text-slate-800 focus:ring-1 focus:ring-indigo-500 rounded text-xs"
+                                >
+                                  {godowns.map((g) => (
+                                    <option key={g.id} value={g.name}>{g.name}</option>
+                                  ))}
+                                </select>
+                              </td>
+
+                              {/* Batch / Serial Input */}
+                              <td className="p-1 border-r border-slate-200">
+                                <input
+                                  type="text"
+                                  value={item.batch_serial || ''}
+                                  onChange={(e) => {
+                                    const b = e.target.value;
+                                    setSalesVoucherData((prev) => ({
+                                      ...prev,
+                                      items: prev.items.map((it, i) => (i === idx ? { ...it, batch_serial: b } : it)),
+                                    }));
+                                  }}
+                                  placeholder="Batch #"
+                                  className="w-full px-1.5 py-1 text-center font-mono text-slate-700 bg-transparent border-0 focus:ring-1 focus:ring-indigo-500 rounded text-xs"
+                                />
+                              </td>
                               <td className="p-1 border-r border-slate-200">
                                 <input
                                   type="number"
@@ -21931,6 +25578,24 @@ export default function App() {
                                   </td>
                                 </>
                               )}
+                              {/* VAT (%) Column */}
+                              <td className="p-1 border-r border-slate-200">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="any"
+                                  value={item.tax_pct !== undefined ? item.tax_pct : 13}
+                                  onChange={(e) => {
+                                    const t = e.target.value === '' ? '' : parseFloat(e.target.value);
+                                    setSalesVoucherData((prev) => ({
+                                      ...prev,
+                                      items: prev.items.map((it, i) => (i === idx ? { ...it, tax_pct: t } : it)),
+                                    }));
+                                  }}
+                                  className="w-full px-1.5 py-1 text-right font-mono text-slate-700 bg-transparent border-0 focus:ring-1 focus:ring-indigo-500 rounded text-xs"
+                                />
+                              </td>
                               <td className="p-1.5 text-right font-mono font-bold text-slate-900 border-r border-slate-200">
                                 {formatNPR(item.amount || 0)}
                               </td>
@@ -21973,43 +25638,67 @@ export default function App() {
                         </span>
                       ) : (
                         <span className="text-slate-400 italic font-sans text-[11px]">
-                          Select or focus any item row above to view real-time current stock (Cur. Stock = XX.XX Case, Pcs. XXXX.XX)
+                          Select or focus any item row above to view real-time current stock
                         </span>
                       )}
                     </div>
                     <div className="text-[10px] text-slate-300 font-sans bg-slate-800 px-2 py-0.5 rounded flex items-center gap-1">
-                      <kbd className="px-1 py-0.2 bg-slate-700 rounded text-[9px] font-mono">F3</kbd> or <kbd className="px-1 py-0.2 bg-slate-700 rounded text-[9px] font-mono">Alt+C</kbd>
+                      <kbd className="px-1 py-0.2 bg-slate-700 rounded text-[9px] font-mono">F3</kbd>
                       <span>to Add Item Master</span>
                     </div>
                   </div>
 
                   {/* Add Row Button & Alt. Qty / Total Qty Summary Bar */}
                   <div className="bg-slate-50 border-t border-slate-200 p-2.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSalesVoucherData((prev) => ({
-                          ...prev,
-                          items: [
-                            ...prev.items,
-                            {
-                              id: `item-${Date.now()}-${prev.items.length + 1}`,
-                              item_description: '',
-                              qty: '',
-                              unit: 'Case',
-                              price: '',
-                              disc_pct: '',
-                              disc_amt: 0,
-                              amount: 0,
-                            },
-                          ],
-                        }));
-                      }}
-                      className="px-3 py-1 bg-white hover:bg-slate-100 text-indigo-700 border border-indigo-200 rounded font-bold shadow-2xs transition flex items-center gap-1 cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Add Item Line [Enter]</span>
-                    </button>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSalesVoucherData((prev) => ({
+                            ...prev,
+                            items: [
+                              ...prev.items,
+                              {
+                                id: `item-${Date.now()}-${prev.items.length + 1}`,
+                                item_description: '',
+                                godown: salesVoucherData.mat_centre || 'Main Store',
+                                batch_serial: '',
+                                qty: '',
+                                unit: 'Case',
+                                price: '',
+                                disc_pct: '',
+                                disc_amt: 0,
+                                tax_pct: 13,
+                                tax_amt: 0,
+                                amount: 0,
+                              },
+                            ],
+                          }));
+                        }}
+                        className="px-3 py-1 bg-white hover:bg-slate-100 text-indigo-700 border border-indigo-200 rounded font-bold shadow-2xs transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Item Line [Enter]</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsErpQuickAddItemOpen(true)}
+                        className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded font-bold shadow-2xs transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>+ Add New Item [Alt+I]</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsErpQuickAddGodownOpen(true)}
+                        className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded font-bold shadow-2xs transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>+ Add Godown [Alt+G]</span>
+                      </button>
+                    </div>
 
                     {/* Alt. Qty / Total Qty Summary Bar directly below grid */}
                     <div className="flex flex-wrap items-center gap-3.5 text-xs font-mono">
@@ -22553,6 +26242,7 @@ export default function App() {
                   </button>
                   <button
                     type="submit"
+                    id="btn-save-std-voucher"
                     className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition cursor-pointer shadow-md flex items-center gap-1.5 text-xs"
                   >
                     <Check className="w-4 h-4" />

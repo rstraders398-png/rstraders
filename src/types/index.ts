@@ -5,11 +5,14 @@ export interface Party {
   company_id: string;
   name: string;
   phone?: string;
+  contact_phone?: string;
   address?: string;
   pan_vat?: string;
   email?: string;
   party_type?: PartyType;
-  created_at: string;
+  type?: 'Customer' | 'Supplier' | 'Both';
+  opening_balance?: number;
+  created_at?: string;
 }
 
 export interface Bank {
@@ -17,6 +20,9 @@ export interface Bank {
   company_id: string;
   name: string;
   code?: string;
+  branch?: string;
+  contact_phone?: string;
+  account_number?: string;
   created_at: string;
 }
 
@@ -58,6 +64,7 @@ export interface PaymentLog {
   notes?: string;
   created_at: string;
   recorded_by?: string;
+  remaining_balance_after?: number;
 }
 
 export interface CreateChequeInput {
