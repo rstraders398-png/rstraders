@@ -13,6 +13,8 @@ export interface Party {
   type?: 'Customer' | 'Supplier' | 'Both';
   opening_balance?: number;
   created_at?: string;
+  is_high_risk?: boolean;
+  bounce_count?: number;
 }
 
 export interface Bank {
@@ -26,7 +28,7 @@ export interface Bank {
   created_at: string;
 }
 
-export type ChequeStatus = 'Pending' | 'Partially Paid' | 'Cleared';
+export type ChequeStatus = 'Pending' | 'Partially Paid' | 'Cleared' | 'Bounced';
 
 export interface Cheque {
   id: string;
@@ -47,6 +49,11 @@ export interface Cheque {
   created_at: string;
   entered_by?: string;
   updated_by?: string;
+  bounce_reason?: string;
+  bounce_penalty?: number;
+  bounce_date_bs?: string;
+  bounce_date_ad?: string;
+  is_pdc?: boolean;
 }
 
 export type PaymentMode = 'Cash' | 'IPS' | 'ConnectIPS' | 'Fonepay QR' | 'Bank Transfer' | 'Cheque' | 'Bank Deposit' | string;
