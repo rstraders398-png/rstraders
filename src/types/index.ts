@@ -46,6 +46,7 @@ export interface Cheque {
   due_date_ad: string;
   status: ChequeStatus;
   notes?: string;
+  remarks?: string;
   created_at: string;
   entered_by?: string;
   updated_by?: string;
